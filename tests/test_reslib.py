@@ -113,7 +113,7 @@ def test_lna_bridge_closes(rl, lib):
     ("CGC^5mCGAA*2TTCGCG", "GCGCTT*1AAGCGC", 4),
 ])
 def test_modified_duplexes(msession, rl, top, bottom, model):
-    out = msession.build({"top": top, "bottom": bottom, "model": model})
+    out = msession.build({"top": top, "bottom": bottom, "model": model, "package": True})
     assert out["ok"], out["issues"]
     sm = out["summary"]
     assert 1.55 <= sm["o3p"][0] and sm["o3p"][1] <= 1.65

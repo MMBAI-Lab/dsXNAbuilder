@@ -63,6 +63,13 @@ def main() -> int:
         if not cond:
             fails.append(msg)
 
+    def wait_file(path, tries=50):
+        for _ in range(tries):
+            if os.path.exists(path) and not os.path.exists(path + ".part"):
+                return path
+            time.sleep(0.2)
+        return None
+
     def shot(name):
         if a.shots:
             os.makedirs(a.shots, exist_ok=True)
@@ -107,18 +114,17 @@ def main() -> int:
         for ex, n in (("sirna", 10), ("moe", 10), ("mc", 12)):
             s, iss = run_example(ex, n)
             check("modXNA residues" in s, f"example {ex} built")
+        drv.find_element(By.CSS_SELECTOR, "#advanced summary").click()
         drv.find_element(By.ID, "dlzip").click()
-        path = os.path.join(dl, "dsxnabuilder.zip")
-        for _ in range(50):
-            if os.path.exists(path) and not os.path.exists(path + ".part"):
-                break
-            time.sleep(0.2)
-        names = zipfile.ZipFile(path).namelist() if os.path.exists(path) else []
-        check("dsxnabuilder/frcmod.modxna" in names and any(n.startswith("dsxnabuilder/libs/X")
-                                                            for n in names),
-              "modified package has libs/ and frcmod.modxna")
-        if os.path.exists(path):
+        path = wait_file(os.path.join(dl, "dsxnabuilder-amber.zip"))
+        names = zipfile.ZipFile(path).namelist() if path else []
+        check("dsxnabuilder/frcmod.modxna" in names
+              and any(n.startswith("dsxnabuilder/libs/X") for n in names)
+              and "dsxnabuilder/min.in" not in names,
+              "advanced package: libs/ + frcmod.modxna, topology only")
+        if path:
             os.remove(path)
+        drv.find_element(By.CSS_SELECTOR, "#advanced summary").click()
 
         # live validation error
         top = drv.find_element(By.ID, "top")
@@ -138,19 +144,14 @@ def main() -> int:
         check("columnas" in drv.find_element(By.ID, "issues").text, "Spanish issue text")
         drv.find_element(By.CSS_SELECTOR, '#lang button[data-v="en"]').click()
 
-        # download
+        # default download: the PDB
         run_example("dickerson", 12)
-        drv.find_element(By.ID, "dlzip").click()
-        path = os.path.join(dl, "dsxnabuilder.zip")
-        for _ in range(50):
-            if os.path.exists(path) and not os.path.exists(path + ".part"):
-                break
-            time.sleep(0.2)
-        ok = os.path.exists(path)
-        if ok:
-            names = zipfile.ZipFile(path).namelist()
-            ok = "dsxnabuilder/leap.in" in names and "dsxnabuilder/structure.pdb" in names
-        check(ok, "zip downloaded with leap.in and structure.pdb")
+        drv.find_element(By.ID, "dlpdb").click()
+        path = wait_file(os.path.join(dl, "dsxnabuilder.pdb"))
+        text = open(path).read() if path else ""
+        n_atoms = sum(1 for line in text.splitlines() if line.startswith("ATOM"))
+        check(n_atoms == 486 and "REMARK 999 strand 1" in text,
+              "PDB downloaded: 486 atoms and self-describing header")
 
         # models tab
         drv.find_element(By.ID, "tab-models").click()

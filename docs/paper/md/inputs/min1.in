@@ -1,0 +1,6 @@
+Minimization 1: solute heavy atoms restrained (10 kcal/mol/A2)
+ &cntrl
+  imin = 1, maxcyc = 5000, ncyc = 2500,
+  ntb = 1, cut = 9.0,
+  ntr = 1, restraint_wt = 10.0, restraintmask = 'SOLUTE&!@H=',
+ /

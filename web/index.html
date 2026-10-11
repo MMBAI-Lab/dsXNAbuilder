@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>dsXNAbuilder · nucleic acid duplex builder</title>
-<meta name="description" content="Build canonical DNA, RNA and DNA:RNA duplexes from the 3DNA fiber models, with modXNA sugar, backbone and base modifications on either strand, ready for Amber.">
+<meta name="description" content="Build canonical DNA, RNA and DNA:RNA duplexes from the 3DNA fiber models, with modXNA sugar, backbone and base modifications on either strand, ready for modeling and simulation.">
 <script>
   // same key as danslab.xyz, so the theme follows the lab site
   try { var t = localStorage.getItem('theme'); if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t); } catch (e) {}
@@ -15,7 +15,7 @@
 <header class="top">
   <div class="wrap">
     <h1 class="brand">ds<span>XNA</span>builder</h1>
-    <p class="tagline" data-i18n="tagline">DNA, RNA and DNA:RNA duplexes from the 3DNA fiber models, with modXNA chemistry on either strand, ready for Amber.</p>
+    <p class="tagline" data-i18n="tagline">DNA, RNA and DNA:RNA duplexes from the 3DNA fiber models, with modXNA chemistry on either strand, ready for modeling and simulation.</p>
     <div class="toplinks">
       <span class="seg" id="lang" role="group" aria-label="Language">
         <button type="button" data-v="en" aria-pressed="true">EN</button>
@@ -77,37 +77,6 @@
       </div>
 
       <div class="panel">
-        <h2 data-i18n="h_amber">Amber input</h2>
-        <div class="row">
-          <div class="field">
-            <label for="dnaff" data-i18n="dna_ff">DNA force field</label>
-            <select id="dnaff">
-              <option value="OL15">OL15</option><option value="OL21">OL21</option>
-              <option value="OL24">OL24</option><option value="bsc1">bsc1</option>
-            </select>
-          </div>
-          <div class="field">
-            <label for="water" data-i18n="solvent">Solvent</label>
-            <select id="water">
-              <option value="none" data-i18n="implicit">implicit (GB)</option>
-              <option value="opc">OPC</option><option value="tip3p">TIP3P</option><option value="spce">SPC/E</option>
-            </select>
-          </div>
-        </div>
-        <div class="row" id="boxrow">
-          <div class="field">
-            <label for="box" data-i18n="box">Box</label>
-            <select id="box"><option value="octahedral" data-i18n="octahedral">truncated octahedron</option><option value="cubic" data-i18n="cubic">rectangular</option></select>
-          </div>
-          <div class="field">
-            <label for="buffer" data-i18n="buffer">Buffer (Å)</label>
-            <input type="number" id="buffer" min="5" max="30" step="1" value="10">
-          </div>
-        </div>
-        <div class="hint" data-i18n="amber_hint">RNA: OL3. The package runs tleap (topology) and a restrained sander minimization on your machine.</div>
-      </div>
-
-      <div class="panel">
         <h2 data-i18n="h_examples">Examples</h2>
         <div class="examples" id="examples"></div>
       </div>
@@ -137,10 +106,40 @@
         </div>
         <div id="summary" class="stats hidden"></div>
         <div class="actions" id="downloads">
-          <button class="btn" id="dlzip" type="button" disabled data-i18n="dl_zip">Download Amber package (.zip)</button>
-          <button class="btn ghost" id="dlpdb" type="button" disabled data-i18n="dl_pdb">Download PDB</button>
+          <button class="btn" id="dlpdb" type="button" disabled data-i18n="dl_pdb">Download PDB</button>
           <button class="btn ghost" id="link" type="button" disabled data-i18n="copy_link">Copy reproducible link</button>
         </div>
+        <details class="advanced" id="advanced">
+          <summary data-i18n="h_amber">Advanced: Amber/modXNA topology package</summary>
+          <p class="hint" data-i18n="amber_hint">For Amber users: a tleap input with the force field and the modXNA parameters of the modified nucleotides, which builds the topology. Minimization and simulation are up to you.</p>
+          <div class="row">
+            <div class="field">
+              <label for="dnaff" data-i18n="dna_ff">DNA force field</label>
+              <select id="dnaff">
+                <option value="OL15">OL15</option><option value="OL21">OL21</option>
+                <option value="OL24">OL24</option><option value="bsc1">bsc1</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="water" data-i18n="solvent">Solvent</label>
+              <select id="water">
+                <option value="none" data-i18n="no_solvent">none</option>
+                <option value="opc">OPC</option><option value="tip3p">TIP3P</option><option value="spce">SPC/E</option>
+              </select>
+            </div>
+          </div>
+          <div class="row" id="boxrow">
+            <div class="field">
+              <label for="box" data-i18n="box">Box</label>
+              <select id="box"><option value="octahedral" data-i18n="octahedral">truncated octahedron</option><option value="cubic" data-i18n="cubic">rectangular</option></select>
+            </div>
+            <div class="field">
+              <label for="buffer" data-i18n="buffer">Buffer (Å)</label>
+              <input type="number" id="buffer" min="5" max="30" step="1" value="10">
+            </div>
+          </div>
+          <button class="btn ghost" id="dlzip" type="button" disabled data-i18n="dl_zip">Download Amber/modXNA package (.zip)</button>
+        </details>
       </div>
     </div>
   </section>
@@ -162,7 +161,8 @@
       the regular helical forms of the <a href="https://doi.org/10.1093/nar/gkg680">3DNA</a> fiber
       library (A, B, C, D, Z, B′, S, B*, A-RNA, A′-RNA and hybrid forms), lets you put
       <a href="https://modxna.chpc.utah.edu/">modXNA</a> sugar, backbone and base modifications on
-      either strand, and returns a ready-to-run Amber input package.</p>
+      either strand, and returns the structure as a PDB file ready for modeling and simulation;
+      Amber users can also get the topology package with the modXNA parameters.</p>
       <p>Everything runs in your browser (Python compiled to WebAssembly). Nothing you enter is sent
       anywhere; there is no login, no cookie and no tracking. Only your theme and language choice
       are remembered in your browser’s local storage.</p>
@@ -176,10 +176,10 @@
           strand 2: the column turns into a mismatch and a warning appears.</li>
         <li>Press <b>Build duplex</b>. The structure appears in the viewer, with its summary:
           24 nucleotides, 486 heavy atoms, every O3′–P bond at 1.60 Å, no clashes.</li>
-        <li>Download the <b>Amber package</b> and run it:
-<pre>unzip dsxnabuilder.zip &amp;&amp; cd dsxnabuilder
-source $AMBERHOME/amber.sh
-./run.sh            # tleap -> system.parm7/rst7, then restrained sander minimization</pre></li>
+        <li><b>Download PDB</b>: chain A is strand 1 and chain B strand 2, both 5′→3′, with
+          standard residue and atom names, ready for any modeling or simulation program.
+          Amber users can open <b>Advanced</b> to download a tleap package with the force field and
+          the modXNA parameters of the modified nucleotides.</li>
         <li><b>Copy reproducible link</b> gives a URL that rebuilds exactly the same duplex.</li>
         <li>Now try <b>LNA gapmer : RNA</b>: an LNA/DNA gapmer with phosphorothioates (strand 2)
           annealed to its RNA target (strand 1) on the DNA:RNA hybrid model #22. Modified nucleotides are
@@ -268,25 +268,34 @@ source $AMBERHOME/amber.sh
       models that fail the geometric checks (#17, #48) or are deprecated in 3DNA (#53). The models tab
       gives the reason for each.</p>
 
-      <h2>The Amber package</h2>
+      <h2>Output</h2>
+      <p>The output is one PDB file with the heavy atoms of the duplex: chain A is strand 1 and
+      chain B strand 2, both 5′→3′, with Amber-style residue and atom names (DA, DC, DG, DT; A, C,
+      G, U; OP1/OP2). Modified nucleotides get the residue names X01, X02, … and keep the modXNA
+      atom names; <code>REMARK 999</code> records in the header list what each of them is, the two
+      strands as typed, the fiber model and the data versions, so the file documents itself.
+      Hydrogens are not included: add them with your modeling or MD program.</p>
+      <h3>Advanced: Amber/modXNA topology package</h3>
+      <p>For Amber users, the <b>Advanced</b> panel produces a zip that turns the PDB into an Amber
+      topology with tleap, including the modXNA parameters of the modified nucleotides.
+      dsXNAbuilder is a structure builder: minimization, equilibration and production are up to
+      you.</p>
       <table>
         <tbody>
-          <tr><td><code>structure.pdb</code></td><td>the duplex, heavy atoms only, Amber residue and atom names (tleap adds the hydrogens)</td></tr>
-          <tr><td><code>leap.in</code></td><td>tleap input: force fields, modXNA libraries, solvation and ions</td></tr>
-          <tr><td><code>min.in</code></td><td>restrained minimization (heavy atoms of unmodified residues restrained)</td></tr>
-          <tr><td><code>run.sh</code></td><td>runs tleap and sander; <code>./run.sh --no-min</code> for the topology only</td></tr>
-          <tr><td><code>manifest.json</code></td><td>inputs, model and data provenance, residue names, warnings and file hashes</td></tr>
+          <tr><td><code>structure.pdb</code></td><td>the same PDB as the default output</td></tr>
+          <tr><td><code>leap.in</code></td><td>tleap input: force fields, modXNA libraries, optional water box and neutralizing ions</td></tr>
           <tr><td><code>libs/</code>, <code>frcmod.modxna</code></td><td>modXNA residues and parameters, when modifications are used</td></tr>
+          <tr><td><code>run.sh</code></td><td>runs tleap → <code>system.parm7</code> / <code>system.rst7</code></td></tr>
+          <tr><td><code>manifest.json</code></td><td>inputs, model and data provenance, residue names, warnings and file hashes</td></tr>
         </tbody>
       </table>
-      <p>The same package can be produced from the command line with the
-      <code>dsxnabuilder</code> Python package (<code>dsxnabuilder build --top … --bottom …
-      --model 4</code>); the manifest records the exact command.</p>
+      <p>The command-line tool gives the same results (<code>dsxnabuilder build --top … --bottom …
+      --model 4 -o duplex.pdb</code>, with <code>--amber package.zip</code> for the package).</p>
 
       <h2>Warnings</h2>
       <p>Warnings never block a build; errors do. Mismatches, wobble pairs, overhangs, base swaps on
       sequence-specific models, forced sugar puckers and short contacts are reported so that you can
-      decide whether the restrained minimization is enough before MD.</p>
+      decide how to prepare the structure (e.g. a restrained minimization) before simulating it.</p>
 
       <h2>Cite</h2>
       <p>If you use dsXNAbuilder, please cite the 3DNA fiber models (Lu &amp; Olson,
@@ -305,7 +314,8 @@ source $AMBERHOME/amber.sh
       <a href="https://doi.org/10.1093/nar/gkg680">3DNA</a> (A, B, C, D, Z, B′, S, B*, ARN-A, ARN-A′ e
       híbridos). Permite poner modificaciones de azúcar, esqueleto y base de
       <a href="https://modxna.chpc.utah.edu/">modXNA</a> en cualquiera de las dos hebras y devuelve un
-      paquete de entrada para Amber listo para ejecutar.</p>
+      PDB listo para modelado y simulación; los usuarios de Amber pueden obtener además el paquete
+      de topología con los parámetros de modXNA.</p>
       <p>Todo se ejecuta en su navegador (Python compilado a WebAssembly). Nada de lo que escribe se
       envía a ningún sitio: no hay registro, ni cookies, ni seguimiento. Solo se recuerdan en el
       almacenamiento local del navegador el tema y el idioma elegidos.</p>
@@ -319,10 +329,10 @@ source $AMBERHOME/amber.sh
           hebra 2: la columna pasa a ser un desapareamiento y aparece un aviso.</li>
         <li>Pulse <b>Construir dúplex</b>. La estructura aparece en el visor con su resumen:
           24 nucleótidos, 486 átomos pesados, todos los enlaces O3′–P a 1,60 Å y ningún choque.</li>
-        <li>Descargue el <b>paquete de Amber</b> y ejecútelo:
-<pre>unzip dsxnabuilder.zip &amp;&amp; cd dsxnabuilder
-source $AMBERHOME/amber.sh
-./run.sh            # tleap -> system.parm7/rst7 y minimización restringida con sander</pre></li>
+        <li><b>Descargar PDB</b>: la cadena A es la hebra 1 y la B la hebra 2, ambas 5′→3′, con
+          nombres de residuo y de átomo estándar, lista para cualquier programa de modelado o de
+          simulación. Los usuarios de Amber pueden abrir <b>Avanzado</b> y descargar un paquete de
+          tleap con el campo de fuerza y los parámetros de modXNA de los nucleótidos modificados.</li>
         <li><b>Copiar enlace reproducible</b> da una URL que reconstruye exactamente el mismo dúplex.</li>
         <li>Pruebe ahora <b>Gapmer LNA : ARN</b>: un gapmer LNA/ADN con fosforotioatos (hebra 2) unido a
           su ARN diana (hebra 1) sobre el modelo híbrido ADN:ARN #22. Los nucleótidos modificados se
@@ -413,23 +423,36 @@ source $AMBERHOME/amber.sh
       superan las comprobaciones geométricas (#17, #48) o que 3DNA marca como obsoletos (#53). La
       pestaña de modelos da el motivo de cada uno.</p>
 
-      <h2>El paquete de Amber</h2>
+      <h2>Salida</h2>
+      <p>La salida es un fichero PDB con los átomos pesados del dúplex: la cadena A es la hebra 1 y
+      la B la hebra 2, ambas 5′→3′, con nombres de residuo y de átomo al estilo de Amber (DA, DC,
+      DG, DT; A, C, G, U; OP1/OP2). Los nucleótidos modificados reciben los nombres X01, X02, … y
+      conservan los nombres de átomo de modXNA; los registros <code>REMARK 999</code> de la cabecera
+      dicen qué es cada uno, las dos hebras tal como se escribieron, el modelo de fibra y las
+      versiones de los datos, de modo que el fichero se documenta solo. No incluye hidrógenos:
+      añádalos con su programa de modelado o de dinámica.</p>
+      <h3>Avanzado: paquete de topología Amber/modXNA</h3>
+      <p>Para usuarios de Amber, el panel <b>Avanzado</b> genera un zip que convierte el PDB en una
+      topología de Amber con tleap, incluidos los parámetros de modXNA de los nucleótidos
+      modificados. dsXNAbuilder es un constructor de estructuras: la minimización, el equilibrado y
+      la producción quedan a su cargo.</p>
       <table>
         <tbody>
-          <tr><td><code>structure.pdb</code></td><td>el dúplex, solo átomos pesados, con nombres de residuo y de átomo de Amber (tleap añade los hidrógenos)</td></tr>
-          <tr><td><code>leap.in</code></td><td>entrada de tleap: campos de fuerza, librerías de modXNA, solvatación e iones</td></tr>
-          <tr><td><code>min.in</code></td><td>minimización restringida (se restringen los átomos pesados de los residuos sin modificar)</td></tr>
-          <tr><td><code>run.sh</code></td><td>ejecuta tleap y sander; <code>./run.sh --no-min</code> solo genera la topología</td></tr>
-          <tr><td><code>manifest.json</code></td><td>entradas, procedencia del modelo y de los datos, nombres de residuo, avisos y hashes de los ficheros</td></tr>
+          <tr><td><code>structure.pdb</code></td><td>el mismo PDB de la salida por defecto</td></tr>
+          <tr><td><code>leap.in</code></td><td>entrada de tleap: campos de fuerza, librerías de modXNA, caja de agua e iones neutralizantes opcionales</td></tr>
           <tr><td><code>libs/</code>, <code>frcmod.modxna</code></td><td>residuos y parámetros de modXNA, cuando se usan modificaciones</td></tr>
+          <tr><td><code>run.sh</code></td><td>ejecuta tleap → <code>system.parm7</code> / <code>system.rst7</code></td></tr>
+          <tr><td><code>manifest.json</code></td><td>entradas, procedencia del modelo y de los datos, nombres de residuo, avisos y hashes de los ficheros</td></tr>
         </tbody>
       </table>
+      <p>La herramienta de línea de comandos da los mismos resultados (<code>dsxnabuilder build --top …
+      --bottom … --model 4 -o duplex.pdb</code>, con <code>--amber paquete.zip</code> para el paquete).</p>
 
       <h2>Avisos</h2>
       <p>Los avisos nunca bloquean la construcción; los errores sí. Se informa de desapareamientos,
       pares wobble, extremos protuberantes, intercambios de base en modelos de secuencia concreta,
-      puckers forzados y contactos cortos, para que decida si la minimización restringida basta antes
-      de la dinámica.</p>
+      puckers forzados y contactos cortos, para que decida cómo preparar la estructura (p. ej. una
+      minimización restringida) antes de simularla.</p>
 
       <h2>Cómo citar</h2>
       <p>Si usa dsXNAbuilder, cite los modelos de fibra de 3DNA (Lu &amp; Olson, <i>Nucleic Acids Res</i>

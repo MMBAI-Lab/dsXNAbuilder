@@ -20,6 +20,7 @@ from typing import Dict, List, Optional
 
 from . import __version__
 from .amberio import AmberOptions, package
+from .pdbout import structure_pdb
 from .build import BuildError, BuildResult, build_duplex
 from .catalog import Catalog, Issue
 from .fibers import FiberLibrary, load_library
@@ -82,21 +83,27 @@ class Session:
                 "n_bp": dup.n_columns}
 
     def build(self, request: dict, libs: Optional[Dict[str, str]] = None) -> dict:
-        """Build and package. Returns dict with ``pdb`` text and ``zip`` bytes."""
+        """Build the duplex. Always returns the ``pdb`` text (the default
+        output); with ``request["package"]`` true also the Amber/modXNA
+        topology package as ``zip`` bytes (advanced option)."""
         if self.residue_library is not None:
             self.residue_library.provide(libs, request.get("frcmod"))
         try:
             res = self._build(request)
         except BuildError as exc:
             return {"ok": False, "issues": [i.to_json() for i in exc.issues]}
-        opts = amber_options(request.get("amber", {}))
-        lib_texts, frcmod = None, None
-        if self.residue_library is not None and res.modified():
-            lib_texts, frcmod = self.residue_library.package_libs(res, libs)
-        files, zbytes = package(res, opts, self.fibers.provenance, lib_texts, frcmod)
-        return {"ok": True, "issues": [i.to_json() for i in res.issues],
-                "pdb": files["structure.pdb"].decode(), "zip": zbytes,
-                "summary": summary(res)}
+        index = self.residue_library.index if self.residue_library is not None else None
+        pdb = structure_pdb(res, self.fibers.provenance, index)
+        out = {"ok": True, "issues": [i.to_json() for i in res.issues], "pdb": pdb,
+               "summary": summary(res)}
+        if request.get("package"):
+            opts = amber_options(request.get("amber", {}))
+            lib_texts, frcmod = None, None
+            if self.residue_library is not None and res.modified():
+                lib_texts, frcmod = self.residue_library.package_libs(res, libs)
+            _, out["zip"] = package(res, opts, self.fibers.provenance, lib_texts, frcmod,
+                                    index, pdb)
+        return out
 
     # ------------------------------------------------------------------
     def _build(self, request: dict, dry_run: bool = False) -> BuildResult:

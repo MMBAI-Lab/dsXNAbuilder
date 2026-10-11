@@ -213,6 +213,7 @@ async function build() {
     if (!out.ok) return;
     state.last = out;
     renderSummary(out);
+    state.lastReq = req;
     try {
       await showStructure(out.pdb, out.summary);
     } catch (e) {
@@ -354,7 +355,23 @@ for (const b of $$('#repr button')) b.onclick = () => {
 };
 $('#spin').onclick = () => { if (state.stage) { state.spinning = !state.spinning; state.stage.setSpin(state.spinning); } };
 $('#recenter').onclick = () => { if (state.comp) state.comp.autoView(); };
-$('#dlzip').onclick = () => state.last && download('dsxnabuilder.zip', b64bytes(state.last.zip_b64), 'application/zip');
+$('#dlzip').onclick = async () => {
+  // the Amber/modXNA package is an advanced option: built on demand with the
+  // current options of the Advanced panel, for the last built duplex
+  if (!state.last || !state.lastReq) return;
+  const req = { ...state.lastReq, amber: request().amber, package: true };
+  $('#status').innerHTML = `<span class="spinner"></span>${esc(t('building'))}`;
+  try {
+    const v = await call('validate', req);
+    req.libs = await fetchLibs(v.needed_libs || []);
+    if ((v.needed_libs || []).length) req.frcmod = await fetchText('lib/frcmod.modxna');
+    const out = await call('build', req);
+    if (out.ok) download('dsxnabuilder-amber.zip', b64bytes(out.zip_b64), 'application/zip');
+    else renderIssues(out.issues || []);
+  } catch (e) {
+    $('#issues').innerHTML = `<li class="error">${esc(e.message)}</li>`;
+  } finally { $('#status').textContent = ''; }
+};
 $('#dlpdb').onclick = () => state.last && download('dsxnabuilder.pdb', state.last.pdb, 'chemical/x-pdb');
 $('#link').onclick = async () => {
   try { await navigator.clipboard.writeText(location.href); $('#status').textContent = t('link_copied'); } catch (e) { prompt('URL', location.href); }

@@ -5,8 +5,9 @@
 dsXNAbuilder builds duplexes in any of the regular helical forms of the
 [3DNA](https://doi.org/10.1093/nar/gkg680) fiber library: A, B, C, D, Z, B′, S and B*-DNA,
 A- and A′-RNA, and DNA:RNA hybrids. You can put [modXNA](https://modxna.chpc.utah.edu/)
-sugar, backbone and base modifications on either strand. The output is an Amber input
-package that is ready to run.
+sugar, backbone and base modifications on either strand. The output is a PDB file usable
+with any modeling or simulation program; Amber users can also get a topology package with
+the modXNA parameters.
 
 It is a static web app: Python runs in the browser through Pyodide, and nothing is sent to
 a server. It will be served from the Dans Lab site (<https://danslab.xyz/apps/dsxnabuilder/>).
@@ -35,9 +36,13 @@ The same Python package also works from the command line.
   They are *transplanted* onto the fiber scaffold. Shared atoms keep the fiber coordinates,
   so the helix and the backbone stay exact; only the modification atoms are placed from
   the modXNA geometry. LNA bridges are relaxed to their library geometry.
-- **The Amber package** contains `structure.pdb`, `leap.in` (force field, modXNA libraries,
-  optional solvation), `min.in` (restrained minimization), `run.sh` and `manifest.json`
-  (inputs, provenance, residue map, warnings, file hashes).
+- **Output.** One self-describing PDB file (heavy atoms, chain A = strand 1, chain B =
+  strand 2). Modified nucleotides are named X01, X02, …; `REMARK 999` records list what each
+  one is, the input strands, the model and the data versions.
+- **Advanced: Amber/modXNA topology package.** It contains `structure.pdb`, `leap.in`
+  (force field, modXNA libraries, optional water box), `libs/`, `frcmod.modxna`, `run.sh`
+  (tleap only) and `manifest.json`. dsXNAbuilder is a builder: minimization and simulation
+  are up to the user.
 
 ## Notation
 
@@ -64,8 +69,11 @@ strand 2 (3'->5'):  +C*+T*+G*dA*dT*dC*dG*+A*+C*+T
 python -m venv .venv && .venv/bin/pip install -e '.[dev]'
 .venv/bin/dsxnabuilder models
 .venv/bin/dsxnabuilder build --top "5'-CGCGAATTCGCG-3'" --bottom "3'-GCGCTTAAGCGC-5'" \
-                             --model 4 -o dickerson.zip --pdb dickerson.pdb
-unzip dickerson.zip && cd dsxnabuilder && ./run.sh     # needs AmberTools (tleap, sander)
+                             --model 4 -o dickerson.pdb
+# advanced, for Amber users: topology package (tleap)
+.venv/bin/dsxnabuilder build --top "5'-CGCGAATTCGCG-3'" --bottom "3'-GCGCTTAAGCGC-5'" \
+                             --model 4 -o dickerson.pdb --amber dickerson.zip --water opc
+unzip dickerson.zip && cd dsxnabuilder && ./run.sh     # tleap -> system.parm7/rst7
 ```
 
 ## Repository

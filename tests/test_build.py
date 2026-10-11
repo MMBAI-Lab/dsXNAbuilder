@@ -128,14 +128,26 @@ def test_deterministic(lib, catalog, aliases):
     assert all(np.array_equal(x.xyz, y.xyz) for x, y in zip(a.residues, b.residues))
 
 
+def test_default_output_is_a_self_describing_pdb(session):
+    out = session.build({"top": "5'-CGCGAATTCGCG-3'", "bottom": "3'-GCGCTTAAGCGC-5'",
+                         "model": 4})
+    assert out["ok"] and "zip" not in out
+    lines = out["pdb"].splitlines()
+    assert sum(l.startswith("ATOM") for l in lines) == 486
+    assert any("CGCGAATTCGCG" in l for l in lines if l.startswith("REMARK"))
+    assert all(len(l) <= 80 for l in lines)
+
+
 def test_service_package(session):
     out = session.build({"top": "5'-CGCGAATTCGCG-3'", "bottom": "3'-GCGCTTAAGCGC-5'",
-                         "model": 4, "amber": {"water": "opc"}})
+                         "model": 4, "package": True, "amber": {"water": "opc"}})
     assert out["ok"]
     z = zipfile.ZipFile(io.BytesIO(out["zip"]))
     names = set(z.namelist())
-    for f in ("structure.pdb", "leap.in", "min.in", "run.sh", "manifest.json", "README.txt"):
+    for f in ("structure.pdb", "leap.in", "run.sh", "manifest.json", "README.txt"):
         assert f"dsxnabuilder/{f}" in names
+    assert "dsxnabuilder/min.in" not in names            # simulation is up to the user
+    assert z.read("dsxnabuilder/structure.pdb").decode() == out["pdb"]
     man = json.loads(z.read("dsxnabuilder/manifest.json"))
     assert man["model"]["id"] == 4 and man["fiber_data"]["fiber_models_sha256"]
     leap = z.read("dsxnabuilder/leap.in").decode()

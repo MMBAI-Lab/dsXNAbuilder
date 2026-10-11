@@ -232,3 +232,8 @@ ul.issues .code { font: 11px var(--mono); color: var(--subtle); margin-left: 6px
 #modeltable td.desc { white-space: normal; min-width: 22em; }
 #modeltable tr.sel td { background: var(--elevated); }
 #modeltable td a { cursor: pointer; }
+details.advanced { margin-top: 12px; border: 1px solid var(--recess-edge); border-radius: 4px;
+  background: var(--recess-bg); box-shadow: var(--recess); padding: 6px 12px 10px; }
+details.advanced summary { cursor: pointer; font-size: 13px; font-weight: 600; color: var(--muted); padding: 4px 0; }
+details.advanced[open] summary { margin-bottom: 6px; }
+details.advanced .btn { margin-top: 4px; }

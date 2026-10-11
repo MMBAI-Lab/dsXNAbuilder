@@ -2,7 +2,7 @@
 
     dsxnabuilder models
     dsxnabuilder build --top "5'-CGCGAATTCGCG-3'" --bottom "3'-GCGCTTAAGCGC-5'" \\
-                       --model 4 -o package.zip [--pdb out.pdb] [--water opc]
+                       --model 4 -o duplex.pdb [--amber package.zip --water opc]
 """
 
 from __future__ import annotations
@@ -18,14 +18,17 @@ def main(argv=None) -> int:
     ap = argparse.ArgumentParser(prog="dsxnabuilder", description=__doc__.split("\n\n")[0])
     sub = ap.add_subparsers(dest="cmd", required=True)
     sub.add_parser("models", help="list the buildable fiber models")
-    b = sub.add_parser("build", help="build a duplex and write the package")
+    b = sub.add_parser("build", help="build a duplex and write its PDB")
     b.add_argument("--top", required=True, help="strand 1, 5'->3'")
     b.add_argument("--bottom", required=True, help="strand 2, 3'->5', aligned under strand 1")
     b.add_argument("--model", type=int, default=4, help="3DNA fiber model id (default 4, B-DNA)")
-    b.add_argument("-o", "--out", default="dsxnabuilder.zip")
-    b.add_argument("--pdb", help="also write the structure PDB here")
-    b.add_argument("--dna-ff", default="OL15")
-    b.add_argument("--water", default="none")
+    b.add_argument("-o", "--out", default="dsxnabuilder.pdb", help="output PDB (default)")
+    b.add_argument("--amber", metavar="ZIP",
+                   help="advanced: also write the Amber/modXNA topology package here")
+    b.add_argument("--dna-ff", default="OL15", help="package option (OL15, OL21, OL24, bsc1)")
+    b.add_argument("--water", default="none", help="package option (none, opc, tip3p, spce)")
+    b.add_argument("--box", default="octahedral", help="package option (octahedral, cubic)")
+    b.add_argument("--buffer", type=float, default=10.0, help="package option, A")
     b.add_argument("--json", action="store_true", help="print issues as JSON")
     a = ap.parse_args(argv)
 
@@ -40,8 +43,8 @@ def main(argv=None) -> int:
             print(f"{m['id']:>3}  (excluded) {'; '.join(m.get('issues') or [])[:90]}")
         return 0
 
-    req = {"top": a.top, "bottom": a.bottom, "model": a.model,
-           "amber": {"dna_ff": a.dna_ff, "water": a.water}}
+    req = {"top": a.top, "bottom": a.bottom, "model": a.model, "package": bool(a.amber),
+           "amber": {"dna_ff": a.dna_ff, "water": a.water, "box": a.box, "buffer": a.buffer}}
     out = s.build(req)
     if a.json:
         print(json.dumps(out["issues"], indent=1))
@@ -50,14 +53,15 @@ def main(argv=None) -> int:
             print(f"[{i['level']}] {i['code']}: {i['message']}", file=sys.stderr)
     if not out["ok"]:
         return 1
-    with open(a.out, "wb") as fh:
-        fh.write(out["zip"])
-    if a.pdb:
-        with open(a.pdb, "w", encoding="utf-8") as fh:
-            fh.write(out["pdb"])
+    with open(a.out, "w", encoding="utf-8") as fh:
+        fh.write(out["pdb"])
+    if a.amber:
+        with open(a.amber, "wb") as fh:
+            fh.write(out["zip"])
     sm = out["summary"]
     print(f"{sm['n_bp']} bp on model #{sm['model']} ({sm['family']}): "
-          f"{sm['n_atoms']} heavy atoms, O3'-P {sm['o3p']}, clashes {sm['clashes']} -> {a.out}")
+          f"{sm['n_atoms']} heavy atoms, O3'-P {sm['o3p']}, clashes {sm['clashes']} -> {a.out}"
+          + (f" + {a.amber}" if a.amber else ""))
     return 0
 
 

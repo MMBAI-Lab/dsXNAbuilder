@@ -67,10 +67,10 @@ def run_package(zbytes: bytes, env: dict, minimize: bool) -> dict:
     m = re.search(r"Total unperturbed charge:\s+(-?[\d.]+)", log)
     out["charge"] = float(m.group(1)) if m else None
     if minimize and out["errors"] == 0:
-        with open(os.path.join(work, "min.in")) as fh:
-            text = fh.read().replace("maxcyc = 2000, ncyc = 500", "maxcyc = 500, ncyc = 250")
+        # validation only (the product leaves minimization to the user): 500 steps in vacuum
         with open(os.path.join(work, "min.in"), "w") as fh:
-            fh.write(text)
+            fh.write("smoke minimization\n &cntrl\n  imin = 1, maxcyc = 500, ncyc = 250,\n"
+                     "  ntb = 0, igb = 0, cut = 999.0,\n /\n")
         subprocess.run(["sander", "-O", "-i", "min.in", "-p", "system.parm7", "-c", "system.rst7",
                         "-ref", "system.rst7", "-r", "min.rst7", "-o", "min.out"], cwd=work,
                        env=env, capture_output=True, timeout=1200)
@@ -114,7 +114,7 @@ def main(argv=None) -> int:
 
     def one(job):
         key, req, minimize = job
-        out = s.build(req)
+        out = s.build(dict(req, package=True))
         if not out["ok"]:
             return key, req, {"build_error": [i["code"] for i in out["issues"] if i["level"] == "error"]}
         return key, req, run_package(out["zip"], env, minimize)
