@@ -1,0 +1,14 @@
+{
+ "pairing": {
+  "DAA": "A",
+  "DCC": "C",
+  "DGG": "G",
+  "DTT": "T",
+  "M5C": "C",
+  "RAA": "A",
+  "RCC": "C",
+  "RGG": "G",
+  "RUU": "U"
+ },
+ "schema": "dsxnabuilder/base_pairing/1"
+}

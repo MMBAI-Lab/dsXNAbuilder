@@ -1,0 +1,21 @@
+# dsXNAbuilder - letra Watson-Crick nominal de cada base del catalogo modXNA
+#
+# Determina (a) con que base se empareja en la hebra complementaria y (b) que
+# residuo canonico ocupa esa posicion en el andamio antes del injerto. Solo se
+# listan asignaciones verificadas; para cualquier otra base el usuario debe
+# indicarla explicitamente con la sintaxis {BACKBONE/SUGAR/BASE:LETRA}, y el
+# analizador rechaza la secuencia con un mensaje que lo explica. Es
+# deliberado: adivinar el emparejamiento de un analogo de base a partir de su
+# codigo de tres letras produciria estructuras silenciosamente erroneas.
+
+schema: dsxnabuilder/base_pairing/1
+pairing:
+  DAA: A
+  DCC: C
+  DGG: G
+  DTT: T
+  RAA: A
+  RCC: C
+  RGG: G
+  RUU: U
+  M5C: C     # 5-metilcitosina: cara Watson-Crick de citosina

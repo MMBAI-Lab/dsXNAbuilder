@@ -5,7 +5,7 @@ __pycache__/
 venv/
 
 # salidas de trabajo
-app/demo_out/
+legacy/demo_out/
 jobs/
 rescache/
 external/
@@ -17,3 +17,12 @@ mdinfo
 *.parm7
 *.rst7
 !app/tests/**/*.parm7
+
+# generado por scripts/build_web.sh
+web/pyodide/
+web/vendor/
+web/dsxnabuilder.zip
+web/VERSION
+*.egg-info/
+build/
+dist/

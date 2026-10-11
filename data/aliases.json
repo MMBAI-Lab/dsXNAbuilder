@@ -1,0 +1,48 @@
+{
+ "base": {
+  "5mC": "M5C"
+ },
+ "linkage": {
+  "*": "PS1",
+  "*1": "PS1",
+  "*2": "PS2",
+  "*R": "PS1",
+  "*S": "PS2"
+ },
+ "notes": {
+  "stereo": "Los esqueletos modificados en el fosforo del catalogo modXNA vienen en pares XX1/XX2 que difieren en cual de los oxigenos proquirales (OP1/OP2) porta la modificacion: PS1 retiene OP2 y PS2 retiene OP1. La correspondencia absoluta con los descriptores Rp/Sp depende del convenio de prioridad CIP en el centro de fosforo y debe confirmarse contra la documentacion de modXNA antes de habilitar los alias '*R' y '*S' en produccion. Hasta entonces, use '*1'/'*2', que son inequivocos.\n"
+ },
+ "schema": "dsxnabuilder/aliases/1",
+ "sugar": {
+  "+": "LNA",
+  "cet": "CET",
+  "d": "DC2",
+  "e": "MOE",
+  "f": "AF2",
+  "k": "CET",
+  "l": "LNA",
+  "m": "OME",
+  "moe": "MOE",
+  "r": "RC3",
+  "rs": "RS4",
+  "s": "DS4"
+ },
+ "sugar_chem": {
+  "+": "RNA",
+  "cet": "RNA",
+  "d": "DNA",
+  "e": "RNA",
+  "f": "RNA",
+  "k": "RNA",
+  "l": "RNA",
+  "m": "RNA",
+  "moe": "RNA",
+  "r": "RNA",
+  "rs": "RNA",
+  "s": "DNA"
+ },
+ "unverified": [
+  "*R",
+  "*S"
+ ]
+}

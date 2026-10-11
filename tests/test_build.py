@@ -1,0 +1,151 @@
+"""Duplex construction, packaging and Amber preflight (no AmberTools needed)."""
+
+import io
+import json
+import os
+import zipfile
+
+import numpy as np
+import pytest
+
+from dsxnabuilder.build import BuildError, build_duplex
+from dsxnabuilder.nucleotide import PHOSPHATE_ATOMS
+
+ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+with open(os.path.join(ROOT, "data", "amber_residues.json")) as fh:
+    AMBER = json.load(fh)["units"]
+
+
+def B(top, bottom, model, lib, catalog, aliases):
+    return build_duplex(top, bottom, model, lib, catalog, aliases)
+
+
+def amber_unit(r, first, last):
+    base = r.resname
+    return base + ("5" if first else "3" if last else "")
+
+
+def preflight(res):
+    """Every atom written must exist in the Amber unit tleap will match."""
+    by_chain = {}
+    for r in res.residues:
+        by_chain.setdefault(r.chain, []).append(r)
+    for chain, rs in by_chain.items():
+        for k, r in enumerate(rs):
+            unit = amber_unit(r, k == 0, k == len(rs) - 1)
+            allowed = set(AMBER[unit]["heavy"])
+            extra = set(r.names) - allowed
+            assert not extra, (chain, r.resseq, unit, extra)
+            missing = allowed - set(r.names)
+            assert not missing, (chain, r.resseq, unit, missing)
+
+
+def test_dickerson_b_dna(lib, catalog, aliases):
+    res = B("CGCGAATTCGCG", "GCGCTTAAGCGC", 4, lib, catalog, aliases)
+    assert len(res.residues) == 24 and res.n_clashes == 0
+    assert all(1.55 <= d <= 1.65 for *_, d in res.o3p)
+    preflight(res)
+    first = res.residues[0]
+    assert first.spec.cap == "5cap" and not set(first.names) & set(PHOSPHATE_ATOMS)
+    # integer charge with Amber terminal units
+    charge = 0.0
+    for chain in "AB":
+        rs = [r for r in res.residues if r.chain == chain]
+        for k, r in enumerate(rs):
+            charge += AMBER[amber_unit(r, k == 0, k == len(rs) - 1)]["charge"]
+    assert abs(charge - (-22.0)) < 1e-3
+
+
+@pytest.mark.parametrize("model", [1, 4, 7, 46, 47, 54, 55, 12, 18, 51])
+def test_random_sequences_on_dna_models(lib, catalog, aliases, model):
+    rng = np.random.default_rng(model)
+    seq = "".join(rng.choice(list("ACGT"), 16))
+    comp = "".join({"A": "T", "T": "A", "G": "C", "C": "G"}[c] for c in seq)
+    res = B(seq, comp, model, lib, catalog, aliases)
+    assert all(1.55 <= d <= 1.65 for *_, d in res.o3p)
+    if lib.models[model].sequence_policy == "any":
+        assert res.n_clashes == 0, (model, res.n_clashes)
+    else:
+        # sequence-specific fibers (e.g. poly dA:dT) can be tight for G:C;
+        # the contacts must then be reported
+        assert res.n_clashes == 0 or any(i.code == "CLASHES" for i in res.issues)
+    preflight(res)
+
+
+def test_rna_and_hybrid_orientation(lib, catalog, aliases):
+    res = B("GGCGCUUGCGUC", "CCGCGAACGCAG", 20, lib, catalog, aliases)
+    assert all(r.resname in ("A", "C", "G", "U") for r in res.residues)
+    preflight(res)
+    # model 23 has DNA on strand I: an RNA strand 1 is flipped onto strand II
+    res = B("r(GACU)", "d(CTGA)", 23, lib, catalog, aliases)
+    assert res.flipped
+    a = [r for r in res.residues if r.chain == "A"]
+    assert all("O2'" in r.names for r in a)
+    z = [r.xyz[r.names.index("C1'")][2] for r in a]
+    assert z == sorted(z), "chain A must run 5'->3' along +z after the flip"
+    preflight(res)
+
+
+def test_rna_on_b_dna_gets_o2prime_and_warning(lib, catalog, aliases):
+    res = B("r(GACU)", "r(AGUC)", 4, lib, catalog, aliases)
+    assert all("O2'" in r.names for r in res.residues)
+    assert any(i.code == "PUCKER_FORCED" for i in res.issues)
+    preflight(res)
+
+
+def test_z_dna_phase_and_handedness(lib, catalog, aliases):
+    res = B("CGCGCG", "GCGCGC", 15, lib, catalog, aliases)
+    assert res.phase == 1
+    assert not [i for i in res.issues if i.code in ("SEQ_PATTERN", "SYN_PYRIMIDINE")]
+    res = B("CCGCGC", "GGCGCG", 15, lib, catalog, aliases)
+    assert any(i.code in ("SEQ_PATTERN", "SYN_PYRIMIDINE") for i in res.issues)
+
+
+def test_mismatch_and_overhang_issues(lib, catalog, aliases):
+    res = B("--ACGTGCA", "TTTGCACAT", 4, lib, catalog, aliases)
+    codes = {i.code for i in res.issues}
+    assert "OVERHANG" in codes and "MISMATCH" in codes
+    assert len([r for r in res.residues if r.chain == "A"]) == 7
+    assert len([r for r in res.residues if r.chain == "B"]) == 9
+    assert all(1.55 <= d <= 1.65 for *_, d in res.o3p)
+
+
+def test_modified_residue_needs_library(lib, catalog, aliases):
+    with pytest.raises(BuildError) as e:
+        B("mA*mCG", "UGC", 20, lib, catalog, aliases)
+    assert any(i.code == "NOT_IN_LIBRARY" for i in e.value.issues)
+
+
+def test_lna_in_south_model_is_an_error(lib, catalog, aliases):
+    with pytest.raises(BuildError) as e:
+        B("+ACG", "TGC", 4, lib, catalog, aliases)
+    assert any(i.code == "PUCKER_LOCKED" for i in e.value.issues)
+
+
+def test_deterministic(lib, catalog, aliases):
+    a = B("ACGTTGCA", "TGCAACGT", 4, lib, catalog, aliases)
+    b = B("ACGTTGCA", "TGCAACGT", 4, lib, catalog, aliases)
+    assert all(np.array_equal(x.xyz, y.xyz) for x, y in zip(a.residues, b.residues))
+
+
+def test_service_package(session):
+    out = session.build({"top": "5'-CGCGAATTCGCG-3'", "bottom": "3'-GCGCTTAAGCGC-5'",
+                         "model": 4, "amber": {"water": "opc"}})
+    assert out["ok"]
+    z = zipfile.ZipFile(io.BytesIO(out["zip"]))
+    names = set(z.namelist())
+    for f in ("structure.pdb", "leap.in", "min.in", "run.sh", "manifest.json", "README.txt"):
+        assert f"dsxnabuilder/{f}" in names
+    man = json.loads(z.read("dsxnabuilder/manifest.json"))
+    assert man["model"]["id"] == 4 and man["fiber_data"]["fiber_models_sha256"]
+    leap = z.read("dsxnabuilder/leap.in").decode()
+    assert "leaprc.DNA.OL15" in leap and "solvateOct" in leap and "OPCBOX" in leap
+    assert (z.getinfo("dsxnabuilder/run.sh").external_attr >> 16) & 0o111
+
+
+def test_service_validate_reports_columns(session):
+    v = session.validate({"top": "ACGGG", "bottom": "TGCTA", "model": 4})
+    assert v["ok"]
+    assert [c["pair"] for c in v["columns"]] == ["wc", "wc", "wc", "wobble", "mismatch"]
+    v = session.validate({"top": "ACG", "bottom": "TG", "model": 4})
+    assert not v["ok"] and v["issues"][0]["code"] == "LENGTH_MISMATCH"

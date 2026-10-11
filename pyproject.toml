@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dsxnabuilder"
+dynamic = ["version"]
+description = "Canonical dsDNA/dsRNA/hybrid builder from 3DNA fiber models with modXNA chemistry and Amber-ready output"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "GPL-3.0-or-later"}
+authors = [{name = "Pablo D. Dans"}]
+dependencies = ["numpy>=1.26"]
+
+[project.optional-dependencies]
+dev = ["pytest>=7", "pyyaml>=6"]
+
+[project.scripts]
+dsxnabuilder = "dsxnabuilder.cli:main"
+
+[tool.setuptools]
+packages = ["dsxnabuilder"]
+
+[tool.setuptools.dynamic]
+version = {attr = "dsxnabuilder.__version__"}
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

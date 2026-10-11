@@ -1,0 +1,72 @@
+# dsXNAbuilder - tabla de alias: notacion de proveedor -> codigos de fragmento modXNA
+#
+# Solo se incluyen entradas cuya identidad quimica se ha verificado
+# directamente sobre los ficheros mol2 del arbol github.com/modxna/modxna
+# (conteo de atomos pesados, presencia de O2'/F2'/S4' y fase de pseudorrotacion
+# calculada con Altona-Sundaralingam). Toda entrada cuya asignacion dependa de
+# documentacion no verificada se declara en 'unverified' y el analizador emite
+# un aviso al usarla.
+#
+# Cualquier codigo del catalogo puede usarse siempre de forma explicita:
+#   {BACKBONE/SUGAR/BASE}  para un residuo completo
+#   ^CODE                  para una base modificada
+#   {BACKBONE}             para un enlace
+
+schema: dsxnabuilder/aliases/1
+
+# ---- prefijos de azucar ---------------------------------------------------
+sugar:
+  d:    DC2    # 2'-desoxirribosa     P=157.3 deg  South   9 pesados
+  r:    RC3    # ribosa               P= 32.8 deg  North  10 pesados, O2'
+  m:    OME    # 2'-O-metilo          P= 14.4 deg  North  11 pesados, O2'+CM2
+  e:    MOE    # 2'-O-metoxietilo     P= 21.8 deg  North  14 pesados
+  moe:  MOE
+  '+':  LNA    # LNA / BNA puenteado  P= 20.6 deg  North  11 pesados
+  l:    LNA
+  k:    CET    # cEt (etilo restringido) P=22.1 deg North 12 pesados
+  cet:  CET
+  f:    AF2    # 2'-desoxi-2'-fluoro  P= 19.0 deg  North  10 pesados, F2'
+  s:    DS4    # 4'-tio-2'-desoxi     P=170.4 deg  South   9 pesados, S4'
+  rs:   RS4    # 4'-tio-ribosa        P= 12.2 deg  North  10 pesados, S4'
+
+# quimica nominal asociada a cada prefijo (determina la base canonica y el
+# esqueleto por defecto)
+sugar_chem:
+  d:    DNA
+  r:    RNA
+  m:    RNA
+  e:    RNA
+  moe:  RNA
+  '+':  RNA
+  l:    RNA
+  k:    RNA
+  cet:  RNA
+  f:    RNA
+  s:    DNA
+  rs:   RNA
+
+# ---- bases modificadas ----------------------------------------------------
+base:
+  5mC:  M5C    # 5-metilcitosina (pirimidina, enlace glicosidico @N1)
+
+# ---- enlaces internucleotidicos -------------------------------------------
+linkage:
+  '*':   PS1   # fosforotioato, diastereomero por defecto
+  '*1':  PS1   # fosforotioato que retiene OP2
+  '*2':  PS2   # fosforotioato que retiene OP1
+  '*R':  PS1   # NO VERIFICADO (ver 'unverified')
+  '*S':  PS2   # NO VERIFICADO (ver 'unverified')
+
+# ---- entradas cuya asignacion absoluta falta confirmar --------------------
+unverified:
+  - "*R"
+  - "*S"
+notes:
+  stereo: >
+    Los esqueletos modificados en el fosforo del catalogo modXNA vienen en
+    pares XX1/XX2 que difieren en cual de los oxigenos proquirales (OP1/OP2)
+    porta la modificacion: PS1 retiene OP2 y PS2 retiene OP1. La
+    correspondencia absoluta con los descriptores Rp/Sp depende del convenio
+    de prioridad CIP en el centro de fosforo y debe confirmarse contra la
+    documentacion de modXNA antes de habilitar los alias '*R' y '*S' en
+    produccion. Hasta entonces, use '*1'/'*2', que son inequivocos.
