@@ -37,7 +37,7 @@ def modified(n, rng):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--out", default=os.path.join(ROOT, "docs", "paper", "build", "bench_browser.json"))
+    ap.add_argument("--out", default=os.path.join(ROOT, "docs", "paper", "data", "bench_browser.json"))
     ap.add_argument("--repeats", type=int, default=5)
     a = ap.parse_args()
     port = 8791

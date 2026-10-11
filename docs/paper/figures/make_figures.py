@@ -28,7 +28,7 @@ from dsxnabuilder.service import Session
 from dsxnabuilder.structure import o3p_distances, parse_pdb, read_pdb
 
 D = "docs/paper/figures"
-B = "docs/paper/build"
+B = "docs/paper/data"
 os.makedirs(B, exist_ok=True)
 plt.rcParams.update({"font.family": "DejaVu Sans", "font.size": 8, "axes.linewidth": 0.6,
                      "xtick.major.width": 0.6, "ytick.major.width": 0.6,
