@@ -60,7 +60,7 @@
               <tr><td><code>mA fA eA +A</code></td><td data-i18n="n_sugars">2′-OMe, 2′-F, 2′-MOE, LNA sugar</td></tr>
               <tr><td><code>*  *1  *2</code></td><td data-i18n="n_ps">phosphorothioate before the next residue (*1 keeps OP2, *2 keeps OP1)</td></tr>
               <tr><td><code>C^5mC</code></td><td data-i18n="n_base">modified base (modXNA code or alias)</td></tr>
-              <tr><td><code>{PS1/MOE/RUU}</code></td><td data-i18n="n_explicit">any modXNA backbone/sugar/base triplet</td></tr>
+              <tr><td><code>{PS1/MOE/RUU}</code></td><td data-i18n="n_explicit">explicit backbone/sugar/base triplet from the residue library</td></tr>
               <tr><td><code>-</code></td><td data-i18n="n_gap">no nucleotide (overhang, ends only)</td></tr>
             </tbody>
           </table>
@@ -181,6 +181,10 @@
 source $AMBERHOME/amber.sh
 ./run.sh            # tleap -> system.parm7/rst7, then restrained sander minimization</pre></li>
         <li><b>Copy reproducible link</b> gives a URL that rebuilds exactly the same duplex.</li>
+        <li>Now try <b>LNA gapmer : RNA</b>: an LNA/DNA gapmer with phosphorothioates (strand 2)
+          annealed to its RNA target (strand 1) on the DNA:RNA hybrid model #22. Modified nucleotides are
+          highlighted in the base-pair grid, the summary counts the modXNA residues, and the package
+          includes their libraries.</li>
       </ol>
 
       <h2>Writing the sequences</h2>
@@ -196,13 +200,48 @@ source $AMBERHOME/amber.sh
           <tr><td><code>m</code>, <code>f</code>, <code>e</code>/<code>moe</code>, <code>+</code>/<code>l</code></td><td>sugar prefixes: 2′-O-methyl (OME), 2′-fluoro (AF2), 2′-O-methoxyethyl (MOE), LNA</td></tr>
           <tr><td><code>*</code>, <code>*1</code>, <code>*2</code></td><td>phosphorothioate linkage. modXNA PS1 retains OP2, PS2 retains OP1; their absolute Rp/Sp labels are not yet confirmed, so <code>*</code> alone uses PS1 and warns</td></tr>
           <tr><td><code>^5mC</code></td><td>base modification (alias or modXNA base code)</td></tr>
-          <tr><td><code>{PS2/MOE/M5C}</code></td><td>any modXNA backbone/sugar/base triplet; add <code>:C</code> for bases whose pairing letter is not tabulated</td></tr>
+          <tr><td><code>{PS2/MOE/M5C}</code></td><td>explicit modXNA backbone/sugar/base triplet (from the residue library); add <code>:C</code> for bases whose pairing letter is not tabulated</td></tr>
         </tbody>
       </table>
       <p>In modXNA the backbone fragment of a nucleotide is its 5′ phosphate, so a linkage symbol
       belongs to the nucleotide on its 3′ side. In strand 1 that is the residue to the right of the
       symbol; in strand 2 (typed 3′→5′) it is the residue to the left. The 5′-terminal nucleotide of
       each strand has a 5′-OH.</p>
+
+      <h2>Modified nucleotides (modXNA)</h2>
+      <p>Modified nucleotides come from a library of 244 residues prebuilt with
+      <a href="https://github.com/modxna/modxna">modxna.sh</a> (modXNA 1.9.3, current cpptraj and
+      AmberTools 26), so no parametrization runs in your browser:</p>
+      <table>
+        <thead><tr><th>part</th><th>available</th></tr></thead>
+        <tbody>
+          <tr><td>sugar</td><td>2′-deoxyribose (<code>d</code>), ribose (<code>r</code>), 2′-O-methyl (<code>m</code>, OME),
+            2′-fluoro-2′-deoxyribose (<code>f</code>, AF2), 2′-O-methoxyethyl (<code>e</code>, MOE), LNA (<code>+</code>)</td></tr>
+          <tr><td>base</td><td>A, C, G, T, U and 5-methylcytosine (<code>C^5mC</code>) on every sugar (e.g. LNA-T, MOE-5mC, dU, rT)</td></tr>
+          <tr><td>backbone</td><td>phosphodiester, phosphorothioate PS1 (<code>*</code>, <code>*1</code>) and PS2 (<code>*2</code>)</td></tr>
+          <tr><td>ends</td><td>5′-OH and 3′-OH terminal versions of all of them</td></tr>
+        </tbody>
+      </table>
+      <p><b>How they are placed.</b> Each modified nucleotide is first built as the unmodified one in
+      the fiber model. The modXNA residue is then <i>transplanted</i> onto it: the atoms it shares
+      with the scaffold keep their fiber coordinates, so the helix and the O3′–P bonds stay exact,
+      and only its own atoms (2′-F, the 2′-O-methyl or MOE chain, the LNA bridge, the 5-methyl, the
+      sulfur) are placed from the modXNA geometry by local superposition. The sugar therefore keeps
+      the pucker of the model. 2′-substituted sugars on a model with C2′-endo sugars (B, C, D-DNA)
+      get a <i>forced pucker</i> warning; LNA cannot take that pucker and is refused there (use an
+      A-form or hybrid model).</p>
+      <p><b>Phosphorothioates.</b> modXNA PS1 keeps OP2 and PS2 keeps OP1; dsXNAbuilder puts the
+      sulfur on the position of the oxygen that is not kept (OP1 or OP2 in the Amber convention), so
+      the two give the two P diastereomers. Their absolute Rp/Sp labels have not been confirmed yet,
+      so <code>*R</code>/<code>*S</code> are accepted with a warning and <code>*</code> alone uses PS1.</p>
+      <p><b>Ends and charges.</b> Amber and modXNA split the charge of terminal nucleotides
+      differently, so a strand whose 5′ or 3′ nucleotide is modified takes both terminal nucleotides
+      from modXNA; every strand keeps an integer charge. Each distinct residue gets a name X01, X02, …
+      and its library file goes into <code>libs/</code> with <code>frcmod.modxna</code>; the
+      manifest maps names to modXNA triplets.</p>
+      <p>Other modXNA backbones, sugars and bases can be written as explicit triplets but must exist in
+      the residue library; the command-line tools build more with
+      <code>tools/build_residue_library.py --only BB-SUGAR-BASE-int</code>.</p>
 
       <h2>Helix models</h2>
       <p>The <b>Helix models</b> tab lists the 40 double-stranded 3DNA fiber models offered. Each is a
@@ -285,6 +324,10 @@ source $AMBERHOME/amber.sh
 source $AMBERHOME/amber.sh
 ./run.sh            # tleap -> system.parm7/rst7 y minimización restringida con sander</pre></li>
         <li><b>Copiar enlace reproducible</b> da una URL que reconstruye exactamente el mismo dúplex.</li>
+        <li>Pruebe ahora <b>Gapmer LNA : ARN</b>: un gapmer LNA/ADN con fosforotioatos (hebra 2) unido a
+          su ARN diana (hebra 1) sobre el modelo híbrido ADN:ARN #22. Los nucleótidos modificados se
+          resaltan en la rejilla de pares, el resumen cuenta los residuos modXNA y el paquete incluye sus
+          librerías.</li>
       </ol>
 
       <h2>Cómo escribir las secuencias</h2>
@@ -301,13 +344,49 @@ source $AMBERHOME/amber.sh
           <tr><td><code>m</code>, <code>f</code>, <code>e</code>/<code>moe</code>, <code>+</code>/<code>l</code></td><td>prefijos de azúcar: 2′-O-metilo (OME), 2′-fluoro (AF2), 2′-O-metoxietilo (MOE), LNA</td></tr>
           <tr><td><code>*</code>, <code>*1</code>, <code>*2</code></td><td>enlace fosforotioato. PS1 de modXNA retiene OP2 y PS2 retiene OP1; su asignación absoluta Rp/Sp aún no está confirmada, así que <code>*</code> solo usa PS1 y avisa</td></tr>
           <tr><td><code>^5mC</code></td><td>modificación de base (alias o código de base modXNA)</td></tr>
-          <tr><td><code>{PS2/MOE/M5C}</code></td><td>cualquier triplete esqueleto/azúcar/base de modXNA; añada <code>:C</code> si la letra de emparejamiento de la base no está tabulada</td></tr>
+          <tr><td><code>{PS2/MOE/M5C}</code></td><td>triplete explícito esqueleto/azúcar/base de modXNA (de la librería de residuos); añada <code>:C</code> si la letra de emparejamiento de la base no está tabulada</td></tr>
         </tbody>
       </table>
       <p>En modXNA el fragmento de esqueleto de un nucleótido es su fosfato 5′, así que el símbolo de
       enlace pertenece al nucleótido de su lado 3′: en la hebra 1, el de la derecha del símbolo; en
       la hebra 2 (escrita 3′→5′), el de la izquierda. El nucleótido 5′-terminal de cada hebra tiene
       un 5′-OH.</p>
+
+      <h2>Nucleótidos modificados (modXNA)</h2>
+      <p>Los nucleótidos modificados proceden de una librería de 244 residuos preconstruidos con
+      <a href="https://github.com/modxna/modxna">modxna.sh</a> (modXNA 1.9.3, cpptraj actual y
+      AmberTools 26), así que en su navegador no se parametriza nada:</p>
+      <table>
+        <thead><tr><th>parte</th><th>disponible</th></tr></thead>
+        <tbody>
+          <tr><td>azúcar</td><td>2′-desoxirribosa (<code>d</code>), ribosa (<code>r</code>), 2′-O-metilo (<code>m</code>, OME),
+            2′-fluoro-2′-desoxirribosa (<code>f</code>, AF2), 2′-O-metoxietilo (<code>e</code>, MOE), LNA (<code>+</code>)</td></tr>
+          <tr><td>base</td><td>A, C, G, T, U y 5-metilcitosina (<code>C^5mC</code>) sobre cada azúcar (p. ej. LNA-T, MOE-5mC, dU, rT)</td></tr>
+          <tr><td>esqueleto</td><td>fosfodiéster, fosforotioato PS1 (<code>*</code>, <code>*1</code>) y PS2 (<code>*2</code>)</td></tr>
+          <tr><td>extremos</td><td>versiones terminales 5′-OH y 3′-OH de todos ellos</td></tr>
+        </tbody>
+      </table>
+      <p><b>Cómo se colocan.</b> Cada nucleótido modificado se construye primero como el nucleótido sin
+      modificar en el modelo de fibra. Después se le <i>trasplanta</i> el residuo de modXNA: los átomos
+      que comparte con el andamio conservan las coordenadas de la fibra, así que la hélice y los
+      enlaces O3′–P quedan exactos, y solo sus átomos propios (2′-F, la cadena 2′-O-metilo o MOE, el
+      puente del LNA, el 5-metilo, el azufre) se colocan a partir de la geometría de modXNA por
+      superposición local. El azúcar conserva por tanto el pucker del modelo. Los azúcares
+      2′-sustituidos en un modelo con azúcares C2′-endo (ADN-B, C, D) reciben un aviso de
+      <i>pucker forzado</i>; el LNA no puede adoptar ese pucker y se rechaza allí (use un modelo de
+      forma A o híbrido).</p>
+      <p><b>Fosforotioatos.</b> PS1 de modXNA retiene OP2 y PS2 retiene OP1; dsXNAbuilder coloca el
+      azufre en la posición del oxígeno que no se retiene (OP1 u OP2 según el convenio de Amber), de
+      modo que ambos dan los dos diastereómeros en el fósforo. Su asignación absoluta Rp/Sp aún no está
+      confirmada: <code>*R</code>/<code>*S</code> se aceptan con aviso y <code>*</code> solo usa PS1.</p>
+      <p><b>Extremos y cargas.</b> Amber y modXNA reparten de forma distinta la carga de los nucleótidos
+      terminales, así que una hebra cuyo nucleótido 5′ o 3′ está modificado toma de modXNA los dos
+      nucleótidos terminales; toda hebra conserva una carga entera. Cada residuo distinto recibe un
+      nombre X01, X02, … y su librería va en <code>libs/</code> junto con <code>frcmod.modxna</code>; el
+      manifiesto relaciona los nombres con los tripletes de modXNA.</p>
+      <p>Otros esqueletos, azúcares y bases de modXNA se pueden escribir como tripletes explícitos, pero
+      deben existir en la librería de residuos; las herramientas de línea de comandos construyen más con
+      <code>tools/build_residue_library.py --only BB-AZÚCAR-BASE-int</code>.</p>
 
       <h2>Modelos de hélice</h2>
       <p>La pestaña <b>Modelos de hélice</b> lista los 40 modelos de fibra dúplex de 3DNA disponibles.

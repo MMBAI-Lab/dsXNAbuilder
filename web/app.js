@@ -12,6 +12,10 @@ const EXAMPLES = [
   { id: 'adna', en: 'A-DNA', es: 'ADN-A', top: 'GGTATACC', bottom: 'CCATATGG', model: 54 },
   { id: 'zdna', en: 'Z-DNA (CG)₃', es: 'ADN-Z (CG)₃', top: 'CGCGCG', bottom: 'GCGCGC', model: 15 },
   { id: 'mismatch', en: 'Mismatch + overhang', es: 'Desapareamiento + extremo', top: 'CGCGAGTTCGCGAA', bottom: 'GCGCTAAAGCGC--', model: 55 },
+  { id: 'sirna', en: 'siRNA 2′-OMe/2′-F + PS', es: 'siRNA 2′-OMe/2′-F + PS', top: 'mG*mA*fC*mU*fA*mG*fC*mU*mG*mA', bottom: 'C*U*GAUCGAC*U', model: 20 },
+  { id: 'lna', en: 'LNA gapmer : RNA', es: 'Gapmer LNA : ARN', top: 'r(GACUAGCUGA)', bottom: '+C*+T*+G*dA*dT*dC*dG*+A*+C*+T', model: 22 },
+  { id: 'moe', en: 'MOE gapmer : RNA', es: 'Gapmer MOE : ARN', top: 'r(GACUAGCUGA)', bottom: 'eC*eT*eG*dA*dT*dC*dG*eA*eC*eT', model: 22 },
+  { id: 'mc', en: '5mC + PS on B-DNA', es: '5mC + PS en ADN-B', top: 'CGC^5mCGAA*2TTCGCG', bottom: 'GCGCTT*1AAGCGC', model: 4 },
 ];
 
 const state = {
@@ -203,6 +207,7 @@ async function build() {
     renderValidation(v);
     if (!v.ok) return;
     req.libs = await fetchLibs(v.needed_libs || []);
+    if ((v.needed_libs || []).length) req.frcmod = await fetchText('lib/frcmod.modxna');
     const out = await call('build', req);
     renderIssues(out.issues || []);
     if (!out.ok) return;
@@ -223,14 +228,14 @@ async function build() {
     $('#build').disabled = false;
   }
 }
+async function fetchText(path) {
+  const r = await fetch(path);
+  if (!r.ok) throw new Error(`${path}: HTTP ${r.status}`);
+  return r.text();
+}
 async function fetchLibs(keys) {
-  const libs = {};
-  for (const k of keys) {
-    const r = await fetch(`lib/residues/${encodeURIComponent(k)}.lib`);
-    if (!r.ok) throw new Error(`residue library ${k}: HTTP ${r.status}`);
-    libs[k] = await r.text();
-  }
-  return libs;
+  const texts = await Promise.all(keys.map((k) => fetchText(`lib/residues/${encodeURIComponent(k)}.lib`)));
+  return Object.fromEntries(keys.map((k, i) => [k, texts[i]]));
 }
 function renderSummary(out) {
   const s = out.summary;

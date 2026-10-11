@@ -108,7 +108,9 @@ def main(argv=None) -> int:
     ap.add_argument("--cpptraj", default=os.path.join(ROOT, "external", "cpptraj", "bin"))
     ap.add_argument("--amberhome", default=os.environ.get("AMBERHOME", "/opt/amber26"))
     ap.add_argument("--jobs", type=int, default=max(1, (os.cpu_count() or 2) - 1))
-    ap.add_argument("--only", nargs="*", help="build only these keys")
+    ap.add_argument("--only", nargs="*",
+                    help="build only these keys (BB-SUGAR-BASE-int|5cap|3cap); keys outside "
+                         "the curated set are added to the library")
     a = ap.parse_args(argv)
 
     modxna_sh = os.path.join(a.modxna, "modxna.sh")
@@ -130,7 +132,12 @@ def main(argv=None) -> int:
     scratch = tempfile.mkdtemp(prefix="modxna-", dir=os.path.join(ROOT, "build"))
     jobs = curated()
     if a.only:
-        jobs = [j for j in jobs if residue_key(*j) in set(a.only)]
+        jobs = []
+        for key in a.only:
+            parts = key.split("-")
+            if len(parts) != 4 or parts[3] not in CHARGE:
+                sys.exit(f"bad key {key!r}: expected BB-SUGAR-BASE-int|5cap|3cap")
+            jobs.append(tuple(parts))
     print(f"{len(jobs)} residues, {a.jobs} parallel jobs, {version}")
 
     index_path = os.path.join(ROOT, "data", "residue_index.json")

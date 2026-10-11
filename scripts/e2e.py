@@ -100,6 +100,25 @@ def main() -> int:
         s, iss = run_example("mismatch", 14)
         check("MISMATCH" in iss and "OVERHANG" in iss, "mismatch + overhang reported")
         shot("mismatch")
+        s, iss = run_example("lna", 10)
+        check("modXNA residues" in s and "TRANSPLANT_STRAIN" not in iss,
+              "LNA gapmer : RNA built with modXNA residues")
+        shot("lna")
+        for ex, n in (("sirna", 10), ("moe", 10), ("mc", 12)):
+            s, iss = run_example(ex, n)
+            check("modXNA residues" in s, f"example {ex} built")
+        drv.find_element(By.ID, "dlzip").click()
+        path = os.path.join(dl, "dsxnabuilder.zip")
+        for _ in range(50):
+            if os.path.exists(path) and not os.path.exists(path + ".part"):
+                break
+            time.sleep(0.2)
+        names = zipfile.ZipFile(path).namelist() if os.path.exists(path) else []
+        check("dsxnabuilder/frcmod.modxna" in names and any(n.startswith("dsxnabuilder/libs/X")
+                                                            for n in names),
+              "modified package has libs/ and frcmod.modxna")
+        if os.path.exists(path):
+            os.remove(path)
 
         # live validation error
         top = drv.find_element(By.ID, "top")
