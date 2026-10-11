@@ -1,0 +1,19 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+
+# salidas de trabajo
+app/demo_out/
+jobs/
+rescache/
+external/
+
+# subproductos de AmberTools
+tmp.*
+leap.log
+mdinfo
+*.parm7
+*.rst7
+!app/tests/**/*.parm7
