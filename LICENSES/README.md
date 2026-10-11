@@ -20,8 +20,9 @@ referencia estándar, normalización de orientación, nombres de Amber) y se red
 atribución y para uso no comercial. Pendiente: confirmar con X.-J. Lu la redistribución.
 
 Los ficheros de 3DNA se obtuvieron de un espejo de terceros fijado al commit
-`1363f200eaa75a7931817029f5f65af15bb0ac0b` (ver `tools/fetch_3dna.py`); la licencia de ese
-espejo no puede relicenciar 3DNA, así que rige la de 3DNA.
+`1363f200eaa75a7931817029f5f65af15bb0ac0b` (ver `tools/fetch_3dna.py`), que es la fuente
+definitiva: los enlaces de descarga del foro de 3DNA ya no funcionan. La licencia de ese espejo
+no puede relicenciar 3DNA, así que rige la de 3DNA.
 
 ## modXNA
 

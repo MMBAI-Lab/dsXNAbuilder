@@ -85,7 +85,7 @@ unzip dickerson.zip && cd dsxnabuilder && ./run.sh     # needs AmberTools (tleap
 
 | tool | role |
 |---|---|
-| `tools/fetch_3dna.py` | fetches the 3DNA fiber repeating units and standard bases (pinned mirror, sha256; `--official` for the 3DNA tarball) |
+| `tools/fetch_3dna.py` | fetches the 3DNA fiber repeating units and standard bases from a pinned mirror of 3DNA (the forum downloads no longer work), with sha256 per file |
 | `tools/derive_fiber_models.py` | derives `data/fiber_models.json`: screw direction from backbone closure, orientation normalization, OP1/OP2 chirality, pairing by H-bond contacts, per-model QC gate |
 | `tools/update_cpptraj.sh` | builds cpptraj from the `Amber-MD/cpptraj` master branch against AmberTools |
 | `tools/build_residue_library.py` | builds the modXNA residue library with `modxna.sh` (run under `LC_ALL=C`; see the note in the script) |

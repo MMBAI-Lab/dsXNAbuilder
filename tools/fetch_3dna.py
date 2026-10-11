@@ -13,13 +13,13 @@ What is fetched
 
 Provenance
 ----------
-The official 3DNA v2.4.8 tarball is behind a forum registration
-(http://forum.x3dna.org/site-announcements/download-instructions/) and is
-licensed CC BY-NC 4.0. Until it is available locally we read the same data
-files from a third-party mirror pinned to one commit; every file's sha256 is
-recorded in ``PROVENANCE.json`` so the official tarball can be diffed against
-it later (``--official`` does exactly that when a previous mirror fetch
-exists). The mirror's own LICENSE file cannot relicense 3DNA: the data stay
+The official 3DNA v2.4.8 tarball is distributed through the 3DNA forum
+(http://forum.x3dna.org/site-announcements/download-instructions/), whose
+download links no longer work (checked 2026-10-11), and is licensed
+CC BY-NC 4.0. The data files are therefore read from a third-party mirror of
+3DNA pinned to one commit, which is the definitive source of this project;
+every file's sha256 is recorded in ``PROVENANCE.json``. ``--official`` is kept
+in case an official tarball becomes available: it diffs it against the mirror. The mirror's own LICENSE file cannot relicense 3DNA: the data stay
 under the 3DNA terms (see LICENSES/README.md).
 """
 
