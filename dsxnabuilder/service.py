@@ -73,7 +73,7 @@ class Session:
         except SequenceParseError as exc:
             return {"ok": False, "issues": [exc.issue.to_json()]}
         try:
-            res = self._build(request)
+            res = self._build(request, dry_run=True)
         except BuildError as exc:
             return {"ok": False, "issues": [i.to_json() for i in exc.issues],
                     "columns": _columns(dup)}
@@ -83,6 +83,8 @@ class Session:
 
     def build(self, request: dict, libs: Optional[Dict[str, str]] = None) -> dict:
         """Build and package. Returns dict with ``pdb`` text and ``zip`` bytes."""
+        if self.residue_library is not None:
+            self.residue_library.provide(libs, request.get("frcmod"))
         try:
             res = self._build(request)
         except BuildError as exc:
@@ -97,15 +99,16 @@ class Session:
                 "summary": summary(res)}
 
     # ------------------------------------------------------------------
-    def _build(self, request: dict) -> BuildResult:
+    def _build(self, request: dict, dry_run: bool = False) -> BuildResult:
         return build_duplex(request.get("top", ""), request.get("bottom", ""),
                             int(request.get("model", 4)), self.fibers, self.catalog,
-                            self.aliases, self.residue_library)
+                            self.aliases, self.residue_library, dry_run=dry_run)
 
     def _needed(self, res: BuildResult) -> List[str]:
         if self.residue_library is None:
             return []
-        return sorted({self.residue_library.key_for(r.spec) for r in res.modified()})
+        return sorted({r.flags.get("key") or self.residue_library.key_for(r.spec)
+                       for r in res.modified()})
 
 
 def _chem(c: str) -> str:

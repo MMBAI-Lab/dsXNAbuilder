@@ -96,11 +96,13 @@ def choose_orientation(model: FiberModel, duplex: DuplexSpec) -> bool:
 
 def build_duplex(top: str, bottom: str, model_id: int, lib: FiberLibrary,
                  catalog: Catalog, aliases: AliasTable,
-                 residue_library=None) -> BuildResult:
+                 residue_library=None, dry_run: bool = False) -> BuildResult:
     """Build the duplex. Raises :class:`BuildError` with the issues on failure.
 
-    ``residue_library`` provides modXNA residues (phase 2); without it any
-    non-canonical residue is reported as ``NOT_IN_LIBRARY``.
+    ``residue_library`` provides the modXNA residues; without it any
+    non-canonical residue is reported as ``NOT_IN_LIBRARY``. ``dry_run``
+    checks that they exist without transplanting them (the browser validates
+    before it has fetched the library files).
     """
     issues: List[Issue] = []
     try:
@@ -162,9 +164,12 @@ def build_duplex(top: str, bottom: str, model_id: int, lib: FiberLibrary,
                                      "cap": r.cap}, strand_name))
                 continue
             names, xyz, flags = placed[(strand_name, r.column)]
-            names, xyz, extra = residue_library.transplant(r, names, xyz)
-            flags = dict(flags, modxna=True, **extra)
-            issues += extra.get("issues", [])
+            if dry_run:
+                flags = dict(flags, modxna=True, key=residue_library.key_for(r))
+            else:
+                names, xyz, extra = residue_library.transplant(r, names, xyz)
+                issues += extra.pop("issues", [])
+                flags = dict(flags, modxna=True, **extra)
             placed[(strand_name, r.column)] = (names, xyz, flags)
 
     if any(i.level == "error" for i in issues):
