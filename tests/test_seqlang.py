@@ -53,6 +53,17 @@ def test_base_modifier_and_explicit_block(catalog, aliases):
     assert r.triplet() == ("PS1", "MOE", "RUU") and r.letter == "U"
 
 
+def test_internal_dash_is_an_abasic_site(catalog, aliases):
+    d = P("AC*-*GT", "TGACA", catalog, aliases)
+    r = d.top.residues
+    assert [x.letter for x in r] == ["A", "C", "-", "G", "T"]
+    assert r[2].is_abasic and r[2].backbone == "PS1" and r[3].backbone == "PS1"
+    assert not r[2].is_canonical
+    # at the ends '-' is still "no nucleotide"
+    d = P("-AC-GT", "TTGACA", catalog, aliases)
+    assert d.top.columns[0] is None and d.top.columns[3].is_abasic
+
+
 def test_overhangs(catalog, aliases):
     d = P("--ACGT", "TTTGCA", catalog, aliases)
     assert [c is None for c in d.top.columns] == [True, True, False, False, False, False]
@@ -60,7 +71,6 @@ def test_overhangs(catalog, aliases):
 
 
 @pytest.mark.parametrize("top,bottom,code", [
-    ("AC-GT", "TGACA", "INTERNAL_GAP"),
     ("ACGT", "TGC", "LENGTH_MISMATCH"),
     ("-ACG", "-TGC", "EMPTY_COLUMN"),
     ("3'-ACGT", "TGCA", "WRONG_END_LABEL"),

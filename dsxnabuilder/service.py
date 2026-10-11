@@ -96,7 +96,12 @@ class Session:
         pdb = structure_pdb(res, self.fibers.provenance, index)
         out = {"ok": True, "issues": [i.to_json() for i in res.issues], "pdb": pdb,
                "summary": summary(res)}
-        if request.get("package"):
+        if request.get("package") and any(r.flags.get("abasic") for r in res.residues):
+            out["issues"].append(Issue(
+                "error", None, "ABASIC_NO_PARAMETERS",
+                "the Amber/modXNA package cannot include abasic sites: modXNA has no abasic "
+                "fragment yet. The PDB is still available.", {}).to_json())
+        elif request.get("package"):
             opts = amber_options(request.get("amber", {}))
             lib_texts, frcmod = None, None
             if self.residue_library is not None and res.modified():

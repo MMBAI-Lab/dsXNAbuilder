@@ -44,7 +44,7 @@ if __name__ == "__main__":
     out = sys.argv[1]
     s = Session(residue_library=ResidueLibrary.load_default())
     for name, req in SYSTEMS.items():
-        req = dict(req, amber={"water": "opc", "box": "octahedral", "buffer": 12.0})
+        req = dict(req, package=True, amber={"water": "opc", "box": "octahedral", "buffer": 12.0})
         res = s.build(req)
         if not res["ok"]:
             print(name, "FAILED", [i["message"] for i in res["issues"] if i["level"] == "error"])

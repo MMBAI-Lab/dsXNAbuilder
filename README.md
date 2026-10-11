@@ -50,11 +50,12 @@ The same Python package also works from the command line.
 |---|---|
 | `ACGTU` | bases; plain letters take the chemistry of the model strand |
 | `d(…)`, `r(…)` | DNA / RNA group |
-| `m`, `f`, `e`, `+` | 2′-OMe, 2′-F, 2′-MOE, LNA sugar prefixes (`mA`, `fU`, `eT`, `+G`) |
+| `m`, `f`, `e` | 2′-O-methyl, 2′-fluoro, 2′-O-methoxyethyl sugar prefixes (`mA`, `fU`, `eT`) |
+| `+` (or `l`) | LNA, locked nucleic acid: 2′-O,4′-C-methylene-bridged ribose (`+G`, `+T`) |
 | `*`, `*1`, `*2` | phosphorothioate (PS1 keeps OP2, PS2 keeps OP1); belongs to the residue on its 3′ side |
 | `C^5mC` | base modification |
 | `{PS1/MOE/RUU}` | explicit modXNA backbone/sugar/base triplet |
-| `-` | no nucleotide (overhang), ends only |
+| `-` | at the ends of a line: no nucleotide (overhang); between nucleotides: abasic site (sugar-phosphate kept, no base; 2′-deoxy abasic = PDB component 3DR) |
 
 Example, an LNA gapmer annealed to its RNA target on the hybrid model #22:
 

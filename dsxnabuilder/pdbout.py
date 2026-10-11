@@ -52,9 +52,20 @@ def remarks(res: BuildResult, fiber_provenance: Optional[dict] = None,
     if fiber_provenance and fiber_provenance.get("fiber_models_sha256"):
         out.append(f"fiber data sha256 {fiber_provenance['fiber_models_sha256'][:16]}")
     mods: Dict[str, object] = {}
+    abasic: Dict[str, object] = {}
     for r in res.residues:
-        if r.flags.get("modxna") and r.resname not in mods:
+        if r.flags.get("abasic") and r.resname not in abasic:
+            abasic[r.resname] = r
+        elif r.flags.get("modxna") and r.resname not in mods:
             mods[r.resname] = r
+    if abasic:
+        out.append("abasic sites (sugar-phosphate without base):")
+        for name, r in sorted(abasic.items()):
+            sugar = ("1',2'-dideoxyribose (tetrahydrofuran-type)" if r.spec.chem == "DNA"
+                     else "1'-deoxyribose")
+            ccd = " = PDB chemical component 3DR" if name == "3DR" else ""
+            out.append(f"  {name}: {sugar}, {BACKBONE_NAMES.get(r.spec.backbone, r.spec.backbone)}"
+                       f"{ccd}")
     if mods:
         out.append("modified nucleotides (modXNA; Love et al. (2024) JCTC 20:9354):")
         for name, r in sorted(mods.items()):

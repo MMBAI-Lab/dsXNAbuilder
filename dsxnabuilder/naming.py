@@ -31,7 +31,13 @@ class ResidueNamer:
 
     def name_for(self, spec: ResidueSpec, modxna: bool) -> str:
         """``modxna`` forces a modXNA unit even for a canonical triplet (used
-        when a strand end must come from modXNA to keep integer charges)."""
+        when a strand end must come from modXNA to keep integer charges).
+
+        A 2'-deoxy abasic site with a phosphodiester is the PDB chemical
+        component 3DR (1',2'-dideoxyribofuranose-5'-phosphate); other abasic
+        sites get an X name described in the PDB header."""
+        if spec.is_abasic and spec.sugar == "DC2" and spec.backbone == "DPO":
+            return "3DR"
         if not modxna and spec.is_canonical:
             return ("D" + spec.letter) if spec.chem == "DNA" else spec.letter
         key = spec.key()

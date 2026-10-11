@@ -206,6 +206,7 @@ table.legend td:first-child { white-space: nowrap; }
 .grid .tok { padding: 1px 3px; border-radius: 3px; white-space: nowrap; }
 .grid .tok.mod { color: #fff; background: var(--accent); }
 .grid .tok.gap { color: var(--subtle); }
+.grid .tok.abasic { color: var(--warn); border: 1px dashed var(--warn); }
 .grid .pair { color: var(--subtle); height: 1.1em; }
 .grid .pair.wc { color: var(--ok); }
 .grid .pair.wobble { color: var(--warn); }

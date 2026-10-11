@@ -12,6 +12,7 @@ const EXAMPLES = [
   { id: 'adna', en: 'A-DNA', es: 'ADN-A', top: 'GGTATACC', bottom: 'CCATATGG', model: 54 },
   { id: 'zdna', en: 'Z-DNA (CG)₃', es: 'ADN-Z (CG)₃', top: 'CGCGCG', bottom: 'GCGCGC', model: 15 },
   { id: 'mismatch', en: 'Mismatch + overhang', es: 'Desapareamiento + extremo', top: 'CGCGAGTTCGCGAA', bottom: 'GCGCTAAAGCGC--', model: 55 },
+  { id: 'abasic', en: 'Abasic site', es: 'Sitio abásico', top: 'CGCGA-TTCGCG', bottom: 'GCGCTTAAGCGC', model: 4 },
   { id: 'sirna', en: 'siRNA 2′-OMe/2′-F + PS', es: 'siRNA 2′-OMe/2′-F + PS', top: 'mG*mA*fC*mU*fA*mG*fC*mU*mG*mA', bottom: 'C*U*GAUCGAC*U', model: 20 },
   { id: 'lna', en: 'LNA gapmer : RNA', es: 'Gapmer LNA : ARN', top: 'r(GACUAGCUGA)', bottom: '+C*+T*+G*dA*dT*dC*dG*+A*+C*+T', model: 22 },
   { id: 'moe', en: 'MOE gapmer : RNA', es: 'Gapmer MOE : ARN', top: 'r(GACUAGCUGA)', bottom: 'eC*eT*eG*dA*dT*dC*dG*eA*eC*eT', model: 22 },
@@ -181,14 +182,19 @@ function renderValidation(v) {
   if (v.columns) {
     const sym = { wc: '|', wobble: ':', mismatch: '×' };
     const cols = v.columns.map((c) => `<div class="col">
-      <span class="tok${c.top ? (c.top_mod ? ' mod' : '') : ' gap'}">${esc(c.top || '–')}</span>
+      <span class="tok${tokClass(c.top, c.top_mod)}">${esc(c.top || '–')}</span>
       <span class="pair ${c.pair || ''}">${c.pair ? sym[c.pair] : ''}</span>
-      <span class="tok${c.bottom ? (c.bottom_mod ? ' mod' : '') : ' gap'}">${esc(c.bottom || '–')}</span>
+      <span class="tok${tokClass(c.bottom, c.bottom_mod)}">${esc(c.bottom || '–')}</span>
       <span class="num">${(c.i + 1) % 5 === 0 || c.i === 0 ? c.i + 1 : ''}</span></div>`).join('');
     $('#grid').className = 'grid';
     $('#grid').innerHTML = `<div class="end"><div>5′</div><div></div><div>3′</div></div>${cols}<div class="end"><div>3′</div><div></div><div>5′</div></div>`;
   }
   renderIssues(v.issues || []);
+}
+function tokClass(tok, mod) {
+  if (!tok) return ' gap';
+  if (tok === '-') return ' abasic';
+  return mod ? ' mod' : '';
 }
 function renderIssues(list) {
   const order = { error: 0, warning: 1, info: 2 };
@@ -366,7 +372,7 @@ $('#dlzip').onclick = async () => {
     req.libs = await fetchLibs(v.needed_libs || []);
     if ((v.needed_libs || []).length) req.frcmod = await fetchText('lib/frcmod.modxna');
     const out = await call('build', req);
-    if (out.ok) download('dsxnabuilder-amber.zip', b64bytes(out.zip_b64), 'application/zip');
+    if (out.ok && out.zip_b64) download('dsxnabuilder-amber.zip', b64bytes(out.zip_b64), 'application/zip');
     else renderIssues(out.issues || []);
   } catch (e) {
     $('#issues').innerHTML = `<li class="error">${esc(e.message)}</li>`;

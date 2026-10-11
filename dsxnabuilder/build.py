@@ -221,6 +221,8 @@ def choose_phase(model: FiberModel, duplex: DuplexSpec, flipped: bool) -> int:
     for p in range(model.k):
         miss = 0
         for a in duplex.top.residues:
+            if a.is_abasic:
+                continue
             bp = ((n - 1 - a.column) if flipped else a.column) + p
             ss = getattr(model.slots[bp % model.k], slot)
             miss += (ss.native in PURINES) != (a.letter in PURINES)
@@ -274,7 +276,7 @@ def _modxna_positions(duplex: DuplexSpec) -> set:
     """
     out = set()
     for name, strand in (("top", duplex.top), ("bottom", duplex.bottom)):
-        mod = [r for r in strand.residues if not r.is_canonical]
+        mod = [r for r in strand.residues if not r.is_canonical and not r.is_abasic]
         out |= {(name, r.column) for r in mod}
         ends = (strand.residues[0], strand.residues[-1])
         if any(not r.is_canonical for r in ends):
@@ -291,6 +293,15 @@ def sequence_issues(model: FiberModel, duplex: DuplexSpec, flipped: bool,
     n = duplex.n_columns
     for i, (a, b) in enumerate(duplex.pairs()):
         if a is None or b is None:
+            continue
+        if a.is_abasic or b.is_abasic:
+            other = b if a.is_abasic else a
+            what = "abasic sites on both strands" if (a.is_abasic and b.is_abasic) else \
+                f"abasic site opposite {other.letter}"
+            out.append(Issue("info", i, "ABASIC",
+                             f"column {i + 1}: {what} (sugar-phosphate kept, no base)",
+                             {"column": i + 1, "opposite": "-" if a.is_abasic and b.is_abasic
+                              else other.letter}))
             continue
         kind = pair_kind(a.letter, b.letter)
         if kind == "mismatch":
@@ -316,6 +327,8 @@ def sequence_issues(model: FiberModel, duplex: DuplexSpec, flipped: bool,
         slot_top = "II" if flipped else "I"
         wrong = []
         for a in duplex.top.residues:
+            if a.is_abasic:
+                continue
             bp = ((n - 1 - a.column) if flipped else a.column) + phase
             ss, _ = model.slot_strand(bp, slot_top)
             if (ss.native in PURINES) != (a.letter in PURINES):
@@ -332,6 +345,8 @@ def sequence_issues(model: FiberModel, duplex: DuplexSpec, flipped: bool,
 def residue_issues(model: FiberModel, ss, r: ResidueSpec, strand: str,
                    catalog: Catalog) -> List[Issue]:
     out: List[Issue] = []
+    if r.is_abasic:
+        return out
     if ss.syn and r.letter not in PURINES:
         out.append(Issue("warning", r.column, "SYN_PYRIMIDINE",
                          f"{r.token}: pyrimidine placed in a syn slot of model #{model.id}",

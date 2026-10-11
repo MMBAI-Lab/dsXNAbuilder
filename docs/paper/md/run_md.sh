@@ -8,7 +8,7 @@
 #    truncated octahedron 12 A, neutralizing Na+/Cl-), plus 150 mM NaCl added
 #    with addIonsRand (count from the water count, 0.15 M x N_wat / 55.5).
 # 2. Hydrogen mass repartitioning (cpptraj hmassrepartition, H mass 3.024) for 4 fs.
-# 3. Minimization (restrained, then free), heating to 300 K (NVT, 200 ps),
+# 3. Minimization on CPU (restrained, then free), heating to 300 K (NVT, 200 ps),
 #    NPT equilibration with solute restraints 5 -> 1 -> 0.1 kcal/mol/A2
 #    (3 x 500 ps), and 100 ns NPT production (Langevin 1 ps-1, MC barostat,
 #    PME, 9 A cutoff, SHAKE).
@@ -43,8 +43,12 @@ done
 
 P=system.hmr.parm7
 run() { pmemd.cuda -O -i $1.in -p $P -c $2 -r $1.rst7 -o $1.out ${3:-} ; }
-run min1 system.rst7 "-ref system.rst7"
-run min2 min1.rst7
+# Minimization on CPU: with OPC (4-point water) the GPU minimizer drove two
+# waters to O-O = 1.86 A in one system (LINMIN failure, NaN on heating);
+# pmemd.MPI converges normally on the same input.
+cpu() { mpirun -np ${NP_MIN:-8} pmemd.MPI -O -i $1.in -p $P -c $2 -r $1.rst7 -o $1.out ${3:-} ; }
+cpu min1 system.rst7 "-ref system.rst7"
+cpu min2 min1.rst7
 run heat min2.rst7 "-ref min2.rst7"
 run eq_5.0 heat.rst7 "-ref heat.rst7"
 run eq_1.0 eq_5.0.rst7 "-ref heat.rst7"

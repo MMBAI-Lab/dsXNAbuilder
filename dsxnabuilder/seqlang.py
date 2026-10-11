@@ -6,8 +6,10 @@ Sequence language for both strands of a duplex, written the way oligo
 chemists write them, resolved to modXNA triplets (backbone, sugar, base).
 
 The user types strand 1 5'->3' and, aligned under it, strand 2 3'->5'.
-Column ``i`` of both lines is base pair ``i``; mismatches are allowed and a
-``-`` at either end of a line leaves that column unpaired (overhang).
+Column ``i`` of both lines is base pair ``i``; mismatches are allowed. A
+``-`` at either end of a line leaves that column without a nucleotide
+(overhang); a ``-`` between nucleotides is an abasic site: the strand keeps
+its sugar-phosphate backbone there but has no base.
 
 Grammar (one line)
 ------------------
@@ -20,6 +22,8 @@ Grammar (one line)
     shorthand:= sugar_prefix? LETTER ('^' BASECODE)?          e.g. +A, mU, dC, C^5mC
     linkage  := '*' | '*1' | '*2' | '*R' | '*S' | '.' | '{' BB '}'
     group    := ('d' | 'r')? '(' item* ')'                    chemistry of the group
+    '-'      := no nucleotide at the ends of a line (overhang); between
+                nucleotides, an abasic site (sugar-phosphate without base)
     wrap5    := "5'" '-'?        (top line)    |  "3'" '-'?  (bottom line)
     wrap3    := '-'? "3'"        (top line)    |  '-'? "5'"  (bottom line)
 
@@ -100,12 +104,18 @@ class ResidueSpec:
     cap: str = "int"            # int | 5cap | 3cap
     explicit_backbone: bool = False
 
+    @property
+    def is_abasic(self) -> bool:
+        return self.letter == "-"
+
     def triplet(self) -> Tuple[str, str, str]:
         return (self.backbone, self.sugar, self.base)
 
     @property
     def is_canonical(self) -> bool:
         """Standard Amber residue (DA.., A..): canonical sugar, base, phosphate."""
+        if self.is_abasic:
+            return False
         if self.sugar != CANONICAL_SUGAR[self.chem]:
             return False
         if self.base != canonical_base(self.chem, self.letter):
@@ -146,6 +156,7 @@ class _Tok:
     text: str = ""
     linkage: Optional[str] = None
     res: Optional[ResidueSpec] = None
+    chem: str = "DNA"      # chemistry in effect (for '-' that become abasic sites)
 
 
 def _strip_ends(text: str, top: bool) -> str:
@@ -197,7 +208,7 @@ def _tokenize(body: str, catalog: Catalog, aliases: AliasTable, default_chem: st
             i += 1
             continue
         if ch == "-":
-            toks.append(_Tok("gap", i, "-"))
+            toks.append(_Tok("gap", i, "-", chem=chem))
             i += 1
             continue
         if ch == "*":
@@ -318,6 +329,18 @@ def parse_line(text: str, top: bool, catalog: Catalog, aliases: AliasTable,
         raise SequenceParseError("empty strand", "EMPTY", strand)
     toks = _tokenize(body, catalog, aliases, default_chem, strand, issues)
 
+    # '-' between nucleotides is an abasic site; at the ends, no nucleotide
+    res_idx = [k for k, t in enumerate(toks) if t.kind == "res"]
+    if not res_idx:
+        raise SequenceParseError("strand has no nucleotides", "EMPTY", strand)
+    for k in range(res_idx[0] + 1, res_idx[-1]):
+        t = toks[k]
+        if t.kind == "gap":
+            t.kind = "res"
+            t.res = ResidueSpec(backbone=CANONICAL_BACKBONE[t.chem],
+                                sugar=CANONICAL_SUGAR[t.chem], base="ABS", letter="-",
+                                chem=t.chem, token="-")
+
     # columns in typed order
     columns: List[Optional[ResidueSpec]] = []
     for t in toks:
@@ -326,13 +349,6 @@ def parse_line(text: str, top: bool, catalog: Catalog, aliases: AliasTable,
             columns.append(t.res)
         elif t.kind == "gap":
             columns.append(None)
-    if not any(columns):
-        raise SequenceParseError("strand has no nucleotides", "EMPTY", strand)
-    filled = [i for i, c in enumerate(columns) if c is not None]
-    if any(columns[i] is None for i in range(filled[0], filled[-1] + 1)):
-        raise SequenceParseError("'-' (gap) is only allowed at the ends of a strand "
-                                 "(overhangs); internal gaps would break the strand",
-                                 "INTERNAL_GAP", strand)
 
     # 5'->3' token order; linkages belong to the following residue
     order = toks if top else list(reversed(toks))

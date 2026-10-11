@@ -57,11 +57,14 @@
               <tr><td><code>A C G T U</code></td><td data-i18n="n_letters">bases; plain letters take the chemistry of the model strand</td></tr>
               <tr><td><code>d(…) r(…)</code></td><td data-i18n="n_groups">DNA / RNA group</td></tr>
               <tr><td><code>dA rA</code></td><td data-i18n="n_dr">2′-deoxy / ribo nucleotide</td></tr>
-              <tr><td><code>mA fA eA +A</code></td><td data-i18n="n_sugars">2′-OMe, 2′-F, 2′-MOE, LNA sugar</td></tr>
+              <tr><td><code>mA</code></td><td data-i18n="n_m">2′-O-methyl (2′-OMe) ribose</td></tr>
+              <tr><td><code>fA</code></td><td data-i18n="n_f">2′-fluoro-2′-deoxyribose (2′-F)</td></tr>
+              <tr><td><code>eA</code></td><td data-i18n="n_e">2′-O-methoxyethyl (2′-MOE) ribose</td></tr>
+              <tr><td><code>+A</code> or <code>lA</code></td><td data-i18n="n_lna">LNA, locked nucleic acid (2′-O,4′-C-methylene-bridged ribose)</td></tr>
               <tr><td><code>*  *1  *2</code></td><td data-i18n="n_ps">phosphorothioate before the next residue (*1 keeps OP2, *2 keeps OP1)</td></tr>
               <tr><td><code>C^5mC</code></td><td data-i18n="n_base">modified base (modXNA code or alias)</td></tr>
               <tr><td><code>{PS1/MOE/RUU}</code></td><td data-i18n="n_explicit">explicit backbone/sugar/base triplet from the residue library</td></tr>
-              <tr><td><code>-</code></td><td data-i18n="n_gap">no nucleotide (overhang, ends only)</td></tr>
+              <tr><td><code>-</code></td><td data-i18n="n_gap">at the ends of a line: no nucleotide (overhang); between nucleotides: abasic site</td></tr>
             </tbody>
           </table>
           <p class="hint" data-i18n="n_note">Strand 2 is typed 3′→5′, so a linkage written in it belongs to the residue on its left. Mismatches are allowed.</p>
@@ -190,14 +193,19 @@
       <h2>Writing the sequences</h2>
       <p>Type strand 1 from 5′ to 3′ and strand 2 from 3′ to 5′, so that the two lines are aligned
       column by column: column <i>i</i> is base pair <i>i</i>. This lets you modify either strand
-      independently and build mismatches. Use <code>-</code> at the ends of a line to leave a
-      nucleotide unpaired (overhangs). End labels <code>5′-</code>/<code>-3′</code> are optional.</p>
+      independently and build mismatches. A <code>-</code> at the ends of a line means “no nucleotide”
+      (the other strand overhangs there); a <code>-</code> between nucleotides is an <b>abasic
+      site</b>: the strand keeps its sugar-phosphate backbone but has no base (a 2′-deoxy abasic site
+      is the tetrahydrofuran-type analogue, PDB component 3DR). End labels
+      <code>5′-</code>/<code>-3′</code> are optional.</p>
       <table>
         <thead><tr><th>write</th><th>meaning</th></tr></thead>
         <tbody>
           <tr><td><code>ACGTU</code></td><td>bases; plain letters take the chemistry of the model strand (DNA on B-DNA, RNA on A-RNA)</td></tr>
           <tr><td><code>d(ACG)</code>, <code>r(ACG)</code></td><td>DNA or RNA group</td></tr>
-          <tr><td><code>m</code>, <code>f</code>, <code>e</code>/<code>moe</code>, <code>+</code>/<code>l</code></td><td>sugar prefixes: 2′-O-methyl (OME), 2′-fluoro (AF2), 2′-O-methoxyethyl (MOE), LNA</td></tr>
+          <tr><td><code>m</code>, <code>f</code>, <code>e</code>/<code>moe</code></td><td>sugar prefixes: 2′-O-methyl (OME), 2′-fluoro (AF2), 2′-O-methoxyethyl (MOE)</td></tr>
+          <tr><td><code>+</code> or <code>l</code></td><td>LNA, locked nucleic acid: ribose with a 2′-O,4′-C-methylene bridge (e.g. <code>+A</code>, <code>+T</code>)</td></tr>
+          <tr><td><code>-</code></td><td>at the ends of a line: no nucleotide (overhang); between nucleotides: abasic site</td></tr>
           <tr><td><code>*</code>, <code>*1</code>, <code>*2</code></td><td>phosphorothioate linkage. modXNA PS1 retains OP2, PS2 retains OP1; their absolute Rp/Sp labels are not yet confirmed, so <code>*</code> alone uses PS1 and warns</td></tr>
           <tr><td><code>^5mC</code></td><td>base modification (alias or modXNA base code)</td></tr>
           <tr><td><code>{PS2/MOE/M5C}</code></td><td>explicit modXNA backbone/sugar/base triplet (from the residue library); add <code>:C</code> for bases whose pairing letter is not tabulated</td></tr>
@@ -343,15 +351,19 @@
       <h2>Cómo escribir las secuencias</h2>
       <p>Escriba la hebra 1 de 5′ a 3′ y la hebra 2 de 3′ a 5′, de modo que las dos líneas queden
       alineadas columna a columna: la columna <i>i</i> es el par <i>i</i>. Así puede modificar cada
-      hebra por separado y construir desapareamientos. Use <code>-</code> en los extremos de una línea
-      para dejar un nucleótido sin pareja (extremos protuberantes). Las etiquetas
-      <code>5′-</code>/<code>-3′</code> son opcionales.</p>
+      hebra por separado y construir desapareamientos. Un <code>-</code> en los extremos de una línea
+      significa «sin nucleótido» (la otra hebra sobresale allí); un <code>-</code> entre nucleótidos es
+      un <b>sitio abásico</b>: la hebra conserva su esqueleto azúcar-fosfato pero no tiene base (un
+      sitio abásico 2′-desoxi es el análogo de tipo tetrahidrofurano, componente 3DR del PDB). Las
+      etiquetas <code>5′-</code>/<code>-3′</code> son opcionales.</p>
       <table>
         <thead><tr><th>escriba</th><th>significado</th></tr></thead>
         <tbody>
           <tr><td><code>ACGTU</code></td><td>bases; las letras sin prefijo toman la química de la hebra del modelo (ADN en B-DNA, ARN en A-RNA)</td></tr>
           <tr><td><code>d(ACG)</code>, <code>r(ACG)</code></td><td>grupo de ADN o de ARN</td></tr>
-          <tr><td><code>m</code>, <code>f</code>, <code>e</code>/<code>moe</code>, <code>+</code>/<code>l</code></td><td>prefijos de azúcar: 2′-O-metilo (OME), 2′-fluoro (AF2), 2′-O-metoxietilo (MOE), LNA</td></tr>
+          <tr><td><code>m</code>, <code>f</code>, <code>e</code>/<code>moe</code></td><td>prefijos de azúcar: 2′-O-metilo (OME), 2′-fluoro (AF2), 2′-O-metoxietilo (MOE)</td></tr>
+          <tr><td><code>+</code> o <code>l</code></td><td>LNA, ácido nucleico bloqueado: ribosa con un puente 2′-O,4′-C-metileno (p. ej. <code>+A</code>, <code>+T</code>)</td></tr>
+          <tr><td><code>-</code></td><td>en los extremos de una línea: sin nucleótido (extremo protuberante); entre nucleótidos: sitio abásico</td></tr>
           <tr><td><code>*</code>, <code>*1</code>, <code>*2</code></td><td>enlace fosforotioato. PS1 de modXNA retiene OP2 y PS2 retiene OP1; su asignación absoluta Rp/Sp aún no está confirmada, así que <code>*</code> solo usa PS1 y avisa</td></tr>
           <tr><td><code>^5mC</code></td><td>modificación de base (alias o código de base modXNA)</td></tr>
           <tr><td><code>{PS2/MOE/M5C}</code></td><td>triplete explícito esqueleto/azúcar/base de modXNA (de la librería de residuos); añada <code>:C</code> si la letra de emparejamiento de la base no está tabulada</td></tr>

@@ -32,7 +32,7 @@ from typing import Dict, List, Optional, Tuple
 import numpy as np
 
 from .geometry import Frame, rot_z
-from .nucleotide import base_swap, to_dna, to_rna
+from .nucleotide import BACKBONE_ATOMS, base_swap, to_dna, to_rna
 
 DATA = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "data")
 DEFAULT_PATH = os.path.join(DATA, "fiber_models.json")
@@ -111,6 +111,14 @@ class FiberModel:
         """
         ss, frame = self.slot_strand(i, strand)
         flags = {"swapped": False, "chem_changed": False}
+        if letter == "-":
+            # abasic site: the slot's sugar-phosphate without its base (O2' is
+            # set from the template while the base still defines the face)
+            t = next(iter(ss.templates.values()))
+            names, xyz = list(t.names), t.xyz.copy()
+            names, xyz = to_rna(names, xyz) if chem == "RNA" else to_dna(names, xyz)
+            keep = [k for k, n in enumerate(names) if n in BACKBONE_ATOMS]
+            return [names[k] for k in keep], frame.to_global(xyz[keep]), dict(flags, abasic=True)
         if letter in ss.templates:
             t = ss.templates[letter]
             names, xyz = list(t.names), t.xyz.copy()

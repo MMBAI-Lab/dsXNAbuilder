@@ -56,6 +56,9 @@ def main(argv=None) -> int:
     with open(a.out, "w", encoding="utf-8") as fh:
         fh.write(out["pdb"])
     if a.amber:
+        if "zip" not in out:
+            print(f"no Amber package written to {a.amber} (see the error above)", file=sys.stderr)
+            return 1
         with open(a.amber, "wb") as fh:
             fh.write(out["zip"])
     sm = out["summary"]

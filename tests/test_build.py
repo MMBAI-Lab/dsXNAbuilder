@@ -161,3 +161,28 @@ def test_service_validate_reports_columns(session):
     assert [c["pair"] for c in v["columns"]] == ["wc", "wc", "wc", "wobble", "mismatch"]
     v = session.validate({"top": "ACG", "bottom": "TG", "model": 4})
     assert not v["ok"] and v["issues"][0]["code"] == "LENGTH_MISMATCH"
+
+
+def test_abasic_site(session):
+    out = session.build({"top": "CGCGA-TTCGCG", "bottom": "GCGCTTAAGCGC", "model": 4})
+    assert out["ok"]
+    assert any(i["code"] == "ABASIC" for i in out["issues"])
+    res = [l for l in out["pdb"].splitlines() if l.startswith("ATOM") and l[17:20] == "3DR"]
+    names = {l[12:16].strip() for l in res}
+    assert names == {"P", "OP1", "OP2", "O5'", "C5'", "C4'", "O4'", "C3'", "O3'", "C2'", "C1'"}
+    assert 1.55 <= out["summary"]["o3p"][0] and out["summary"]["o3p"][1] <= 1.65
+    assert out["summary"]["clashes"] == 0
+    remarks = [l for l in out["pdb"].splitlines() if l.startswith("REMARK")]
+    assert any("abasic sites" in l for l in remarks) and any("3DR:" in l for l in remarks)
+    pkg = session.build({"top": "CGCGA-TTCGCG", "bottom": "GCGCTTAAGCGC", "model": 4,
+                         "package": True})
+    assert "zip" not in pkg and any(i["code"] == "ABASIC_NO_PARAMETERS" for i in pkg["issues"])
+
+
+def test_abasic_rna_keeps_o2prime(session):
+    out = session.build({"top": "r(GGCG-UUGCGUC)", "bottom": "r(CCGCGAACGCAG)", "model": 20})
+    assert out["ok"]
+    abasic = [l for l in out["pdb"].splitlines()
+              if l.startswith("ATOM") and l[17:20].strip() == "X01"]
+    assert {l[12:16].strip() for l in abasic} >= {"C1'", "C2'", "O2'"}
+    assert not {"N9", "N1"} & {l[12:16].strip() for l in abasic}
