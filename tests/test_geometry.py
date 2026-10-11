@@ -14,9 +14,10 @@ import numpy as np
 import pytest
 
 from dsxnabuilder.geometry import (Frame, PairParams, StepParams, apply_step,
-                               base_frames_to_pair, fiber_frames,
-                               frames_to_step_params, kabsch,
-                               pair_to_base_frames, pseudorotation, rot_z)
+                                   base_frames_to_pair, fiber_frames,
+                                   frames_to_step_params, kabsch,
+                                   pair_to_base_frames, pseudorotation, rot_x,
+                                   rot_z, step_rotation)
 
 FIBER_CASES = {
     # nombre: (twist, rise, x_displacement, inclination)
@@ -44,7 +45,7 @@ def test_step_roundtrip_exact():
         back = frames_to_step_params(f0, apply_step(f0, sp))
         worst = max(worst, float(np.abs(np.array(sp.as_tuple())
                                         - np.array(back.as_tuple())).max()))
-    # medido: 7.7e-12 sobre 5000 casos
+    # medido (convenio CEHS/3DNA): 3.3e-11 sobre 5000 casos con twist en (-170, 170)
     assert worst < 1e-10, f"round-trip no exacto: {worst}"
 
 
@@ -70,7 +71,7 @@ def test_fiber_dyad_symmetry(name):
     frames = fiber_frames(24, twist, rise, dx, inc)
     for i in range(len(frames) - 1):
         sp = frames_to_step_params(frames[i], frames[i + 1])
-        # medido: max|tilt| = 1.8e-15 deg, max|shift| = 7.9e-16 A
+        # medido (convenio CEHS/3DNA): max|tilt| = 1.8e-15 deg, max|shift| = 4.2e-15 A
         assert abs(sp.tilt) < 1e-12, f"{name}: tilt = {sp.tilt}"
         assert abs(sp.shift) < 1e-12, f"{name}: shift = {sp.shift}"
 
@@ -153,3 +154,56 @@ def test_pseudorotation_handles_4_thio():
     out = pseudorotation(coords)
     assert out is not None and out["ring_heteroatom"] == "S4'"
     assert pseudorotation({"C1'": [0, 0, 0]}) is None
+
+
+# --------------------------------------------------------------------------
+# Convenio 3DNA (CEHS): signos, marco intermedio por bisagra, pares invertidos
+# --------------------------------------------------------------------------
+def test_sign_convention_matches_3dna():
+    """tilt > 0 gira alrededor de +x y roll > 0 alrededor de +y (El Hassan &
+    Calladine 1995; 3DNA); buckle > 0 gira la base I alrededor de +x respecto
+    de la base II."""
+    s = math.sin(math.radians(10.0))
+    z = apply_step(Frame(), StepParams(tilt=10.0, twist=0.0, rise=0.0)).triad[:, 2]
+    assert np.allclose(z, [0.0, -s, math.cos(math.radians(10.0))])
+    z = apply_step(Frame(), StepParams(roll=10.0, twist=0.0, rise=0.0)).triad[:, 2]
+    assert np.allclose(z, [s, 0.0, math.cos(math.radians(10.0))])
+    f1, f2 = pair_to_base_frames(Frame(), PairParams(buckle=10.0))
+    rel = (f2.triad @ rot_x(180.0)).T @ f1.triad
+    assert np.allclose(rel[:, 2], [0.0, -s, math.cos(math.radians(10.0))])
+
+
+def test_middle_step_frame_is_hinge_bisector():
+    """El marco intermedio biseca los ejes z y contiene el eje bisagra."""
+    rng = np.random.default_rng(11)
+    for _ in range(200):
+        sp = StepParams(shift=rng.uniform(-2, 2), slide=rng.uniform(-2, 2),
+                        rise=rng.uniform(2, 4), tilt=rng.uniform(-15, 15),
+                        roll=rng.uniform(-20, 20), twist=rng.uniform(-60, 60))
+        f0 = Frame(rng.uniform(-5, 5, 3), _random_proper_rotation(rng))
+        f1 = apply_step(f0, sp)
+        _, M = step_rotation(sp)
+        T = f0.triad @ M
+        zsum = f0.triad[:, 2] + f1.triad[:, 2]
+        assert np.allclose(T[:, 2], zsum / np.linalg.norm(zsum), atol=1e-12)
+        hinge = np.cross(f0.triad[:, 2], f1.triad[:, 2])
+        assert abs(np.dot(hinge, T[:, 2])) < 1e-12
+        # the step translation is expressed in that frame
+        d = T.T @ (f1.origin - f0.origin)
+        assert np.allclose(d, [sp.shift, sp.slide, sp.rise], atol=1e-10)
+
+
+def test_flipped_pair_is_reoriented_along_strand_direction():
+    """Pares invertidos (Z-DNA): el marco del par se gira 180 sobre y para que
+    su z siga la direccion 5'->3' de la hebra I; cambian de signo shear,
+    stagger, buckle y opening."""
+    pp = PairParams(shear=0.4, stretch=-0.1, stagger=0.2, buckle=5.0,
+                    propeller=-12.0, opening=3.0)
+    bp = Frame([1.0, 2.0, 3.0], rot_z(40.0))
+    f1, f2 = pair_to_base_frames(bp, pp)
+    same, p_same = base_frames_to_pair(f1, f2, direction=[0, 0, 1])
+    assert np.allclose(same.triad, bp.triad) and np.isclose(p_same.shear, 0.4)
+    flip, p_flip = base_frames_to_pair(f1, f2, direction=[0, 0, -1])
+    assert np.isclose(np.dot(flip.triad[:, 2], [0, 0, -1]), 1.0)
+    got = np.array(p_flip.as_tuple())
+    assert np.allclose(got, [-0.4, -0.1, -0.2, -5.0, -12.0, -3.0])

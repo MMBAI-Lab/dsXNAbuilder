@@ -414,7 +414,8 @@ def derive_model(mid: int, mdir: str, readme, std, sha: Dict[str, str]) -> dict:
         fa, ra = base_frame(a, std)
         fb, rb = base_frame(b, std)
         ptype = pair_type(a, b, cts)
-        bpf, pp = base_frames_to_pair(fa, fb)
+        # 3DNA orientation: pair z along strand I 5'->3' (+z after normalization)
+        bpf, pp = base_frames_to_pair(fa, fb, direction=(0.0, 0.0, 1.0))
         bp_frames.append(bpf)
         slot = {"pairing": ptype,
                 "contacts": [list(c) for c in cts],

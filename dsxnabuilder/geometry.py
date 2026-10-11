@@ -1,81 +1,85 @@
 """
-xnafiber.geometry
-=================
+dsxnabuilder.geometry
+=====================
 
-Formalismo geometrico de FiberXNA.
+Geometric formalism: reference frames, base-pair and step parameters.
 
-Convenciones
-------------
-Se adopta el *standard reference frame* de Olson et al. (2001) J Mol Biol
-313:229-237 (doi:10.1006/jmbi.2001.4987) y el algebra de parametros de pares
-de bases / escalon de El Hassan & Calladine (1995) J Mol Biol 251:648-664
-(doi:10.1006/jmbi.1995.0462), en la realizacion de 3DNA (Lu & Olson 2003 NAR
-31:5108-5121). El marco intermedio ("mid-step triad") es el elemento central
-de ese esquema, y su proposito declarado es que los parametros de escalon
-salgan identicos leyendo el escalon en cualquiera de los dos sentidos; la
-raiz cuadrada principal que se usa mas abajo es la construccion que cumple
-esa propiedad de forma exacta. Todas las rotaciones son activas, en
-sistemas dextrogiros, y
-las matrices son column-major: una triada ``T`` tiene como columnas los
-versores (x, y, z) del marco expresados en coordenadas globales, de modo que
+Conventions
+-----------
+The *standard reference frame* of Olson et al. (2001) J Mol Biol 313:229-237
+(doi:10.1006/jmbi.2001.4987) and the base-pair / step parameter algebra of
+El Hassan & Calladine (1995) J Mol Biol 251:648-664
+(doi:10.1006/jmbi.1995.0462) as implemented in 3DNA (Lu & Olson 2003 NAR
+31:5108-5121), i.e. the CEHS scheme. All rotations are active, in
+right-handed systems; a triad ``T`` holds the (x, y, z) unit vectors of the
+frame as columns in global coordinates, so that
 
     r_global = o + T . r_local
 
-Un marco (``Frame``) es el par (origen o, triada T).
+A ``Frame`` is the pair (origin o, triad T).
 
-Descomposicion de un escalon
-----------------------------
-Dado el conjunto de parametros de escalon (shift Dx, slide Dy, rise Dz,
-tilt tau, roll rho, twist Omega), se define
+Step parameters
+---------------
+For (shift Dx, slide Dy, rise Dz, tilt tau, roll rho, twist Omega):
 
-    Gamma = sqrt(tau^2 + rho^2)        (angulo de curvatura, "roll-tilt")
-    phi   = atan2(tau, rho)            (fase de la curvatura)
+    Gamma = sqrt(tau^2 + rho^2)          bending angle (roll-tilt)
+    phi   = atan2(tau, rho)              phase of the bending
 
-    R_step = Rz(Omega/2 + phi) . Ry(Gamma) . Rz(Omega/2 - phi)
-    T_mst  = T_i . R_step^(1/2)                        (middle step triad)
+    R_step = Rz(Omega/2 - phi) . Ry(Gamma) . Rz(Omega/2 + phi)
+    M      = Rz(Omega/2 - phi) . Ry(Gamma/2) . Rz(phi)
 
     T_{i+1} = T_i . R_step
+    T_mst   = T_i . M                    (middle-step triad)
     o_{i+1} = o_i + T_mst . (Dx, Dy, Dz)^T
 
-El giro se reparte simetricamente a ambos lados de la curvatura (convencion
-CEHS/3DNA) y el marco intermedio es la raiz cuadrada principal de la rotacion
-del escalon. Esta eleccion no es cosmetica: es la unica de las variantes
-habituales que satisface las restricciones de simetria de un modelo de fibra.
-Un duplex A o B tiene un eje binario perpendicular al eje helicoidal que pasa
-por cada par de bases; ese eje lleva el escalon i -> i+1 al escalon i -> i-1,
-lo que fuerza
+M is the CEHS "hinge" middle frame: both frames are bent by -/+ Gamma/2 about
+the hinge axis (the roll-tilt axis, which lies in the xy plane of T_mst at
+angle phi from its y axis) so that their z axes coincide, and T_mst is their
+average. Positive tilt is a rotation about +x of T_mst and positive roll about
++y. M is not the principal square root of R_step; the two coincide only when
+Gamma = 0, where the construction reduces to the screw operator S(Omega, Dz)
+of a fiber model.
 
-    tau = 0   y   Dx = 0
+The inverse decomposes T_i^T T_{i+1} = Rz(alpha) Ry(Gamma) Rz(beta) (ZYZ),
+with Omega = alpha + beta and phi = (beta - alpha)/2 on the branch
+Omega in (-180, 180] (see ``_unwrap_twist_phase``), and rebuilds M from
+(Omega, Gamma, phi) to express o_{i+1} - o_i.
 
-para cualquier helice uniforme. Con la fase simetrica phi = (alpha - beta)/2
-de la descomposicion ZYZ y la raiz cuadrada principal como marco intermedio,
-ambas identidades se cumplen a precision de maquina: medido sobre las cinco
-conformaciones de ``forms.yaml`` y 23 escalones cada una, max|tau| = 1.8e-15
-grados y max|Dx| = 7.9e-16 A. Con la fase asimetrica phi = alpha, o con un
-marco intermedio construido "medio giro y media curvatura", aparecen valores
-espurios de hasta tau = 2.4 grados y Dx = 0.45 A. El par directo/inverso es
-reversible con un error maximo de 7.7e-12 sobre 5000 escalones aleatorios.
-Todo ello se comprueba en ``tests/test_geometry.py``.
+Base-pair parameters
+--------------------
+Same algebra between the two bases of a pair. With base II "unflipped" (its
+triad times Rx(180), so that both bases point the same way):
 
-Para tau = rho = 0 la construccion se reduce exactamente al operador de
-tornillo S(Omega, Dz), que es la simetria que define un modelo de fibra de
-Arnott.
+    Gamma_bp = sqrt(kappa^2 + omega^2),   phi_bp = atan2(kappa, omega)
+    R_pair   = Rz(sigma/2 - phi_bp) . Ry(Gamma_bp) . Rz(sigma/2 + phi_bp)
+             = T_II,unflipped^T . T_I
+    T_bp     = T_II,unflipped . Rz(sigma/2 - phi_bp) . Ry(Gamma_bp/2) . Rz(phi_bp)
+    o_bp     = (o_I + o_II) / 2,    (Sx, Sy, Sz) = T_bp^T (o_I - o_II)
 
-Par de bases
+for (shear Sx, stretch Sy, stagger Sz, buckle kappa, propeller omega,
+opening sigma).
+
+Orientation of the pair frame
+-----------------------------
+3DNA reports parameters with the base-pair z axis along the 5'->3'
+direction of strand I. When the bases are flipped relative to that direction
+(Z-DNA), ``base_frames_to_pair(..., direction=...)`` turns the pair frame by
+180 deg about its y axis, which changes the sign of shear, stagger, buckle
+and opening; step parameters between such frames then give the familiar
+positive rise and negative twist of Z-DNA.
+
+Verification
 ------------
-Con (shear Sx, stretch Sy, stagger Sz, buckle kappa, propeller omega,
-opening sigma) y el marco del par T_bp:
-
-    Gamma_bp = sqrt(kappa^2 + omega^2),  phi_bp = atan2(kappa, omega)
-    R_pair   = Rz(sigma/2 + phi_bp) . Ry(Gamma_bp) . Rz(sigma/2 - phi_bp)
-    H        = R_pair^(1/2)
-
-    T_I  = T_bp . H                       o_I  = o_bp + T_bp.(Sx,Sy,Sz)/2
-    T_II = T_bp . H^{-1} . Rx(180)        o_II = o_bp - T_bp.(Sx,Sy,Sz)/2
-
-El giro Rx(180) sobre la hebra complementaria implementa la convencion
-estandar: el marco de la base II se define en el mismo sentido que el de la
-base I antes de aplicar los parametros intra-par.
+Pair and step parameters of duplexes built on eight 3DNA fiber models
+(A, B, C, D, Z, S-DNA, A-RNA, DNA:RNA hybrid) agree with cpptraj ``nastruct``
+(3DNA conventions) within its four-decimal output; see
+``tests/test_cpptraj_parameters.py``. Any uniform helix with a dyad axis
+perpendicular to the helix axis through each base pair (A, B fiber models)
+has tau = 0 and Dx = 0; ``tests/test_geometry.py::test_fiber_dyad_symmetry``
+checks it to machine precision (measured on five A/B/A'/hybrid fiber helices,
+23 steps each: max|tau| = 1.8e-15 deg, max|Dx| = 4.2e-15 A). The
+forward/inverse pair is exact (5000 random steps and pairs with twist and
+opening in (-170, 170): max error 3.3e-11 and 2.9e-12).
 """
 
 from __future__ import annotations
@@ -195,23 +199,28 @@ def rot_sqrt(R: np.ndarray) -> np.ndarray:
     return np.eye(3) + math.sin(h) * K + (1.0 - math.cos(h)) * (K @ K)
 
 
-def step_rotation(sp: StepParams) -> Tuple[np.ndarray, np.ndarray]:
-    """Devuelve (R_step, R_half) para un escalon.
+def _cehs(omega: float, gamma: float, phi: float) -> Tuple[np.ndarray, np.ndarray]:
+    """(R, M): R = Rz(w/2 - phi) Ry(g) Rz(w/2 + phi), M = Rz(w/2 - phi) Ry(g/2) Rz(phi).
 
-    ``R_half`` es la rotacion que lleva T_i a la middle step triad; es la raiz
-    cuadrada principal de ``R_step``.
+    M is the CEHS hinge middle frame relative to the first frame (module
+    docstring); angles in degrees.
     """
+    R = rot_z(omega / 2.0 - phi) @ rot_y(gamma) @ rot_z(omega / 2.0 + phi)
+    M = rot_z(omega / 2.0 - phi) @ rot_y(gamma / 2.0) @ rot_z(phi)
+    return R, M
+
+
+def step_rotation(sp: StepParams) -> Tuple[np.ndarray, np.ndarray]:
+    """Return (R_step, M) for a step: T_{i+1} = T_i R_step, T_mst = T_i M."""
     gamma = math.hypot(sp.tilt, sp.roll)
     phi = math.degrees(math.atan2(sp.tilt, sp.roll)) if gamma > 1e-12 else 0.0
-    R_step = (rot_z(sp.twist / 2.0 + phi) @ rot_y(gamma)
-              @ rot_z(sp.twist / 2.0 - phi))
-    return R_step, rot_sqrt(R_step)
+    return _cehs(sp.twist, gamma, phi)
 
 
 def apply_step(frame: Frame, sp: StepParams) -> Frame:
-    """Propaga un marco de par de bases un escalon."""
-    R_step, R_half = step_rotation(sp)
-    T_mst = frame.triad @ R_half
+    """Propagate a base-pair frame by one step."""
+    R_step, M = step_rotation(sp)
+    T_mst = frame.triad @ M
     origin = frame.origin + T_mst @ np.array([sp.shift, sp.slide, sp.rise])
     return Frame(origin, frame.triad @ R_step)
 
@@ -233,73 +242,84 @@ def _zyz_from_matrix(R: np.ndarray) -> Tuple[float, float, float]:
 
 
 def _unwrap_twist_phase(alpha: float, beta: float) -> Tuple[float, float]:
-    """Resuelve la degeneracion (Gamma, phi, Omega) ~ (Gamma, phi-180, Omega+360).
+    """Resolve the degeneracy (Gamma, phi, Omega) ~ (Gamma, phi - 180, Omega + 360).
 
-    La descomposicion ZYZ devuelve alpha y beta en (-180, 180], de modo que
-    Omega = alpha + beta puede salir desplazado 360 grados respecto al giro
-    fisico; cada desplazamiento de 360 en Omega va acompanado de uno de 180 en
-    la fase, que invierte los signos de tilt y roll. Se fija la rama exigiendo
-    Omega en (-180, 180], el unico giro con sentido fisico para un escalon o
-    para la apertura de un par.
+    The ZYZ decomposition returns alpha and beta in (-180, 180], so
+    Omega = alpha + beta can come out 360 deg away from the physical twist.
+    Shifting alpha by -360 k (the same rotation) brings Omega into
+    (-180, 180] and shifts phi = (beta - alpha)/2 by +180 k, which keeps
+    R = Rz(Omega/2 - phi) Ry(Gamma) Rz(Omega/2 + phi) exact and flips the
+    signs of tilt and roll only where they were spurious. This branch is also
+    the one on which M (the hinge middle frame) is the bisecting frame.
     """
     omega_raw = alpha + beta
     k = math.floor((omega_raw + 180.0) / 360.0)
-    return omega_raw - 360.0 * k, (alpha - beta) / 2.0 + 180.0 * k
+    return omega_raw - 360.0 * k, (beta - alpha) / 2.0 + 180.0 * k
+
+
+def _decompose(R: np.ndarray) -> Tuple[float, float, float]:
+    """(Omega, Gamma, phi) with R = Rz(Omega/2 - phi) Ry(Gamma) Rz(Omega/2 + phi)."""
+    alpha, gamma, beta = _zyz_from_matrix(R)
+    omega, phi = _unwrap_twist_phase(alpha, beta)
+    return omega, gamma, phi
 
 
 def frames_to_step_params(f_i: Frame, f_j: Frame) -> StepParams:
-    """Inversa exacta de :func:`apply_step` (usada en control de calidad)."""
-    R_rel = f_i.triad.T @ f_j.triad
-    alpha, gamma, beta = _zyz_from_matrix(R_rel)
-    twist, phi = _unwrap_twist_phase(alpha, beta)
-    T_mst = f_i.triad @ rot_sqrt(R_rel)
-    d = T_mst.T @ (f_j.origin - f_i.origin)
+    """Exact inverse of :func:`apply_step` (3DNA/CEHS step parameters)."""
+    omega, gamma, phi = _decompose(f_i.triad.T @ f_j.triad)
+    _, M = _cehs(omega, gamma, phi)
+    d = (f_i.triad @ M).T @ (f_j.origin - f_i.origin)
     return StepParams(shift=float(d[0]), slide=float(d[1]), rise=float(d[2]),
                       tilt=float(gamma * math.sin(phi * DEG)),
                       roll=float(gamma * math.cos(phi * DEG)),
-                      twist=float(twist))
+                      twist=float(omega))
 
 
 # --------------------------------------------------------------------------
 # Par de bases: directo e inverso
 # --------------------------------------------------------------------------
 def pair_rotation(pp: PairParams) -> Tuple[np.ndarray, np.ndarray]:
-    """Devuelve (R_pair, H) con ``H`` la raiz cuadrada principal de R_pair."""
+    """Return (R_pair, M): R_pair = T_IIu^T T_I and T_bp = T_IIu M (T_IIu = unflipped base II)."""
     gamma = math.hypot(pp.buckle, pp.propeller)
     phi = math.degrees(math.atan2(pp.buckle, pp.propeller)) if gamma > 1e-12 else 0.0
-    R_pair = (rot_z(pp.opening / 2.0 + phi) @ rot_y(gamma)
-              @ rot_z(pp.opening / 2.0 - phi))
-    return R_pair, rot_sqrt(R_pair)
+    return _cehs(pp.opening, gamma, phi)
 
 
 def pair_to_base_frames(bp: Frame, pp: PairParams) -> Tuple[Frame, Frame]:
-    """Marcos de las dos bases a partir del marco del par."""
-    _, H = pair_rotation(pp)
+    """Frames of the two bases from the base-pair frame and parameters."""
+    R_pair, M = pair_rotation(pp)
+    T_IIu = bp.triad @ M.T
     disp = bp.triad @ (np.array([pp.shear, pp.stretch, pp.stagger]) / 2.0)
-    f1 = Frame(bp.origin + disp, bp.triad @ H)
-    f2 = Frame(bp.origin - disp, bp.triad @ H.T @ rot_x(180.0))
+    f1 = Frame(bp.origin + disp, T_IIu @ R_pair)
+    f2 = Frame(bp.origin - disp, T_IIu @ rot_x(180.0))
     return f1, f2
 
 
-def base_frames_to_pair(f1: Frame, f2: Frame) -> Tuple[Frame, PairParams]:
-    """Inversa de :func:`pair_to_base_frames`.
+def base_frames_to_pair(f1: Frame, f2: Frame,
+                        direction: Sequence[float] | None = None) -> Tuple[Frame, PairParams]:
+    """Inverse of :func:`pair_to_base_frames`: base-pair frame and parameters.
 
-    Recupera el marco del par y los parametros intra-par a partir de los dos
-    marcos de base, deshaciendo primero el giro Rx(180) de la hebra
-    complementaria. Es la misma operacion que realiza ``nastruct``.
+    ``f2`` is the strand II base frame as fitted (z antiparallel to base I);
+    the Rx(180) flip is undone first, as ``nastruct``/3DNA do. If
+    ``direction`` (the 5'->3' direction of strand I) is given and the pair's
+    z axis points against it, the pair frame is turned by 180 deg about its y
+    axis (3DNA convention for flipped pairs, e.g. Z-DNA).
     """
-    T2u = f2.triad @ rot_x(180.0)            # base II "desvolteada"
-    R_pair = T2u.T @ f1.triad
-    H = rot_sqrt(R_pair)
-    T_bp = f1.triad @ H.T
+    T2u = f2.triad @ rot_x(180.0)
+    omega, gamma, phi = _decompose(T2u.T @ f1.triad)
+    _, M = _cehs(omega, gamma, phi)
+    T_bp = T2u @ M
     o_bp = (f1.origin + f2.origin) / 2.0
-    alpha, gamma, beta = _zyz_from_matrix(R_pair)
-    opening, phi = _unwrap_twist_phase(alpha, beta)
     d = T_bp.T @ (f1.origin - f2.origin)
-    pp = PairParams(shear=float(d[0]), stretch=float(d[1]), stagger=float(d[2]),
-                    buckle=float(gamma * math.sin(phi * DEG)),
-                    propeller=float(gamma * math.cos(phi * DEG)),
-                    opening=float(opening))
+    shear, stretch, stagger = float(d[0]), float(d[1]), float(d[2])
+    buckle = float(gamma * math.sin(phi * DEG))
+    propeller = float(gamma * math.cos(phi * DEG))
+    opening = float(omega)
+    if direction is not None and float(np.dot(T_bp[:, 2], np.asarray(direction, float))) < 0:
+        T_bp = T_bp @ rot_y(180.0)
+        shear, stagger, buckle, opening = -shear, -stagger, -buckle, -opening
+    pp = PairParams(shear=shear, stretch=stretch, stagger=stagger, buckle=buckle,
+                    propeller=propeller, opening=opening)
     return Frame(o_bp, T_bp), pp
 
 
