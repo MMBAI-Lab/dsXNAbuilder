@@ -109,7 +109,7 @@ def main() -> int:
         shot("mismatch")
         s, iss = run_example("abasic", 12)
         check("ABASIC" in iss, "abasic site built and reported")
-        s, iss = run_example("lna", 10)
+        s, iss = run_example("lna", 16)
         check("modXNA residues" in s and "TRANSPLANT_STRAIN" not in iss,
               "LNA gapmer : RNA built with modXNA residues")
         shot("lna")

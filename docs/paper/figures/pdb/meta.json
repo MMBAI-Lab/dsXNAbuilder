@@ -1,0 +1,297 @@
+{
+ "b_dna": {
+  "label": "B-DNA (#4)",
+  "top": "CGCGAATTCGCG",
+  "bottom": "GCGCTTAAGCGC",
+  "model": 4,
+  "summary": {
+   "model": 4,
+   "family": "B-DNA",
+   "n_bp": 12,
+   "n_residues": 24,
+   "n_atoms": 486,
+   "n_modified": 0,
+   "flipped": false,
+   "phase": 0,
+   "o3p": [
+    1.601,
+    1.601
+   ],
+   "clashes": 0,
+   "name_map": {}
+  },
+  "issues": []
+ },
+ "a_dna": {
+  "label": "A-DNA (#1)",
+  "top": "CGCGAATTCGCG",
+  "bottom": "GCGCTTAAGCGC",
+  "model": 1,
+  "summary": {
+   "model": 1,
+   "family": "A-DNA",
+   "n_bp": 12,
+   "n_residues": 24,
+   "n_atoms": 486,
+   "n_modified": 0,
+   "flipped": false,
+   "phase": 0,
+   "o3p": [
+    1.601,
+    1.601
+   ],
+   "clashes": 0,
+   "name_map": {}
+  },
+  "issues": []
+ },
+ "c_dna": {
+  "label": "C-DNA (#7)",
+  "top": "CGCGAATTCGCG",
+  "bottom": "GCGCTTAAGCGC",
+  "model": 7,
+  "summary": {
+   "model": 7,
+   "family": "C-DNA",
+   "n_bp": 12,
+   "n_residues": 24,
+   "n_atoms": 486,
+   "n_modified": 0,
+   "flipped": false,
+   "phase": 0,
+   "o3p": [
+    1.601,
+    1.601
+   ],
+   "clashes": 0,
+   "name_map": {}
+  },
+  "issues": []
+ },
+ "d_dna": {
+  "label": "D-DNA (#14)",
+  "top": "ATATATATATAT",
+  "bottom": "TATATATATATA",
+  "model": 14,
+  "summary": {
+   "model": 14,
+   "family": "D-DNA",
+   "n_bp": 12,
+   "n_residues": 24,
+   "n_atoms": 486,
+   "n_modified": 0,
+   "flipped": false,
+   "phase": 0,
+   "o3p": [
+    1.599,
+    1.601
+   ],
+   "clashes": 0,
+   "name_map": {}
+  },
+  "issues": []
+ },
+ "z_dna": {
+  "label": "Z-DNA (#15)",
+  "top": "CGCGCGCGCGCG",
+  "bottom": "GCGCGCGCGCGC",
+  "model": 15,
+  "summary": {
+   "model": 15,
+   "family": "Z-DNA",
+   "n_bp": 12,
+   "n_residues": 24,
+   "n_atoms": 486,
+   "n_modified": 0,
+   "flipped": false,
+   "phase": 1,
+   "o3p": [
+    1.6,
+    1.6
+   ],
+   "clashes": 0,
+   "name_map": {}
+  },
+  "issues": []
+ },
+ "s_dna": {
+  "label": "S-DNA (#49)",
+  "top": "CGCGCGCGCGCG",
+  "bottom": "GCGCGCGCGCGC",
+  "model": 49,
+  "summary": {
+   "model": 49,
+   "family": "S-DNA",
+   "n_bp": 12,
+   "n_residues": 24,
+   "n_atoms": 486,
+   "n_modified": 0,
+   "flipped": false,
+   "phase": 0,
+   "o3p": [
+    1.593,
+    1.604
+   ],
+   "clashes": 0,
+   "name_map": {}
+  },
+  "issues": []
+ },
+ "a_rna": {
+  "label": "A-RNA (#20)",
+  "top": "GGCGCUUGCGUC",
+  "bottom": "CCGCGAACGCAG",
+  "model": 20,
+  "summary": {
+   "model": 20,
+   "family": "A-RNA",
+   "n_bp": 12,
+   "n_residues": 24,
+   "n_atoms": 507,
+   "n_modified": 0,
+   "flipped": false,
+   "phase": 0,
+   "o3p": [
+    1.599,
+    1.6
+   ],
+   "clashes": 0,
+   "name_map": {}
+  },
+  "issues": [
+   "MODEL_SEQUENCE"
+  ]
+ },
+ "hybrid": {
+  "label": "DNA:RNA hybrid (#22)",
+  "top": "r(GACUAGCUGACU)",
+  "bottom": "d(CTGATCGACTGA)",
+  "model": 22,
+  "summary": {
+   "model": 22,
+   "family": "DNA:RNA hybrid",
+   "n_bp": 12,
+   "n_residues": 24,
+   "n_atoms": 495,
+   "n_modified": 0,
+   "flipped": false,
+   "phase": 0,
+   "o3p": [
+    1.6,
+    1.6
+   ],
+   "clashes": 0,
+   "name_map": {}
+  },
+  "issues": [
+   "MODEL_SEQUENCE"
+  ]
+ },
+ "gapmer": {
+  "label": "LNA/PS gapmer : RNA (#22)",
+  "top": "r(GCAAUGUACUGAAUGC)",
+  "bottom": "+C*+G*+T*dT*dA*dC*dA*dT*dG*dA*dC*dT*dT*+A*+C*+G",
+  "model": 22,
+  "summary": {
+   "model": 22,
+   "family": "DNA:RNA hybrid",
+   "n_bp": 16,
+   "n_residues": 32,
+   "n_atoms": 674,
+   "n_modified": 16,
+   "flipped": false,
+   "phase": 0,
+   "o3p": [
+    1.6,
+    1.6
+   ],
+   "clashes": 0,
+   "name_map": {
+    "5PO/LNA/RGG/5cap": "X01",
+    "PS1/LNA/RCC/int": "X02",
+    "PS1/LNA/RAA/int": "X03",
+    "PS1/DC2/DTT/int": "X04",
+    "PS1/DC2/DCC/int": "X05",
+    "PS1/DC2/DAA/int": "X06",
+    "PS1/DC2/DGG/int": "X07",
+    "PS1/LNA/DTT/int": "X08",
+    "PS1/LNA/RGG/int": "X09",
+    "PS1/LNA/RCC/3cap": "X10"
+   }
+  },
+  "issues": [
+   "PS_STEREO_UNSPECIFIED",
+   "MODEL_SEQUENCE"
+  ]
+ },
+ "sirna": {
+  "label": "siRNA 2'-OMe/2'-F/PS (#20)",
+  "top": "--mG*fC*mAfAmGfCmUfGmAfCmCfCmUfGmAfAmGfUmU*fU*mU",
+  "bottom": "fU*mU*fCmGfUmUfCmGfAmCfUmGfGmGfAmCfUmUfC*mA*fA--",
+  "model": 20,
+  "summary": {
+   "model": 20,
+   "family": "A-RNA",
+   "n_bp": 23,
+   "n_residues": 42,
+   "n_atoms": 903,
+   "n_modified": 42,
+   "flipped": false,
+   "phase": 0,
+   "o3p": [
+    1.599,
+    1.6
+   ],
+   "clashes": 0,
+   "name_map": {
+    "5PO/OME/RGG/5cap": "X01",
+    "PS1/AF2/RCC/int": "X02",
+    "PS1/OME/RAA/int": "X03",
+    "RPO/AF2/RAA/int": "X04",
+    "RPO/OME/RGG/int": "X05",
+    "RPO/AF2/RCC/int": "X06",
+    "RPO/OME/RUU/int": "X07",
+    "RPO/AF2/RGG/int": "X08",
+    "RPO/OME/RAA/int": "X09",
+    "RPO/OME/RCC/int": "X10",
+    "RPO/AF2/RUU/int": "X11",
+    "PS1/AF2/RUU/int": "X12",
+    "PS1/OME/RUU/3cap": "X13",
+    "5PO/AF2/RAA/5cap": "X14",
+    "PS1/OME/RUU/int": "X15",
+    "PS1/AF2/RUU/3cap": "X16"
+   }
+  },
+  "issues": [
+   "PS_STEREO_UNSPECIFIED",
+   "PS_STEREO_UNSPECIFIED",
+   "OVERHANG",
+   "MODEL_SEQUENCE"
+  ]
+ },
+ "abasic": {
+  "label": "abasic site (#4)",
+  "top": "CGCGA-TTCGCG",
+  "bottom": "GCGCTTAAGCGC",
+  "model": 4,
+  "summary": {
+   "model": 4,
+   "family": "B-DNA",
+   "n_bp": 12,
+   "n_residues": 24,
+   "n_atoms": 476,
+   "n_modified": 0,
+   "flipped": false,
+   "phase": 0,
+   "o3p": [
+    1.601,
+    1.601
+   ],
+   "clashes": 0,
+   "name_map": {}
+  },
+  "issues": [
+   "ABASIC"
+  ]
+ }
+}

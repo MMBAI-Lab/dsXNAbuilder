@@ -14,7 +14,7 @@ const EXAMPLES = [
   { id: 'mismatch', en: 'Mismatch + overhang', es: 'Desapareamiento + extremo', top: 'CGCGAGTTCGCGAA', bottom: 'GCGCTAAAGCGC--', model: 55 },
   { id: 'abasic', en: 'Abasic site', es: 'Sitio abásico', top: 'CGCGA-TTCGCG', bottom: 'GCGCTTAAGCGC', model: 4 },
   { id: 'sirna', en: 'siRNA 2′-OMe/2′-F + PS', es: 'siRNA 2′-OMe/2′-F + PS', top: 'mG*mA*fC*mU*fA*mG*fC*mU*mG*mA', bottom: 'C*U*GAUCGAC*U', model: 20 },
-  { id: 'lna', en: 'LNA gapmer : RNA', es: 'Gapmer LNA : ARN', top: 'r(GACUAGCUGA)', bottom: '+C*+T*+G*dA*dT*dC*dG*+A*+C*+T', model: 22 },
+  { id: 'lna', en: 'LNA gapmer : RNA', es: 'Gapmer LNA : ARN', top: 'r(GCAAUGUACUGAAUGC)', bottom: '+C*+G*+T*dT*dA*dC*dA*dT*dG*dA*dC*dT*dT*+A*+C*+G', model: 22 },
   { id: 'moe', en: 'MOE gapmer : RNA', es: 'Gapmer MOE : ARN', top: 'r(GACUAGCUGA)', bottom: 'eC*eT*eG*dA*dT*dC*dG*eA*eC*eT', model: 22 },
   { id: 'mc', en: '5mC + PS on B-DNA', es: '5mC + PS en ADN-B', top: 'CGC^5mCGAA*2TTCGCG', bottom: 'GCGCTT*1AAGCGC', model: 4 },
 ];
@@ -206,6 +206,7 @@ function renderIssues(list) {
 async function build() {
   if (!state.ready) return;
   const req = request();
+  const t0 = performance.now();
   $('#build').disabled = true;
   $('#status').innerHTML = `<span class="spinner"></span>${esc(t('building'))}`;
   try {
@@ -219,6 +220,9 @@ async function build() {
     if (!out.ok) return;
     state.last = out;
     renderSummary(out);
+    // wall time from click to result (validation, library fetch, build); read by
+    // scripts/bench_browser.py and handy when reporting performance
+    document.body.dataset.buildMs = String(Math.round(performance.now() - t0));
     state.lastReq = req;
     try {
       await showStructure(out.pdb, out.summary);
