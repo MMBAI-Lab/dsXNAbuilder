@@ -1,0 +1,379 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>dsXNAbuilder · nucleic acid duplex builder</title>
+<meta name="description" content="Build canonical DNA, RNA and DNA:RNA duplexes from the 3DNA fiber models, with modXNA sugar, backbone and base modifications on either strand, ready for Amber.">
+<script>
+  // same key as danslab.xyz, so the theme follows the lab site
+  try { var t = localStorage.getItem('theme'); if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t); } catch (e) {}
+</script>
+<link rel="stylesheet" href="style.css?v=0.2.0-dev">
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <h1 class="brand">ds<span>XNA</span>builder</h1>
+    <p class="tagline" data-i18n="tagline">DNA, RNA and DNA:RNA duplexes from the 3DNA fiber models, with modXNA chemistry on either strand, ready for Amber.</p>
+    <div class="toplinks">
+      <span class="seg" id="lang" role="group" aria-label="Language">
+        <button type="button" data-v="en" aria-pressed="true">EN</button>
+        <button type="button" data-v="es" aria-pressed="false">ES</button>
+      </span>
+      <button class="iconbtn" id="theme" type="button" aria-label="Toggle light/dark theme">◐</button>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+  <nav class="tabs" role="tablist">
+    <button role="tab" id="tab-build" aria-selected="true" aria-controls="view-build" data-i18n="tab_build">Build</button>
+    <button role="tab" id="tab-models" aria-selected="false" aria-controls="view-models" data-i18n="tab_models">Helix models</button>
+    <button role="tab" id="tab-docs" aria-selected="false" aria-controls="view-docs" data-i18n="tab_docs">Documentation</button>
+  </nav>
+
+  <!-- ============================================================ BUILD -->
+  <section id="view-build" class="layout">
+    <div class="controls">
+      <div class="panel">
+        <h2 data-i18n="h_sequence">Sequence</h2>
+        <div class="field">
+          <label for="top"><span data-i18n="strand1">Strand 1</span> <span class="dir">5′ → 3′</span></label>
+          <input type="text" id="top" class="seq" spellcheck="false" autocomplete="off" placeholder="CGCGAATTCGCG">
+        </div>
+        <div class="field">
+          <label for="bottom"><span data-i18n="strand2">Strand 2</span> <span class="dir">3′ → 5′</span> <span class="hint" data-i18n="strand2_hint">aligned under strand 1</span></label>
+          <input type="text" id="bottom" class="seq" spellcheck="false" autocomplete="off" placeholder="GCGCTTAAGCGC">
+        </div>
+        <div class="actions tight">
+          <button class="btn ghost small" id="complement" type="button" data-i18n="btn_complement">Complement strand 1</button>
+          <button class="btn ghost small" id="clear" type="button" data-i18n="btn_clear">Clear</button>
+        </div>
+        <details class="notation">
+          <summary data-i18n="notation">Notation</summary>
+          <table class="legend">
+            <tbody>
+              <tr><td><code>A C G T U</code></td><td data-i18n="n_letters">bases; plain letters take the chemistry of the model strand</td></tr>
+              <tr><td><code>d(…) r(…)</code></td><td data-i18n="n_groups">DNA / RNA group</td></tr>
+              <tr><td><code>dA rA</code></td><td data-i18n="n_dr">2′-deoxy / ribo nucleotide</td></tr>
+              <tr><td><code>mA fA eA +A</code></td><td data-i18n="n_sugars">2′-OMe, 2′-F, 2′-MOE, LNA sugar</td></tr>
+              <tr><td><code>*  *1  *2</code></td><td data-i18n="n_ps">phosphorothioate before the next residue (*1 keeps OP2, *2 keeps OP1)</td></tr>
+              <tr><td><code>C^5mC</code></td><td data-i18n="n_base">modified base (modXNA code or alias)</td></tr>
+              <tr><td><code>{PS1/MOE/RUU}</code></td><td data-i18n="n_explicit">any modXNA backbone/sugar/base triplet</td></tr>
+              <tr><td><code>-</code></td><td data-i18n="n_gap">no nucleotide (overhang, ends only)</td></tr>
+            </tbody>
+          </table>
+          <p class="hint" data-i18n="n_note">Strand 2 is typed 3′→5′, so a linkage written in it belongs to the residue on its left. Mismatches are allowed.</p>
+        </details>
+      </div>
+
+      <div class="panel">
+        <h2 data-i18n="h_model">Helix model (3DNA fiber)</h2>
+        <div class="field">
+          <select id="model" aria-label="Fiber model"></select>
+          <div class="hint" id="modelinfo"></div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2 data-i18n="h_amber">Amber input</h2>
+        <div class="row">
+          <div class="field">
+            <label for="dnaff" data-i18n="dna_ff">DNA force field</label>
+            <select id="dnaff">
+              <option value="OL15">OL15</option><option value="OL21">OL21</option>
+              <option value="OL24">OL24</option><option value="bsc1">bsc1</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="water" data-i18n="solvent">Solvent</label>
+            <select id="water">
+              <option value="none" data-i18n="implicit">implicit (GB)</option>
+              <option value="opc">OPC</option><option value="tip3p">TIP3P</option><option value="spce">SPC/E</option>
+            </select>
+          </div>
+        </div>
+        <div class="row" id="boxrow">
+          <div class="field">
+            <label for="box" data-i18n="box">Box</label>
+            <select id="box"><option value="octahedral" data-i18n="octahedral">truncated octahedron</option><option value="cubic" data-i18n="cubic">rectangular</option></select>
+          </div>
+          <div class="field">
+            <label for="buffer" data-i18n="buffer">Buffer (Å)</label>
+            <input type="number" id="buffer" min="5" max="30" step="1" value="10">
+          </div>
+        </div>
+        <div class="hint" data-i18n="amber_hint">RNA: OL3. The package runs tleap (topology) and a restrained sander minimization on your machine.</div>
+      </div>
+
+      <div class="panel">
+        <h2 data-i18n="h_examples">Examples</h2>
+        <div class="examples" id="examples"></div>
+      </div>
+
+      <div class="buildbar">
+        <button class="btn" id="build" type="button" disabled data-i18n="btn_build">Build duplex</button>
+        <span class="status" id="status"></span>
+      </div>
+    </div>
+
+    <div class="results">
+      <div class="panel">
+        <h2 data-i18n="h_alignment">Base pairs</h2>
+        <div id="grid" class="grid empty-grid"><span class="hint" data-i18n="grid_empty">Type both strands to see the pairing.</span></div>
+        <ul id="issues" class="issues"></ul>
+      </div>
+      <div class="panel" id="resultpanel">
+        <h2 data-i18n="h_structure">Structure</h2>
+        <div id="viewer" class="viewer"><div class="empty" data-i18n="viewer_empty">The built duplex appears here.</div></div>
+        <div class="viewerbar">
+          <span class="seg" id="repr" role="group">
+            <button type="button" data-v="cartoon" aria-pressed="true" data-i18n="r_cartoon">cartoon</button>
+            <button type="button" data-v="sticks" aria-pressed="false" data-i18n="r_sticks">sticks</button>
+          </span>
+          <button class="iconbtn" id="spin" type="button" data-i18n="spin">spin</button>
+          <button class="iconbtn" id="recenter" type="button" data-i18n="recenter">reset view</button>
+        </div>
+        <div id="summary" class="stats hidden"></div>
+        <div class="actions" id="downloads">
+          <button class="btn" id="dlzip" type="button" disabled data-i18n="dl_zip">Download Amber package (.zip)</button>
+          <button class="btn ghost" id="dlpdb" type="button" disabled data-i18n="dl_pdb">Download PDB</button>
+          <button class="btn ghost" id="link" type="button" disabled data-i18n="copy_link">Copy reproducible link</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ MODELS -->
+  <section id="view-models" class="hidden">
+    <div class="doc wide">
+      <p data-i18n="models_intro">Fiber models of 3DNA (Lu &amp; Olson 2003, Table 4), derived from the repeating units of Arnott and co-workers and later fiber studies. Twist and rise are per base pair; “generic” models were built for any sequence, the others come from a specific repeating sequence and keep its backbone geometry for other bases.</p>
+      <div class="tablewrap"><table id="modeltable"></table></div>
+      <h3 data-i18n="excluded_title">Models not offered</h3>
+      <div class="tablewrap"><table id="excludedtable"></table></div>
+    </div>
+  </section>
+
+  <!-- ============================================================ DOCS -->
+  <section id="view-docs" class="hidden">
+    <article class="doc" lang="en">
+      <p><b>dsXNAbuilder</b> builds double-stranded DNA, RNA and DNA:RNA hybrid duplexes in any of
+      the regular helical forms of the <a href="https://doi.org/10.1093/nar/gkg680">3DNA</a> fiber
+      library (A, B, C, D, Z, B′, S, B*, A-RNA, A′-RNA and hybrid forms), lets you put
+      <a href="https://modxna.chpc.utah.edu/">modXNA</a> sugar, backbone and base modifications on
+      either strand, and returns a ready-to-run Amber input package.</p>
+      <p>Everything runs in your browser (Python compiled to WebAssembly). Nothing you enter is sent
+      anywhere; there is no login, no cookie and no tracking. Only your theme and language choice
+      are remembered in your browser’s local storage.</p>
+
+      <h2>Tutorial: the Dickerson dodecamer in one click</h2>
+      <ol>
+        <li>Click the example <b>Dickerson dodecamer (B-DNA)</b>. Strand 1 is
+          <code>CGCGAATTCGCG</code> (5′→3′) and strand 2, typed under it 3′→5′, is
+          <code>GCGCTTAAGCGC</code>.</li>
+        <li>The <b>Base pairs</b> panel shows the twelve Watson–Crick pairs. Change one letter of
+          strand 2: the column turns into a mismatch and a warning appears.</li>
+        <li>Press <b>Build duplex</b>. The structure appears in the viewer, with its summary:
+          24 nucleotides, 486 heavy atoms, every O3′–P bond at 1.60 Å, no clashes.</li>
+        <li>Download the <b>Amber package</b> and run it:
+<pre>unzip dsxnabuilder.zip &amp;&amp; cd dsxnabuilder
+source $AMBERHOME/amber.sh
+./run.sh            # tleap -> system.parm7/rst7, then restrained sander minimization</pre></li>
+        <li><b>Copy reproducible link</b> gives a URL that rebuilds exactly the same duplex.</li>
+      </ol>
+
+      <h2>Writing the sequences</h2>
+      <p>Type strand 1 from 5′ to 3′ and strand 2 from 3′ to 5′, so that the two lines are aligned
+      column by column: column <i>i</i> is base pair <i>i</i>. This lets you modify either strand
+      independently and build mismatches. Use <code>-</code> at the ends of a line to leave a
+      nucleotide unpaired (overhangs). End labels <code>5′-</code>/<code>-3′</code> are optional.</p>
+      <table>
+        <thead><tr><th>write</th><th>meaning</th></tr></thead>
+        <tbody>
+          <tr><td><code>ACGTU</code></td><td>bases; plain letters take the chemistry of the model strand (DNA on B-DNA, RNA on A-RNA)</td></tr>
+          <tr><td><code>d(ACG)</code>, <code>r(ACG)</code></td><td>DNA or RNA group</td></tr>
+          <tr><td><code>m</code>, <code>f</code>, <code>e</code>/<code>moe</code>, <code>+</code>/<code>l</code></td><td>sugar prefixes: 2′-O-methyl (OME), 2′-fluoro (AF2), 2′-O-methoxyethyl (MOE), LNA</td></tr>
+          <tr><td><code>*</code>, <code>*1</code>, <code>*2</code></td><td>phosphorothioate linkage. modXNA PS1 retains OP2, PS2 retains OP1; their absolute Rp/Sp labels are not yet confirmed, so <code>*</code> alone uses PS1 and warns</td></tr>
+          <tr><td><code>^5mC</code></td><td>base modification (alias or modXNA base code)</td></tr>
+          <tr><td><code>{PS2/MOE/M5C}</code></td><td>any modXNA backbone/sugar/base triplet; add <code>:C</code> for bases whose pairing letter is not tabulated</td></tr>
+        </tbody>
+      </table>
+      <p>In modXNA the backbone fragment of a nucleotide is its 5′ phosphate, so a linkage symbol
+      belongs to the nucleotide on its 3′ side. In strand 1 that is the residue to the right of the
+      symbol; in strand 2 (typed 3′→5′) it is the residue to the left. The 5′-terminal nucleotide of
+      each strand has a 5′-OH.</p>
+
+      <h2>Helix models</h2>
+      <p>The <b>Helix models</b> tab lists the 40 double-stranded 3DNA fiber models offered. Each is a
+      repeating unit of one or more base pairs plus the screw operation that maps it onto the next
+      unit. dsXNAbuilder places every nucleotide directly with that screw, so a built duplex
+      reproduces the fiber model exactly and the sugar-phosphate backbone stays continuous
+      (O3′–P ≈ 1.60 Å) without any relaxation.</p>
+      <ul>
+        <li><b>Generic</b> models (A-DNA #1, #54; B-DNA #4, #46, #55; C-DNA #7, #47) come with all four
+          bases and accept any sequence.</li>
+        <li>The other models were derived for a specific repeating sequence (e.g. Z-DNA #15 for
+          poly d(GC)). Other bases are placed on the model’s own backbone by swapping the base in the
+          standard reference frame (Olson et al. 2001), as 3DNA does. For multi-base-pair repeats the
+          builder picks the repeat phase that best fits your purine/pyrimidine pattern and warns when
+          the sequence breaks it (e.g. a pyrimidine in a syn position of Z-DNA).</li>
+        <li>Hybrid models (#22–#25) have one DNA and one RNA strand; if your strand 1 is RNA and the
+          model’s first strand is DNA, the duplex is built the other way round and turned so that
+          strand 1 still runs 5′→3′ upwards.</li>
+        <li>RNA on a DNA model (or the reverse) is allowed: O2′ is added or removed on the model’s
+          sugar, which keeps the model’s pucker; a warning tells you when that pucker is unusual.</li>
+      </ul>
+      <p>Fifteen of the 55 3DNA models are not offered: triplexes, the quadruplex and the single
+      strand (#30–#36, #42), homo base pairs that cannot be written with A/C/G/T/U (#26–#29), and
+      models that fail the geometric checks (#17, #48) or are deprecated in 3DNA (#53). The models tab
+      gives the reason for each.</p>
+
+      <h2>The Amber package</h2>
+      <table>
+        <tbody>
+          <tr><td><code>structure.pdb</code></td><td>the duplex, heavy atoms only, Amber residue and atom names (tleap adds the hydrogens)</td></tr>
+          <tr><td><code>leap.in</code></td><td>tleap input: force fields, modXNA libraries, solvation and ions</td></tr>
+          <tr><td><code>min.in</code></td><td>restrained minimization (heavy atoms of unmodified residues restrained)</td></tr>
+          <tr><td><code>run.sh</code></td><td>runs tleap and sander; <code>./run.sh --no-min</code> for the topology only</td></tr>
+          <tr><td><code>manifest.json</code></td><td>inputs, model and data provenance, residue names, warnings and file hashes</td></tr>
+          <tr><td><code>libs/</code>, <code>frcmod.modxna</code></td><td>modXNA residues and parameters, when modifications are used</td></tr>
+        </tbody>
+      </table>
+      <p>The same package can be produced from the command line with the
+      <code>dsxnabuilder</code> Python package (<code>dsxnabuilder build --top … --bottom …
+      --model 4</code>); the manifest records the exact command.</p>
+
+      <h2>Warnings</h2>
+      <p>Warnings never block a build; errors do. Mismatches, wobble pairs, overhangs, base swaps on
+      sequence-specific models, forced sugar puckers and short contacts are reported so that you can
+      decide whether the restrained minimization is enough before MD.</p>
+
+      <h2>Cite</h2>
+      <p>If you use dsXNAbuilder, please cite the 3DNA fiber models (Lu &amp; Olson,
+      <i>Nucleic Acids Res</i> 2003, 31:5108–5121; <i>Nat Protoc</i> 2008, 3:1213–1227) and, when
+      modified nucleotides are used, modXNA (Love et al., <i>J Chem Theory Comput</i> 2024,
+      20:9354–9363).</p>
+
+      <h2>License</h2>
+      <p>dsXNAbuilder is free software (GPL-3.0). Fiber templates are derived from 3DNA data
+      (CC BY-NC 4.0); modXNA residues are GPL-3.0. The structures you build are yours.</p>
+    </article>
+
+    <article class="doc hidden" lang="es">
+      <p><b>dsXNAbuilder</b> construye dúplex de ADN, ARN e híbridos ADN:ARN en cualquiera de las
+      formas helicoidales regulares de la biblioteca de fibras de
+      <a href="https://doi.org/10.1093/nar/gkg680">3DNA</a> (A, B, C, D, Z, B′, S, B*, ARN-A, ARN-A′ e
+      híbridos). Permite poner modificaciones de azúcar, esqueleto y base de
+      <a href="https://modxna.chpc.utah.edu/">modXNA</a> en cualquiera de las dos hebras y devuelve un
+      paquete de entrada para Amber listo para ejecutar.</p>
+      <p>Todo se ejecuta en su navegador (Python compilado a WebAssembly). Nada de lo que escribe se
+      envía a ningún sitio: no hay registro, ni cookies, ni seguimiento. Solo se recuerdan en el
+      almacenamiento local del navegador el tema y el idioma elegidos.</p>
+
+      <h2>Tutorial: el dodecámero de Dickerson en un clic</h2>
+      <ol>
+        <li>Pulse el ejemplo <b>Dodecámero de Dickerson (B-DNA)</b>. La hebra 1 es
+          <code>CGCGAATTCGCG</code> (5′→3′) y la hebra 2, escrita debajo 3′→5′, es
+          <code>GCGCTTAAGCGC</code>.</li>
+        <li>El panel <b>Pares de bases</b> muestra los doce pares Watson–Crick. Cambie una letra de la
+          hebra 2: la columna pasa a ser un desapareamiento y aparece un aviso.</li>
+        <li>Pulse <b>Construir dúplex</b>. La estructura aparece en el visor con su resumen:
+          24 nucleótidos, 486 átomos pesados, todos los enlaces O3′–P a 1,60 Å y ningún choque.</li>
+        <li>Descargue el <b>paquete de Amber</b> y ejecútelo:
+<pre>unzip dsxnabuilder.zip &amp;&amp; cd dsxnabuilder
+source $AMBERHOME/amber.sh
+./run.sh            # tleap -> system.parm7/rst7 y minimización restringida con sander</pre></li>
+        <li><b>Copiar enlace reproducible</b> da una URL que reconstruye exactamente el mismo dúplex.</li>
+      </ol>
+
+      <h2>Cómo escribir las secuencias</h2>
+      <p>Escriba la hebra 1 de 5′ a 3′ y la hebra 2 de 3′ a 5′, de modo que las dos líneas queden
+      alineadas columna a columna: la columna <i>i</i> es el par <i>i</i>. Así puede modificar cada
+      hebra por separado y construir desapareamientos. Use <code>-</code> en los extremos de una línea
+      para dejar un nucleótido sin pareja (extremos protuberantes). Las etiquetas
+      <code>5′-</code>/<code>-3′</code> son opcionales.</p>
+      <table>
+        <thead><tr><th>escriba</th><th>significado</th></tr></thead>
+        <tbody>
+          <tr><td><code>ACGTU</code></td><td>bases; las letras sin prefijo toman la química de la hebra del modelo (ADN en B-DNA, ARN en A-RNA)</td></tr>
+          <tr><td><code>d(ACG)</code>, <code>r(ACG)</code></td><td>grupo de ADN o de ARN</td></tr>
+          <tr><td><code>m</code>, <code>f</code>, <code>e</code>/<code>moe</code>, <code>+</code>/<code>l</code></td><td>prefijos de azúcar: 2′-O-metilo (OME), 2′-fluoro (AF2), 2′-O-metoxietilo (MOE), LNA</td></tr>
+          <tr><td><code>*</code>, <code>*1</code>, <code>*2</code></td><td>enlace fosforotioato. PS1 de modXNA retiene OP2 y PS2 retiene OP1; su asignación absoluta Rp/Sp aún no está confirmada, así que <code>*</code> solo usa PS1 y avisa</td></tr>
+          <tr><td><code>^5mC</code></td><td>modificación de base (alias o código de base modXNA)</td></tr>
+          <tr><td><code>{PS2/MOE/M5C}</code></td><td>cualquier triplete esqueleto/azúcar/base de modXNA; añada <code>:C</code> si la letra de emparejamiento de la base no está tabulada</td></tr>
+        </tbody>
+      </table>
+      <p>En modXNA el fragmento de esqueleto de un nucleótido es su fosfato 5′, así que el símbolo de
+      enlace pertenece al nucleótido de su lado 3′: en la hebra 1, el de la derecha del símbolo; en
+      la hebra 2 (escrita 3′→5′), el de la izquierda. El nucleótido 5′-terminal de cada hebra tiene
+      un 5′-OH.</p>
+
+      <h2>Modelos de hélice</h2>
+      <p>La pestaña <b>Modelos de hélice</b> lista los 40 modelos de fibra dúplex de 3DNA disponibles.
+      Cada uno es una unidad repetitiva de uno o más pares de bases y la operación de tornillo que la
+      lleva a la siguiente. dsXNAbuilder coloca cada nucleótido directamente con ese tornillo, así que
+      el dúplex reproduce exactamente el modelo de fibra y el esqueleto azúcar-fosfato queda continuo
+      (O3′–P ≈ 1,60 Å) sin relajación.</p>
+      <ul>
+        <li>Los modelos <b>genéricos</b> (ADN-A #1, #54; ADN-B #4, #46, #55; ADN-C #7, #47) traen las
+          cuatro bases y admiten cualquier secuencia.</li>
+        <li>Los demás se derivaron para una secuencia repetitiva concreta (p. ej. ADN-Z #15 para
+          poli d(GC)). Las demás bases se colocan sobre el esqueleto del modelo intercambiando la base
+          en el marco de referencia estándar (Olson et al. 2001), como hace 3DNA. En repeticiones de
+          varios pares se elige la fase que mejor encaja con su patrón purina/pirimidina y se avisa
+          cuando la secuencia lo rompe (p. ej. una pirimidina en posición syn del ADN-Z).</li>
+        <li>Los híbridos (#22–#25) tienen una hebra de ADN y otra de ARN; si su hebra 1 es ARN y la
+          primera hebra del modelo es ADN, el dúplex se construye al revés y se gira para que la
+          hebra 1 siga yendo 5′→3′ hacia arriba.</li>
+        <li>Se admite ARN sobre un modelo de ADN (o al revés): se añade o quita O2′ sobre el azúcar del
+          modelo, que conserva su pucker; un aviso indica cuándo ese pucker es inusual.</li>
+      </ul>
+      <p>Quince de los 55 modelos de 3DNA no se ofrecen: tríplex, el cuádruplex y la hebra simple
+      (#30–#36, #42), pares homo que no se pueden escribir con A/C/G/T/U (#26–#29) y modelos que no
+      superan las comprobaciones geométricas (#17, #48) o que 3DNA marca como obsoletos (#53). La
+      pestaña de modelos da el motivo de cada uno.</p>
+
+      <h2>El paquete de Amber</h2>
+      <table>
+        <tbody>
+          <tr><td><code>structure.pdb</code></td><td>el dúplex, solo átomos pesados, con nombres de residuo y de átomo de Amber (tleap añade los hidrógenos)</td></tr>
+          <tr><td><code>leap.in</code></td><td>entrada de tleap: campos de fuerza, librerías de modXNA, solvatación e iones</td></tr>
+          <tr><td><code>min.in</code></td><td>minimización restringida (se restringen los átomos pesados de los residuos sin modificar)</td></tr>
+          <tr><td><code>run.sh</code></td><td>ejecuta tleap y sander; <code>./run.sh --no-min</code> solo genera la topología</td></tr>
+          <tr><td><code>manifest.json</code></td><td>entradas, procedencia del modelo y de los datos, nombres de residuo, avisos y hashes de los ficheros</td></tr>
+          <tr><td><code>libs/</code>, <code>frcmod.modxna</code></td><td>residuos y parámetros de modXNA, cuando se usan modificaciones</td></tr>
+        </tbody>
+      </table>
+
+      <h2>Avisos</h2>
+      <p>Los avisos nunca bloquean la construcción; los errores sí. Se informa de desapareamientos,
+      pares wobble, extremos protuberantes, intercambios de base en modelos de secuencia concreta,
+      puckers forzados y contactos cortos, para que decida si la minimización restringida basta antes
+      de la dinámica.</p>
+
+      <h2>Cómo citar</h2>
+      <p>Si usa dsXNAbuilder, cite los modelos de fibra de 3DNA (Lu &amp; Olson, <i>Nucleic Acids Res</i>
+      2003, 31:5108–5121; <i>Nat Protoc</i> 2008, 3:1213–1227) y, si usa nucleótidos modificados,
+      modXNA (Love et al., <i>J Chem Theory Comput</i> 2024, 20:9354–9363).</p>
+
+      <h2>Licencia</h2>
+      <p>dsXNAbuilder es software libre (GPL-3.0). Las plantillas de fibra derivan de datos de 3DNA
+      (CC BY-NC 4.0) y los residuos de modXNA son GPL-3.0. Las estructuras que construya son suyas.</p>
+    </article>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>dsXNAbuilder <span id="ver"></span></span>
+    <span data-i18n="footer_lab">Dans Lab · CENUR Litoral Norte, Universidad de la República</span>
+    <span data-i18n="footer_license">GPL-3.0 · fiber data CC BY-NC 4.0 (3DNA) · modXNA GPL-3.0</span>
+    <span data-i18n="footer_privacy">Runs in your browser: no data leaves your computer, no cookies.</span>
+  </div>
+</footer>
+
+<script src="vendor/ngl.js"></script>
+<script type="module" src="app.js?v=0.2.0-dev"></script>
+</body>
+</html>
