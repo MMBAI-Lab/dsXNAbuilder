@@ -200,9 +200,9 @@ class Catalog:
 # --------------------------------------------------------------------------
 @dataclass
 class Issue:
-    """A user-facing finding. ``code`` is stable and drives the UI translation
-    (web/i18n); ``message`` is the English fallback; ``params`` fill the
-    placeholders of the translated message."""
+    """A user-facing finding. ``code`` is stable (scripts and tests match on
+    it); ``message`` is the English text the web app and the CLI show;
+    ``params`` carry the values in it for programmatic use."""
 
     level: str   # "error" | "warning" | "info"
     position: Optional[int]

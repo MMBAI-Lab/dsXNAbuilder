@@ -23,7 +23,7 @@ The same Python package also works from the command line.
   - every nucleotide is placed by the screw symmetry of its model;
   - a built duplex reproduces the fiber model to within 1e-3 Å, with O3′–P at 1.60 Å and no
     relaxation;
-  - generic models accept any sequence;
+  - generic models accept any sequence (marked ★ in the web app);
   - sequence-specific models (Z-DNA, D-DNA, poly(dA)·poly(dT) forms, …) keep their
     backbone, and bases are swapped in the standard reference frame. Warnings report when a
     sequence breaks the model's purine/pyrimidine or syn/anti pattern.
@@ -36,9 +36,12 @@ The same Python package also works from the command line.
   They are *transplanted* onto the fiber scaffold. Shared atoms keep the fiber coordinates,
   so the helix and the backbone stay exact; only the modification atoms are placed from
   the modXNA geometry. LNA bridges are relaxed to their library geometry.
-- **Output.** One self-describing PDB file (heavy atoms, chain A = strand 1, chain B =
-  strand 2). Modified nucleotides are named X01, X02, …; `REMARK 999` records list what each
-  one is, the input strands, the model and the data versions.
+- **Output.** One self-describing PDB file (all atoms, hydrogens included; chain A = strand 1,
+  chain B = strand 2). Modified nucleotides are named X01, X02, …; `REMARK 999` records list
+  what each one is, the input strands, the model and the data versions. Hydrogens come from
+  the residue template tleap will match (Amber DNA.OL15/RNA.lib units for canonical
+  nucleotides, the modXNA residue for modified ones), placed on the built heavy atoms under
+  the names tleap expects.
 - **Advanced: Amber/modXNA topology package.** It contains `structure.pdb`, `leap.in`
   (force field, modXNA libraries, optional water box), `libs/`, `frcmod.modxna`, `run.sh`
   (tleap only) and `manifest.json`. dsXNAbuilder is a builder: minimization and simulation
@@ -82,8 +85,8 @@ unzip dickerson.zip && cd dsxnabuilder && ./run.sh     # tleap -> system.parm7/r
 | path | content |
 |---|---|
 | `dsxnabuilder/` | the package (pure Python + numpy; the same code runs in Pyodide) |
-| `data/` | `fiber_models.json` (derived 3DNA models), `residue_index.json`, modXNA catalog, aliases |
-| `web/` | static app (`index.html`, `app.js`, `worker.js`, `i18n.js`, `style.css`); `web/lib/` holds the prebuilt modXNA residues |
+| `data/` | `fiber_models.json` (derived 3DNA models), `residue_index.json`, `amber_residues.json` (Amber nucleotide units, for names and hydrogens), modXNA catalog, aliases |
+| `web/` | static app (`index.html`, `app.js`, `worker.js`, `style.css`); `web/lib/` holds the prebuilt modXNA residues |
 | `tools/` | offline tools (see below) |
 | `tests/` | pytest suite |
 | `scripts/` | web build, local server, end-to-end browser test, danslab deployment |

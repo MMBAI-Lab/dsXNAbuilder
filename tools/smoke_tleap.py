@@ -7,7 +7,9 @@ For each residue of data/residue_index.json a short duplex is built with that
 residue at its terminal position (5'-cap first, 3'-cap last, internal in the
 middle) through the same Session the web app uses, and the package's tleap
 input is run: it must finish with Errors = 0, without "Created a new atom"
-(an atom name the unit does not know), and with an integer total charge.
+(an atom name the unit does not know), without atoms added by tleap (every
+hydrogen must come from the PDB under the unit's name) and with an integer
+total charge.
 ``--random N`` adds N random modified duplexes that also go through the
 restrained sander minimization (500 steps) and must end without NaN.
 """
@@ -63,7 +65,10 @@ def run_package(zbytes: bytes, env: dict, minimize: bool) -> dict:
                        text=True, timeout=300)
     log = p.stdout
     out = {"errors": int(re.search(r"Errors = (\d+)", log).group(1)) if "Errors =" in log else -1,
-           "new_atom": "Created a new atom" in log}
+           "new_atom": "Created a new atom" in log,
+           # tleap fills atoms missing from the PDB ("Leap added N missing atoms")
+           "added": bool(re.search(r"Leap added [1-9]\d* missing atom|Added missing heavy atom",
+                                   log))}
     m = re.search(r"Total unperturbed charge:\s+(-?[\d.]+)", log)
     out["charge"] = float(m.group(1)) if m else None
     if minimize and out["errors"] == 0:
@@ -122,7 +127,7 @@ def main(argv=None) -> int:
     fails = 0
     with cf.ThreadPoolExecutor(max_workers=a.jobs) as ex:
         for key, req, r in ex.map(one, jobs):
-            bad = ("build_error" in r or r["errors"] != 0 or r["new_atom"]
+            bad = ("build_error" in r or r["errors"] != 0 or r["new_atom"] or r["added"]
                    or r["charge"] is None or abs(r["charge"] - round(r["charge"])) > 1e-3
                    or r.get("min_ok") is False)
             if bad:

@@ -29,6 +29,7 @@ import numpy as np
 from .catalog import Catalog, Issue
 from .fibers import FiberLibrary, FiberModel
 from .geometry import rot_x
+from .hydrogens import Template, add_hydrogens, amber_templates, amber_unit
 from .naming import ResidueNamer
 from .nucleotide import PHOSPHATE_ATOMS, PURINES, pair_kind
 from .seqlang import AliasTable, DuplexSpec, ResidueSpec, SequenceParseError, parse_duplex
@@ -186,6 +187,8 @@ def build_duplex(top: str, bottom: str, model_id: int, lib: FiberLibrary,
             resname = namer.name_for(r, (strand_name, r.column) in modx)
             residues.append(BuiltResidue(chain, seq, r, resname, names, xyz, flags))
 
+    if not dry_run:
+        _add_hydrogens(residues, residue_library)
     if not dry_run and residue_library is not None:
         _orient_2o_chains(residues, residue_library)
 
@@ -380,6 +383,7 @@ def _short(cols: Sequence[int], limit: int = 8) -> str:
 
 
 CHAIN_CONTACT = 2.9        # heavy-atom distance a 2'-O substituent should keep
+CHAIN_H_CONTACT = 2.0      # the same for pairs involving a hydrogen
 CHAIN_STEP = 30.0          # torsion scan step (degrees)
 
 
@@ -394,36 +398,49 @@ def _orient_2o_chains(residues: Sequence[BuiltResidue], residue_library) -> None
     outwards, and the contact-free conformation closest to the library one is
     taken. Rotations are rigid about each bond, so bond lengths and angles stay
     those of the library. The LNA bridge closes a ring and is not touched.
+
+    Hydrogens are already placed and turn with their chain atoms; contacts
+    involving a hydrogen count below CHAIN_H_CONTACT, which also staggers the
+    terminal methyl against the sugar. A bare 2'-OH is left as placed.
     """
     allxyz = np.vstack([r.xyz for r in residues])
     owner = np.concatenate([[k] * len(r.names) for k, r in enumerate(residues)])
+    is_h = np.array([element_of(n) == "H" for r in residues for n in r.names])
     for k, r in enumerate(residues):
         if not r.flags.get("modxna") or "O2'" not in r.names:
             continue
         unit = residue_library.unit(r.flags["key"])
-        heavy = set(r.names)
-        nb = {a: [b for b in unit.neighbours().get(a, []) if b in heavy] for a in r.names}
+        present = set(r.names)
+        unb = unit.neighbours()
+        nb = {a: [b for b in unb.get(a, []) if b in present] for a in r.names}
         tree = _substituent_tree(nb)
         if not tree:
             continue
         parent, chain = tree
+        if all(element_of(a) == "H" for a in chain):
+            continue
         idx = {n: i for i, n in enumerate(r.names)}
         # rotatable bonds from O2' outwards and the atoms each one moves
         desc = {a: [b for b in chain if _ancestor(parent, b, a)] for a in ["O2'"] + chain}
         bonds = [(parent[a] if a != "O2'" else "C2'", a, desc[a]) for a in ["O2'"] + chain
                  if desc[a]]
-        # environment: other residues near O2', and own atoms >= 5 bonds away (1-5
-        # contacts such as CM2...C4' at 2.9 A belong to the minimized modXNA residue)
+        # environment: other residues near O2', and own atoms >= 5 bonds away from
+        # each chain atom (1-5 contacts such as CM2...C4' at 2.9 A belong to the
+        # minimized modXNA residue)
         o2 = r.xyz[idx["O2'"]]
         near = (owner != k) & (np.linalg.norm(allxyz - o2, axis=1) < 10.0)
-        env = [allxyz[near]]
-        far = _graph_far(nb, chain, 5)
-        own = [n for n in r.names if n not in chain and n in far]
-        if own:
-            env.append(r.xyz[[idx[n] for n in own]])
-        env = np.vstack(env)
-        chain_far = [(i, j) for i, a in enumerate(chain) for j, b in enumerate(chain)
-                     if i < j and b in _graph_far(nb, [a], 5)]
+        own = [n for n in r.names if n not in chain]
+        env = np.vstack([allxyz[near], r.xyz[[idx[n] for n in own]]])
+        env_h = np.concatenate([is_h[near], [element_of(n) == "H" for n in own]])
+        far = {a: _graph_far(nb, [a], 5) for a in chain}
+        counted = np.array([[True] * int(near.sum()) + [b in far[a] for b in own]
+                            for a in chain])
+        chain_h = np.array([element_of(a) == "H" for a in chain])
+        cut = np.where(chain_h[:, None] | env_h[None, :], CHAIN_H_CONTACT, CHAIN_CONTACT)
+        cut = np.where(counted, cut, 0.0)
+        chain_far = [(i, j, CHAIN_H_CONTACT if chain_h[i] or chain_h[j] else CHAIN_CONTACT)
+                     for i, a in enumerate(chain) for j, b in enumerate(chain)
+                     if i < j and b in far[a]]
         start = {a: r.xyz[idx[a]].copy() for a in r.names}
 
         def build(angles):
@@ -439,9 +456,9 @@ def _orient_2o_chains(residues: Sequence[BuiltResidue], residue_library) -> None
         def penalty(pos):
             c = np.array([pos[a] for a in chain])
             d = np.linalg.norm(c[:, None, :] - env[None, :, :], axis=2)
-            p = float(np.sum(np.clip(CHAIN_CONTACT - d, 0.0, None) ** 2))
-            for i, j in chain_far:
-                p += max(0.0, CHAIN_CONTACT - float(np.linalg.norm(c[i] - c[j]))) ** 2
+            p = float(np.sum(np.clip(cut - d, 0.0, None) ** 2))
+            for i, j, lim in chain_far:
+                p += max(0.0, lim - float(np.linalg.norm(c[i] - c[j]))) ** 2
             return p
 
         best = [0.0] * len(bonds)
@@ -456,10 +473,16 @@ def _orient_2o_chains(residues: Sequence[BuiltResidue], residue_library) -> None
                 cands = [[]]
                 for _j in pair:
                     cands = [c + [g] for c in cands for g in grid]
+                # closest to the library first (stable, so ties keep the grid order):
+                # once a contact-free candidate is reached no later one can improve,
+                # which ends most scans after a few trials (a staggered methyl)
+                cands.sort(key=cost)
                 for c in cands:
                     trial = list(best)
                     for j, g in zip(pair, c):
                         trial[j] = g
+                    if best_p <= 1e-9 and cost(trial) >= cost(best):
+                        break
                     p = penalty(build(trial))
                     if p < best_p - 1e-9 or (abs(p - best_p) <= 1e-9 and cost(trial) < cost(best)):
                         best, best_p = trial, p
@@ -467,6 +490,29 @@ def _orient_2o_chains(residues: Sequence[BuiltResidue], residue_library) -> None
         for a in chain:
             r.xyz[idx[a]] = pos[a]
         r.flags["chain_torsions"] = [round(x, 1) for x in best]
+
+
+def _add_hydrogens(residues: Sequence[BuiltResidue], residue_library) -> None:
+    """Hydrogens from the template tleap will match each residue to (see
+    dsxnabuilder.hydrogens). Runs before the 2'-O chains are oriented, so that
+    the torsion scan sees them and they turn with the chain."""
+    amber = amber_templates()
+    modx: Dict[str, Template] = {}
+    for r in residues:
+        abasic = bool(r.flags.get("abasic"))
+        if r.flags.get("modxna"):
+            key = r.flags["key"]
+            if key not in modx:
+                modx[key] = Template.from_off(residue_library.unit(key))
+            tpl = modx[key]
+        else:
+            # an abasic site keeps the sugar-phosphate of its strand chemistry;
+            # any canonical unit of that chemistry provides its hydrogens
+            unit = amber_unit("A" if abasic else r.spec.letter, r.spec.chem, r.spec.cap)
+            if unit not in amber:
+                raise ValueError(f"no Amber unit {unit} for the hydrogens of {r.spec.token}")
+            tpl = amber[unit]
+        r.names, r.xyz = add_hydrogens(r.names, r.xyz, tpl, abasic)
 
 
 def _substituent_tree(nb: Dict[str, List[str]]):
@@ -526,12 +572,17 @@ def _rotate(points: np.ndarray, origin: np.ndarray, axis: np.ndarray, deg: float
 def count_clashes(residues: Sequence[BuiltResidue], cutoff: float = CLASH_DISTANCE) -> int:
     """Inter-residue heavy-atom contacts below ``cutoff`` (spatial hashing).
 
+    Hydrogens are left out: they are placed from the residue templates after
+    the heavy atoms and the 2.2 A criterion is for heavy atoms.
+
     Pairs bonded across the phosphodiester linkage (O3'/C3' of i with
     P/OP1/OP2/O5' of i+1) are not contacts.
     """
     pts, owner, names = [], [], []
     for k, r in enumerate(residues):
         for nm, p in zip(r.names, r.xyz):
+            if element_of(nm) == "H":
+                continue
             pts.append(p)
             owner.append(k)
             names.append(nm)

@@ -4,8 +4,9 @@
     scripts/build_web.sh && .venv/bin/python scripts/e2e.py [--shots DIR]
 
 Serves web/ locally (scripts/serve.py), loads the page, waits for Pyodide,
-runs the one-click examples and checks the summary, the issues, the language
-switch and the zip download. Needs selenium and geckodriver.
+runs the one-click examples and checks the summary, the issues, the viewer
+controls, the highlighted generic models and the downloads. Needs selenium and
+geckodriver.
 """
 
 from __future__ import annotations
@@ -83,6 +84,10 @@ def main() -> int:
         check(True, f"engine ready in {time.time() - t0:.1f} s")
         n_opt = len(drv.find_element(By.ID, "model").find_elements(By.TAG_NAME, "option"))
         check(n_opt == 40, f"{n_opt} models in the selector")
+        generic = drv.find_elements(By.CSS_SELECTOR, "#model option.generic")
+        # the seven generic 3DNA models and C-DNA #8, which also has all four bases
+        check(len(generic) == 8 and all(o.text.startswith("★") for o in generic),
+              f"{len(generic)} generic models highlighted in the selector")
 
         def run_example(ex, expect_bp):
             drv.find_element(By.CSS_SELECTOR, f'[data-ex="{ex}"]').click()
@@ -95,10 +100,19 @@ def main() -> int:
                 drv.find_element(By.ID, "issues").text
 
         s, iss = run_example("dickerson", 12)
-        check("486" in s and "1.60" in s, "Dickerson: 486 heavy atoms, O3'-P 1.60")
+        check("758" in s and "486 heavy" in s and "1.60" in s,
+              "Dickerson: 758 atoms (486 heavy), O3'-P 1.60")
+        pressed = [b.get_attribute("data-v") for b in
+                   drv.find_elements(By.CSS_SELECTOR, '#repr button[aria-pressed="true"], '
+                                     '#color button[aria-pressed="true"]')]
+        check(pressed == ["sticks", "base"], f"viewer defaults {pressed}")
         has_canvas = bool(drv.find_elements(By.CSS_SELECTOR, "#viewer canvas"))
         print(("ok   " if has_canvas else "note ") + "3D viewer " +
               ("rendered" if has_canvas else "not available (no WebGL in this browser)"))
+        if has_canvas:      # the legend belongs to the viewer
+            legend = drv.find_element(By.ID, "legend").text
+            check(all(x in legend for x in ("A", "C", "G", "T", "sugar–phosphate")),
+                  "base colour legend")
         shot("dickerson")
         s, iss = run_example("zdna", 6)
         check("SEQ_PATTERN" not in iss, "Z-DNA (CG)3 fits the repeat")
@@ -112,7 +126,12 @@ def main() -> int:
         s, iss = run_example("lna", 16)
         check("modXNA residues" in s and "TRANSPLANT_STRAIN" not in iss,
               "LNA gapmer : RNA built with modXNA residues")
+        drv.find_element(By.CSS_SELECTOR, '#color button[data-v="modified"]').click()
+        if has_canvas:
+            legend = drv.find_element(By.ID, "legend").text
+            check("canonical" in legend and "modified" in legend, "modified colour legend")
         shot("lna")
+        drv.find_element(By.CSS_SELECTOR, '#color button[data-v="base"]').click()
         for ex, n in (("sirna", 10), ("moe", 10), ("mc", 12)):
             s, iss = run_example(ex, n)
             check("modXNA residues" in s, f"example {ex} built")
@@ -139,26 +158,26 @@ def main() -> int:
         check(drv.find_element(By.ID, "build").get_attribute("disabled") is not None,
               "length mismatch disables Build")
 
-        # Spanish
-        drv.find_element(By.CSS_SELECTOR, '#lang button[data-v="es"]').click()
-        time.sleep(0.5)
-        check("Construir" in drv.find_element(By.ID, "tab-build").text, "Spanish UI")
-        check("columnas" in drv.find_element(By.ID, "issues").text, "Spanish issue text")
-        drv.find_element(By.CSS_SELECTOR, '#lang button[data-v="en"]').click()
+        check(not drv.find_elements(By.CSS_SELECTOR, "#lang, #theme"),
+              "no language or theme switch (English only, theme from danslab.xyz)")
 
         # default download: the PDB
         run_example("dickerson", 12)
         drv.find_element(By.ID, "dlpdb").click()
         path = wait_file(os.path.join(dl, "dsxnabuilder.pdb"))
         text = open(path).read() if path else ""
-        n_atoms = sum(1 for line in text.splitlines() if line.startswith("ATOM"))
-        check(n_atoms == 486 and "REMARK 999 strand 1" in text,
-              "PDB downloaded: 486 atoms and self-describing header")
+        atoms = [line for line in text.splitlines() if line.startswith("ATOM")]
+        n_h = sum(1 for line in atoms if line[76:78].strip() == "H")
+        check(len(atoms) == 758 and n_h == 272 and "REMARK 999 strand 1" in text,
+              "PDB downloaded: 758 atoms with 272 hydrogens and self-describing header")
 
         # models tab
         drv.find_element(By.ID, "tab-models").click()
         rows = drv.find_elements(By.CSS_SELECTOR, "#modeltable tbody tr")
         check(len(rows) == 40, f"models table has {len(rows)} rows")
+        grows = drv.find_elements(By.CSS_SELECTOR, "#modeltable tbody tr.generic")
+        check(len(grows) == 8 and all("generic" in r.text for r in grows),
+              f"{len(grows)} generic models highlighted in the table")
         shot("models")
         drv.find_element(By.ID, "tab-docs").click()
         shot("docs")

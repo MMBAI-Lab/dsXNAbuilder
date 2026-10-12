@@ -1,5 +1,6 @@
 /* dsXNAbuilder — DansLab palette (web-danslab/app/globals.css), shared with panmer.
-   Dark by default; light via [data-theme="light"] (shared localStorage key "theme"). */
+   Dark by default; light via [data-theme="light"], set by danslab.xyz through the shared
+   localStorage key "theme" (the app has no toggle of its own). */
 :root, :root[data-theme="dark"] {
   --bg: rgb(10 10 10); --surface: rgb(17 17 17); --elevated: rgb(22 22 22);
   --border: rgb(38 38 38); --ink: rgb(245 245 245); --muted: rgb(163 163 163);
@@ -47,9 +48,6 @@ header.top .wrap { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4
 .brand { font: 600 26px/1.1 var(--mono); letter-spacing: -0.02em; margin: 0; }
 .brand span { color: var(--accent); }
 .tagline { color: var(--muted); margin: 0; flex: 1 1 320px; font-size: 14px; }
-.toplinks { display: flex; gap: 14px; font-size: 14px; align-items: center; }
-.toplinks a { color: var(--muted); text-decoration: none; }
-.toplinks a:hover { color: var(--accent); }
 .iconbtn { background: linear-gradient(180deg, var(--panel-top), var(--panel-bottom));
   border: 1px solid var(--panel-edge); color: var(--muted); border-radius: 4px;
   box-shadow: inset 0 1px 0 var(--bevel-hi); padding: 2px 8px; cursor: pointer; font: inherit; }
@@ -226,12 +224,25 @@ ul.issues .code { font: 11px var(--mono); color: var(--subtle); margin-left: 6px
 .viewer { position: relative; height: 460px; border-radius: 4px; overflow: hidden;
   background: var(--recess-bg); border: 1px solid var(--recess-edge); box-shadow: var(--recess); }
 .viewer .empty { border: 0; height: 100%; display: flex; align-items: center; justify-content: center; }
-.viewerbar { display: flex; gap: 8px; align-items: center; margin: 8px 0 12px; }
+.viewerbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 8px 0 4px; }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 14px; min-height: 1.5em; margin: 0 0 12px;
+  font-size: 12px; color: var(--muted); }
+.legend .sw { display: inline-flex; align-items: center; gap: 5px; }
+.legend .sw i { width: 11px; height: 11px; border-radius: 2px; border: 1px solid var(--border); }
 #summary { margin-bottom: 4px; }
 
 .doc.wide { max-width: none; }
 #modeltable td.desc { white-space: normal; min-width: 22em; }
 #modeltable tr.sel td { background: var(--elevated); }
+/* generic fiber models (any sequence): star badge, accent bar, bold in the menu */
+.badge { display: inline-block; font: 600 11px/1.4 var(--sans); border-radius: 3px; padding: 0 5px;
+  white-space: nowrap; vertical-align: 1px; }
+.badge.generic { color: var(--accent); border: 1px solid var(--accent); }
+#modeltable tr.generic td:first-child { box-shadow: inset 3px 0 0 var(--accent); font-weight: 600; }
+#modeltable tr.generic td { background: color-mix(in srgb, var(--accent) 7%, transparent); }
+#modeltable tr.generic.sel td { background: color-mix(in srgb, var(--accent) 14%, transparent); }
+select option.generic { font-weight: 600; }
+#modelinfo .badge { margin-right: 2px; }
 #modeltable td a { cursor: pointer; }
 details.advanced { margin-top: 12px; border: 1px solid var(--recess-edge); border-radius: 4px;
   background: var(--recess-bg); box-shadow: var(--recess); padding: 6px 12px 10px; }

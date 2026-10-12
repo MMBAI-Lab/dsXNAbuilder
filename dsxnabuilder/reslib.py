@@ -153,7 +153,8 @@ def transplant(unit: OffUnit, names: List[str], xyz: np.ndarray
     lib = unit.coords()
     heavy = unit.heavy_atoms()
     hset = set(heavy)
-    nb = {a: [b for b in unit.neighbours()[a] if b in hset] for a in heavy}
+    unb = unit.neighbours()
+    nb = {a: [b for b in unb[a] if b in hset] for a in heavy}
     placed: Dict[str, np.ndarray] = {}
     special = {}
     # phosphorothioate rule (see module docstring)

@@ -13,7 +13,7 @@ rm -f web/dsxnabuilder.zip
 "$PY" - <<'PY'
 import pathlib, zipfile
 DATA = ["fiber_models.json", "modxna_catalog.json", "aliases.json", "base_pairing.json",
-        "residue_index.json"]
+        "residue_index.json", "amber_residues.json"]
 with zipfile.ZipFile("web/dsxnabuilder.zip", "w", zipfile.ZIP_DEFLATED) as z:
     for p in sorted(pathlib.Path("dsxnabuilder").rglob("*.py")):
         z.write(p)
@@ -27,7 +27,6 @@ echo "$VER" > web/VERSION
 # under unchanging names). Idempotent.
 sed -i -E "s@(href=\"style\.css)(\?v=[^\"]*)?\"@\1?v=$VER\"@g" web/index.html
 sed -i -E "s@(src=\"app\.js)(\?v=[^\"]*)?\"@\1?v=$VER\"@g" web/index.html
-sed -i -E "s@(from '\./i18n\.js)(\?v=[^']*)?'@\1?v=$VER'@g" web/app.js
 sed -i -E "s@(new URL\('worker\.js)(\?v=[^']*)?'@\1?v=$VER'@g" web/app.js
 
 du -sh web/pyodide web/vendor web/dsxnabuilder.zip

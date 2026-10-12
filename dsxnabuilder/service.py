@@ -25,6 +25,7 @@ from .build import BuildError, BuildResult, build_duplex
 from .catalog import Catalog, Issue
 from .fibers import FiberLibrary, load_library
 from .seqlang import AliasTable, SequenceParseError, parse_duplex
+from .structure import element_of
 
 DATA = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "data")
 
@@ -151,7 +152,14 @@ def summary(res: BuildResult) -> dict:
     return {"model": res.model.id, "family": res.model.family,
             "n_bp": res.duplex.n_columns,
             "n_residues": len(res.residues), "n_atoms": sum(len(r.names) for r in res.residues),
+            "n_heavy": sum(element_of(n) != "H" for r in res.residues for n in r.names),
             "n_modified": len(res.modified()), "flipped": res.flipped, "phase": res.phase,
             "o3p": [round(min(d for *_, d in res.o3p), 3), round(max(d for *_, d in res.o3p), 3)]
             if res.o3p else None,
-            "clashes": res.n_clashes, "name_map": res.name_map}
+            "clashes": res.n_clashes, "name_map": res.name_map,
+            # per residue, for the viewer's base and modification colouring:
+            # [chain, resseq, pairing letter, canonical | modified | abasic]
+            "residues": [[r.chain, r.resseq, "-" if r.flags.get("abasic") else r.spec.letter,
+                          "abasic" if r.flags.get("abasic") else
+                          "canonical" if r.spec.is_canonical else "modified"]
+                         for r in res.residues]}

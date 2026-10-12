@@ -1,27 +1,39 @@
 // dsXNAbuilder front end. All computation runs in worker.js (Pyodide); this file is UI only.
-import { UI, ISSUES } from './i18n.js?v=0.2.0-dev';
+// Issue messages come in English from the Python package, each with a stable code.
 
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => [...document.querySelectorAll(s)];
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 const EXAMPLES = [
-  { id: 'dickerson', en: 'Dickerson dodecamer (B-DNA)', es: 'Dodecámero de Dickerson (B-DNA)', top: 'CGCGAATTCGCG', bottom: 'GCGCTTAAGCGC', model: 4 },
-  { id: 'arna', en: 'RNA duplex (A-RNA)', es: 'Dúplex de ARN (A-RNA)', top: 'GGCGCUUGCGUC', bottom: 'CCGCGAACGCAG', model: 20 },
-  { id: 'hybrid', en: 'RNA:DNA hybrid', es: 'Híbrido ARN:ADN', top: 'r(GACUAGCUGA)', bottom: 'd(CTGATCGACT)', model: 22 },
-  { id: 'adna', en: 'A-DNA', es: 'ADN-A', top: 'GGTATACC', bottom: 'CCATATGG', model: 54 },
-  { id: 'zdna', en: 'Z-DNA (CG)₃', es: 'ADN-Z (CG)₃', top: 'CGCGCG', bottom: 'GCGCGC', model: 15 },
-  { id: 'mismatch', en: 'Mismatch + overhang', es: 'Desapareamiento + extremo', top: 'CGCGAGTTCGCGAA', bottom: 'GCGCTAAAGCGC--', model: 55 },
-  { id: 'abasic', en: 'Abasic site', es: 'Sitio abásico', top: 'CGCGA-TTCGCG', bottom: 'GCGCTTAAGCGC', model: 4 },
-  { id: 'sirna', en: 'siRNA 2′-OMe/2′-F + PS', es: 'siRNA 2′-OMe/2′-F + PS', top: 'mG*mA*fC*mU*fA*mG*fC*mU*mG*mA', bottom: 'C*U*GAUCGAC*U', model: 20 },
-  { id: 'lna', en: 'LNA gapmer : RNA', es: 'Gapmer LNA : ARN', top: 'r(GCAAUGUACUGAAUGC)', bottom: '+C*+G*+T*dT*dA*dC*dA*dT*dG*dA*dC*dT*dT*+A*+C*+G', model: 22 },
-  { id: 'moe', en: 'MOE gapmer : RNA', es: 'Gapmer MOE : ARN', top: 'r(GACUAGCUGA)', bottom: 'eC*eT*eG*dA*dT*dC*dG*eA*eC*eT', model: 22 },
-  { id: 'mc', en: '5mC + PS on B-DNA', es: '5mC + PS en ADN-B', top: 'CGC^5mCGAA*2TTCGCG', bottom: 'GCGCTT*1AAGCGC', model: 4 },
+  { id: 'dickerson', label: 'Dickerson dodecamer (B-DNA)', top: 'CGCGAATTCGCG', bottom: 'GCGCTTAAGCGC', model: 4 },
+  { id: 'arna', label: 'RNA duplex (A-RNA)', top: 'GGCGCUUGCGUC', bottom: 'CCGCGAACGCAG', model: 20 },
+  { id: 'hybrid', label: 'RNA:DNA hybrid', top: 'r(GACUAGCUGA)', bottom: 'd(CTGATCGACT)', model: 22 },
+  { id: 'adna', label: 'A-DNA', top: 'GGTATACC', bottom: 'CCATATGG', model: 54 },
+  { id: 'zdna', label: 'Z-DNA (CG)₃', top: 'CGCGCG', bottom: 'GCGCGC', model: 15 },
+  { id: 'mismatch', label: 'Mismatch + overhang', top: 'CGCGAGTTCGCGAA', bottom: 'GCGCTAAAGCGC--', model: 55 },
+  { id: 'abasic', label: 'Abasic site', top: 'CGCGA-TTCGCG', bottom: 'GCGCTTAAGCGC', model: 4 },
+  { id: 'sirna', label: 'siRNA 2′-OMe/2′-F + PS', top: 'mG*mA*fC*mU*fA*mG*fC*mU*mG*mA', bottom: 'C*U*GAUCGAC*U', model: 20 },
+  { id: 'lna', label: 'LNA gapmer : RNA', top: 'r(GCAAUGUACUGAAUGC)', bottom: '+C*+G*+T*dT*dA*dC*dA*dT*dG*dA*dC*dT*dT*+A*+C*+G', model: 22 },
+  { id: 'moe', label: 'MOE gapmer : RNA', top: 'r(GACUAGCUGA)', bottom: 'eC*eT*eG*dA*dT*dC*dG*eA*eC*eT', model: 22 },
+  { id: 'mc', label: '5mC + PS on B-DNA', top: 'CGC^5mCGAA*2TTCGCG', bottom: 'GCGCTT*1AAGCGC', model: 4 },
 ];
 
+const STATUS = {
+  loading_python: 'Loading Python runtime…', loading_numpy: 'Loading numpy…', loading_app: 'Loading dsXNAbuilder…',
+};
+const POLICY = {
+  any: () => 'generic: any sequence',
+  swap: (m) => `derived for ${m.native[0]}; other bases are swapped onto its backbone`,
+  pattern: (m) => `repeat ${m.native[0]}; keep its purine/pyrimidine pattern`,
+};
+// marks the generic fiber models (built for any sequence) in the menu and the table
+const GENERIC = '★';
+
 const state = {
-  lang: 'en', ready: false, models: [], byId: new Map(), last: null, stage: null, comp: null,
-  repr: 'cartoon', spinning: false, validateTimer: null, validSeq: 0,
+  ready: false, models: [], byId: new Map(), last: null, stage: null, comp: null,
+  repr: 'sticks', color: 'base', spinning: false, validateTimer: null, validSeq: 0,
+  residues: new Map(),
 };
 
 // ------------------------------------------------------------------ worker
@@ -49,44 +61,10 @@ function onStatus(d) {
     $('#status').textContent = '';
     call('models').then((info) => { setModels(info); applyURL(); });
   } else if (d.status === 'error') {
-    $('#status').innerHTML = `<span class="error">${esc(t('engine_error'))}${esc(d.error)}</span>`;
+    $('#status').innerHTML = `<span class="error">Could not start the engine: ${esc(d.error)}</span>`;
   } else {
-    $('#status').innerHTML = `<span class="spinner"></span>${esc(t(d.status))}`;
+    $('#status').innerHTML = `<span class="spinner"></span>${esc(STATUS[d.status] || d.status)}`;
   }
-}
-
-// ------------------------------------------------------------------ i18n
-function t(key, params = {}) {
-  const s = (UI[state.lang] && UI[state.lang][key]) ?? UI.en[key] ?? key;
-  return fill(s, params);
-}
-function fill(s, params) {
-  return s.replace(/\{(\w+)\}/g, (m, k) => (params[k] !== undefined && params[k] !== null ? params[k] : m));
-}
-function issueText(i) {
-  const tmpl = ISSUES[state.lang] && ISSUES[state.lang][i.code];
-  if (!tmpl) return i.message;
-  let s = fill(tmpl, i.params || {});
-  const p = i.params || {};
-  if (p.count > 1 && p.columns && !tmpl.includes('{columns}') && !tmpl.includes('{count}')) {
-    s = (state.lang === 'es' ? `${p.count} residuos (columnas ${p.columns}): ` : `${p.count} residues (columns ${p.columns}): `) + s;
-  }
-  return s;
-}
-function setLang(lang) {
-  state.lang = lang === 'es' ? 'es' : 'en';
-  document.documentElement.lang = state.lang;
-  try { localStorage.setItem('dsxna-lang', state.lang); } catch (e) {}
-  for (const b of $$('#lang button')) b.setAttribute('aria-pressed', String(b.dataset.v === state.lang));
-  for (const el of $$('[data-i18n]')) {
-    const v = UI[state.lang][el.dataset.i18n];
-    if (v) el.textContent = v;
-  }
-  for (const a of $$('#view-docs article')) a.classList.toggle('hidden', a.lang !== state.lang);
-  renderExamples();
-  if (state.models.length) { fillModelSelect(); renderModelTables(); showModelInfo(); }
-  if (state.lastValidation) renderValidation(state.lastValidation);
-  if (state.last) renderSummary(state.last);
 }
 
 // ------------------------------------------------------------------ models
@@ -100,8 +78,8 @@ function setModels(info) {
   validateSoon(0);
 }
 function modelLabel(m) {
-  const pol = m.policy === 'any' ? t('m_generic') : m.policy === 'swap' ? t('m_swap') : t('m_pattern');
-  return `#${m.id} · ${m.family} · ${m.twist.toFixed(1)}°/${m.rise.toFixed(2)} Å · ${m.native[0]} · ${pol}`;
+  const pol = m.policy === 'any' ? 'generic' : m.policy === 'swap' ? 'any (base swap)' : 'pattern';
+  return `${m.policy === 'any' ? GENERIC + ' ' : ''}#${m.id} · ${m.family} · ${m.twist.toFixed(1)}°/${m.rise.toFixed(2)} Å · ${m.native[0]} · ${pol}`;
 }
 function fillModelSelect() {
   const sel = $('#model');
@@ -114,7 +92,7 @@ function fillModelSelect() {
   const order = [...fam.keys()].sort((a, b) => famRank(a) - famRank(b) || a.localeCompare(b));
   sel.innerHTML = order.map((f) => `<optgroup label="${esc(f)}">${fam.get(f)
     .sort((a, b) => (a.policy === 'any' ? 0 : 1) - (b.policy === 'any' ? 0 : 1) || a.id - b.id)
-    .map((m) => `<option value="${m.id}">${esc(modelLabel(m))}</option>`).join('')}</optgroup>`).join('');
+    .map((m) => `<option value="${m.id}"${m.policy === 'any' ? ' class="generic"' : ''}>${esc(modelLabel(m))}</option>`).join('')}</optgroup>`).join('');
   sel.value = state.byId.has(cur) ? cur : 4;
 }
 function famRank(f) {
@@ -125,21 +103,25 @@ function famRank(f) {
 function showModelInfo() {
   const m = state.byId.get(+$('#model').value);
   if (!m) return;
-  const pol = t('policy_' + m.policy, { native: m.native[0] });
-  $('#modelinfo').textContent = t('info_line', {
-    twist: m.twist.toFixed(1), rise: m.rise.toFixed(2), hand: t(m.handedness),
-    s1: m.strands[0], s2: m.strands[1], p1: m.pucker[0] || '?', p2: m.pucker[1] || '?',
-  }) + ' · ' + pol + ' · ' + m.description;
+  $('#model').classList.toggle('generic', m.policy === 'any');
+  const info = `${m.twist.toFixed(1)}° and ${m.rise.toFixed(2)} Å per bp, ${m.handedness}-handed · ` +
+    `strands ${m.strands[0]}/${m.strands[1]} · sugars ${m.pucker[0] || '?'}/${m.pucker[1] || '?'}`;
+  const badge = m.policy === 'any' ? `<span class="badge generic">${GENERIC} generic</span> ` : '';
+  $('#modelinfo').innerHTML = badge + esc(`${info} · ${POLICY[m.policy](m)} · ${m.description}`);
 }
 function renderModelTables() {
-  const head = `<thead><tr><th>${t('m_id')}</th><th>${t('m_family')}</th><th>${t('m_twist')}</th><th>${t('m_rise')}</th><th>${t('m_hand')}</th><th>${t('m_repeat')}</th><th>${t('m_strands')}</th><th>${t('m_seq')}</th><th>${t('m_desc')}</th><th></th></tr></thead>`;
-  const rows = state.models.map((m) => `<tr${m.id === +$('#model').value ? ' class="sel"' : ''}>
-    <td class="num">${m.id}</td><td>${esc(m.family)}</td><td class="num">${m.twist.toFixed(2)}</td><td class="num">${m.rise.toFixed(3)}</td>
-    <td>${t(m.handedness)}</td><td class="num">${m.k}</td><td>${m.strands.join('/')}</td>
+  const head = '<thead><tr><th>#</th><th>family</th><th>twist (°/bp)</th><th>rise (Å/bp)</th><th>hand</th><th>repeat</th><th>strands</th><th>sequence</th><th>3DNA description</th><th></th></tr></thead>';
+  const rows = state.models.map((m) => {
+    const cls = [m.id === +$('#model').value ? 'sel' : '', m.policy === 'any' ? 'generic' : ''].filter(Boolean).join(' ');
+    const badge = m.policy === 'any' ? ` <span class="badge generic" title="generic model: built for any sequence">${GENERIC} generic</span>` : '';
+    return `<tr${cls ? ` class="${cls}"` : ''}>
+    <td class="num">${m.id}</td><td>${esc(m.family)}${badge}</td><td class="num">${m.twist.toFixed(2)}</td><td class="num">${m.rise.toFixed(3)}</td>
+    <td>${m.handedness}</td><td class="num">${m.k}</td><td>${m.strands.join('/')}</td>
     <td class="seq">${esc(m.native[0])}/${esc(m.native[1])}</td><td class="desc">${esc(m.description)}</td>
-    <td><button class="btn ghost small" data-use="${m.id}">${t('use')}</button></td></tr>`).join('');
+    <td><button class="btn ghost small" data-use="${m.id}">use</button></td></tr>`;
+  }).join('');
   $('#modeltable').innerHTML = head + `<tbody>${rows}</tbody>`;
-  $('#excludedtable').innerHTML = `<thead><tr><th>${t('m_id')}</th><th>${t('m_family')}</th><th>${t('m_desc')}</th><th>${t('m_reason')}</th></tr></thead><tbody>` +
+  $('#excludedtable').innerHTML = '<thead><tr><th>#</th><th>family</th><th>3DNA description</th><th>reason</th></tr></thead><tbody>' +
     (state.excluded || []).map((m) => `<tr><td class="num">${m.id}</td><td>${esc(m.family)}</td><td class="desc">${esc(m.description)}</td><td class="desc">${esc((m.issues || []).join('; '))}</td></tr>`).join('') + '</tbody>';
   for (const b of $$('[data-use]')) b.onclick = () => { $('#model').value = b.dataset.use; showModelInfo(); selectTab('build'); validateSoon(0); };
 }
@@ -161,17 +143,15 @@ async function validate() {
   $('#boxrow').classList.toggle('hidden', req.amber.water === 'none');
   if (!req.top.trim() || !req.bottom.trim()) {
     $('#grid').className = 'grid empty-grid';
-    $('#grid').innerHTML = `<span class="hint">${esc(t('grid_empty'))}</span>`;
+    $('#grid').innerHTML = '<span class="hint">Type both strands to see the pairing.</span>';
     $('#issues').innerHTML = '';
     $('#build').disabled = true;
-    state.lastValidation = null;
     return;
   }
   const mySeq = ++state.validSeq;
   try {
     const v = await call('validate', req);
     if (mySeq !== state.validSeq) return;
-    state.lastValidation = v;
     renderValidation(v);
   } catch (e) {
     $('#issues').innerHTML = `<li class="error">${esc(e.message)}</li>`;
@@ -199,7 +179,7 @@ function tokClass(tok, mod) {
 function renderIssues(list) {
   const order = { error: 0, warning: 1, info: 2 };
   $('#issues').innerHTML = [...list].sort((a, b) => order[a.level] - order[b.level]).map((i) =>
-    `<li class="${i.level}">${esc(issueText(i))}<span class="code">${esc(i.code)}</span></li>`).join('');
+    `<li class="${i.level}">${esc(i.message)}<span class="code">${esc(i.code)}</span></li>`).join('');
 }
 
 // ------------------------------------------------------------------ build
@@ -208,7 +188,7 @@ async function build() {
   const req = request();
   const t0 = performance.now();
   $('#build').disabled = true;
-  $('#status').innerHTML = `<span class="spinner"></span>${esc(t('building'))}`;
+  $('#status').innerHTML = '<span class="spinner"></span>Building…';
   try {
     const v = await call('validate', req);
     renderValidation(v);
@@ -227,7 +207,7 @@ async function build() {
     try {
       await showStructure(out.pdb, out.summary);
     } catch (e) {
-      $('#viewer').innerHTML = `<div class="empty">${esc(t('no_webgl'))}</div>`;
+      $('#viewer').innerHTML = '<div class="empty">3D view unavailable (this browser has no WebGL). The structure and the package can still be downloaded.</div>';
       state.stage = null;
     }
     for (const id of ['#dlzip', '#dlpdb', '#link']) $(id).disabled = false;
@@ -252,14 +232,70 @@ function renderSummary(out) {
   const s = out.summary;
   const stat = (v, l) => `<div class="stat"><div class="v">${esc(v)}</div><div class="l">${esc(l)}</div></div>`;
   $('#summary').classList.remove('hidden');
-  $('#summary').innerHTML = stat(s.n_bp, t('s_bp')) + stat(s.n_atoms, t('s_atoms')) +
-    stat(`#${s.model}`, `${t('s_model')} · ${s.family}`) +
-    stat(s.o3p ? `${s.o3p[0].toFixed(2)}–${s.o3p[1].toFixed(2)}` : '–', t('s_o3p')) +
-    stat(s.clashes, t('s_clashes')) + (s.n_modified ? stat(s.n_modified, t('s_mod')) : '');
+  $('#summary').innerHTML = stat(s.n_bp, 'base pairs') + stat(s.n_atoms, `atoms (${s.n_heavy} heavy)`) +
+    stat(`#${s.model}`, `model · ${s.family}`) +
+    stat(s.o3p ? `${s.o3p[0].toFixed(2)}–${s.o3p[1].toFixed(2)}` : '–', 'O3′–P (Å)') +
+    stat(s.clashes, 'heavy-atom contacts < 2.2 Å') + (s.n_modified ? stat(s.n_modified, 'modXNA residues') : '');
 }
 
 // ------------------------------------------------------------------ viewer
-function bg() { return document.documentElement.getAttribute('data-theme') === 'light' ? '#f2f2f2' : '#0b0b0b'; }
+// Colours. "base" paints the base atoms (and their hydrogens) by base, so that
+// Watson-Crick pairs read red-blue (A-T/U) and green-amber (G-C) and a mismatch
+// stands out; the sugar-phosphate stays grey. "modified" paints whole residues:
+// canonical grey, modified (modXNA chemistry) red, abasic amber. "element" is
+// CPK with carbon and hydrogen darkened on the light background.
+const BASE_COLORS = { A: 0xe5484d, T: 0x3e7bfa, U: 0x36b3d9, G: 0x30a46c, C: 0xf5a524 };
+const OTHER_BASE = 0xa855f7;
+const BACKBONE = 0x8c8c8c;
+const KIND_COLORS = { canonical: 0x8c8c8c, modified: 0xdc2626, abasic: 0xeab308 };
+// atoms without a prime are base atoms, except the phosphate, the
+// phosphorothioate sulfurs and the 2'-O-methyl carbon of modXNA (CM2)
+const NOT_BASE = new Set(['P', 'OP1', 'OP2', 'OP3', 'HOP3', 'S1', 'S2', 'CM2']);
+const isBase = (name) => !name.includes("'") && !NOT_BASE.has(name);
+const ELEMENT_COLORS = {
+  dark: { C: 0x909090, H: 0xf0f0f0, N: 0x3050f8, O: 0xff0d0d, P: 0xff8000, S: 0xe6c619, F: 0x90e050 },
+  light: { C: 0x6e6e6e, H: 0xb4b4b4, N: 0x3050f8, O: 0xe00000, P: 0xff8000, S: 0xc9a800, F: 0x6cc040 },
+};
+const SCHEMES = {};
+const theme = () => (document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark');
+const residueOf = (atom) => state.residues.get(`${atom.chainname}:${atom.resno}`);
+function registerSchemes() {
+  const reg = (label, color) => NGL.ColormakerRegistry.addScheme(function () { this.atomColor = color; }, label);
+  SCHEMES.base = reg('dsxna-base', (atom) => {
+    const r = residueOf(atom);
+    if (!r || !isBase(atom.atomname)) return BACKBONE;
+    return BASE_COLORS[r.letter] ?? OTHER_BASE;
+  });
+  SCHEMES.modified = reg('dsxna-modified', (atom) => {
+    const r = residueOf(atom);
+    return KIND_COLORS[r ? r.kind : 'canonical'];
+  });
+  SCHEMES.element = reg('dsxna-element', (atom) => {
+    const c = ELEMENT_COLORS[theme()];
+    return c[atom.element] ?? c.C;
+  });
+}
+function legend() {
+  const sw = (hex, label) => `<span class="sw"><i style="background:#${hex.toString(16).padStart(6, '0')}"></i>${esc(label)}</span>`;
+  const kinds = new Set([...state.residues.values()].map((r) => r.kind));
+  const letters = new Set([...state.residues.values()].map((r) => r.letter));
+  let html = '';
+  if (state.color === 'base') {
+    html = ['A', 'C', 'G', 'T', 'U'].filter((l) => letters.has(l)).map((l) => sw(BASE_COLORS[l], l)).join('') +
+      ([...letters].some((l) => l !== '-' && !(l in BASE_COLORS)) ? sw(OTHER_BASE, 'other base') : '') +
+      sw(BACKBONE, 'sugar–phosphate');
+  } else if (state.color === 'modified') {
+    html = ['canonical', 'modified', 'abasic'].filter((k) => kinds.has(k)).map((k) => sw(KIND_COLORS[k], k)).join('');
+  } else {
+    const c = ELEMENT_COLORS[theme()];
+    html = ['C', 'H', 'N', 'O', 'P', 'S', 'F'].filter((e) => e === 'C' || e === 'H' || hasElement(e)).map((e) => sw(c[e], e)).join('');
+  }
+  $('#legend').innerHTML = html;
+}
+function hasElement(e) {
+  return !!state.last && state.last.pdb.split('\n').some((l) => l.startsWith('ATOM') && l.slice(76, 78).trim() === e);
+}
+function bg() { return theme() === 'light' ? '#f2f2f2' : '#0b0b0b'; }
 function hasWebGL() {
   try {
     const c = document.createElement('canvas');
@@ -270,9 +306,11 @@ async function showStructure(pdb, summary) {
   if (!window.NGL || !hasWebGL()) throw new Error('no WebGL');
   if (!state.stage) {
     $('#viewer').innerHTML = '';
+    registerSchemes();
     state.stage = new NGL.Stage('viewer', { backgroundColor: bg(), tooltip: true });
     window.addEventListener('resize', () => state.stage.handleResize());
   }
+  state.residues = new Map((summary.residues || []).map(([chain, resseq, letter, kind]) => [`${chain}:${resseq}`, { letter, kind }]));
   state.stage.removeAllComponents();
   state.comp = await state.stage.loadFile(new Blob([pdb], { type: 'text/plain' }), { ext: 'pdb', name: 'dsxnabuilder' });
   state.modSele = Object.values(summary.name_map || {}).map((n) => `[${n}]`).join(' or ');
@@ -280,16 +318,18 @@ async function showStructure(pdb, summary) {
   state.comp.autoView();
 }
 function applyRepr() {
+  legend();
   const c = state.comp;
   if (!c) return;
   c.removeAllRepresentations();
+  const colorScheme = SCHEMES[state.color];
   if (state.repr === 'cartoon') {
     c.addRepresentation('cartoon', { colorScheme: 'chainid', aspectRatio: 4, radiusScale: 1.2 });
-    c.addRepresentation('base', { colorScheme: 'resname' });
+    c.addRepresentation('base', { colorScheme });
+    if (state.modSele) c.addRepresentation('ball+stick', { sele: state.modSele, colorScheme });
   } else {
-    c.addRepresentation('licorice', { colorScheme: 'element' });
+    c.addRepresentation('licorice', { colorScheme });
   }
-  if (state.modSele) c.addRepresentation('ball+stick', { sele: state.modSele, colorScheme: 'element' });
 }
 
 // ------------------------------------------------------------------ downloads, URL
@@ -312,7 +352,6 @@ function writeURL(req) {
 }
 function applyURL() {
   const p = new URLSearchParams(location.search);
-  if (p.get('lang')) setLang(p.get('lang'));
   if (p.get('tab')) selectTab(p.get('tab'));
   const set = (id, k) => { if (p.get(k) !== null) $(id).value = p.get(k); };
   set('#top', 'top'); set('#bottom', 'bottom'); set('#model', 'model'); set('#dnaff', 'ff');
@@ -330,7 +369,7 @@ function selectTab(name) {
   if (name === 'build' && state.stage) setTimeout(() => state.stage.handleResize(), 0);
 }
 function renderExamples() {
-  $('#examples').innerHTML = EXAMPLES.map((e) => `<button class="btn ghost small" type="button" data-ex="${e.id}">${esc(e[state.lang] || e.en)}</button>`).join('');
+  $('#examples').innerHTML = EXAMPLES.map((e) => `<button class="btn ghost small" type="button" data-ex="${e.id}">${esc(e.label)}</button>`).join('');
   for (const b of $$('[data-ex]')) b.onclick = () => {
     const e = EXAMPLES.find((x) => x.id === b.dataset.ex);
     $('#top').value = e.top; $('#bottom').value = e.bottom; $('#model').value = e.model;
@@ -340,13 +379,6 @@ function renderExamples() {
 
 // ------------------------------------------------------------------ wiring
 for (const tab of ['build', 'models', 'docs']) $(`#tab-${tab}`).onclick = () => selectTab(tab);
-for (const b of $$('#lang button')) b.onclick = () => setLang(b.dataset.v);
-$('#theme').onclick = () => {
-  const cur = document.documentElement.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
-  document.documentElement.setAttribute('data-theme', cur);
-  try { localStorage.setItem('theme', cur); } catch (e) {}
-  if (state.stage) state.stage.setParameters({ backgroundColor: bg() });
-};
 for (const id of ['#top', '#bottom']) $(id).addEventListener('input', () => validateSoon());
 for (const id of ['#model', '#water', '#dnaff', '#box', '#buffer']) $(id).addEventListener('change', () => { showModelInfo(); validateSoon(0); });
 $('#build').onclick = build;
@@ -358,11 +390,15 @@ $('#complement').onclick = async () => {
   } catch (e) { $('#issues').innerHTML = `<li class="error">${esc(e.message)}</li>`; }
 };
 $('#clear').onclick = () => { $('#top').value = ''; $('#bottom').value = ''; validateSoon(0); };
-for (const b of $$('#repr button')) b.onclick = () => {
-  state.repr = b.dataset.v;
-  for (const x of $$('#repr button')) x.setAttribute('aria-pressed', String(x === b));
-  applyRepr();
-};
+function segmented(sel, key) {
+  for (const b of $$(`${sel} button`)) b.onclick = () => {
+    state[key] = b.dataset.v;
+    for (const x of $$(`${sel} button`)) x.setAttribute('aria-pressed', String(x === b));
+    applyRepr();
+  };
+}
+segmented('#repr', 'repr');
+segmented('#color', 'color');
 $('#spin').onclick = () => { if (state.stage) { state.spinning = !state.spinning; state.stage.setSpin(state.spinning); } };
 $('#recenter').onclick = () => { if (state.comp) state.comp.autoView(); };
 $('#dlzip').onclick = async () => {
@@ -370,7 +406,7 @@ $('#dlzip').onclick = async () => {
   // current options of the Advanced panel, for the last built duplex
   if (!state.last || !state.lastReq) return;
   const req = { ...state.lastReq, amber: request().amber, package: true };
-  $('#status').innerHTML = `<span class="spinner"></span>${esc(t('building'))}`;
+  $('#status').innerHTML = '<span class="spinner"></span>Building…';
   try {
     const v = await call('validate', req);
     req.libs = await fetchLibs(v.needed_libs || []);
@@ -384,9 +420,16 @@ $('#dlzip').onclick = async () => {
 };
 $('#dlpdb').onclick = () => state.last && download('dsxnabuilder.pdb', state.last.pdb, 'chemical/x-pdb');
 $('#link').onclick = async () => {
-  try { await navigator.clipboard.writeText(location.href); $('#status').textContent = t('link_copied'); } catch (e) { prompt('URL', location.href); }
+  try { await navigator.clipboard.writeText(location.href); $('#status').textContent = 'Link copied'; } catch (e) { prompt('URL', location.href); }
 };
+// The theme belongs to the surrounding danslab.xyz page. Its toggle writes the shared
+// localStorage key, and because the two documents are same-origin the storage event
+// reaches us here, so the embedded app follows along without a reload.
+addEventListener('storage', (ev) => {
+  if (ev.key === 'theme' && (ev.newValue === 'light' || ev.newValue === 'dark')) {
+    document.documentElement.setAttribute('data-theme', ev.newValue);
+    if (state.stage) { state.stage.setParameters({ backgroundColor: bg() }); applyRepr(); }
+  }
+});
 
-let lang = 'en';
-try { lang = localStorage.getItem('dsxna-lang') || ((navigator.language || '').startsWith('es') ? 'es' : 'en'); } catch (e) {}
-setLang(lang);
+renderExamples();

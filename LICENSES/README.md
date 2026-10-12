@@ -5,7 +5,7 @@
 | Código (`dsxnabuilder/`, `tools/`, `tests/`, `web/*.js`, `web/*.html`, `web/*.css`, `scripts/`) | GPL-3.0-or-later (`LICENSE`) | este proyecto |
 | `data/fiber_models.json` (plantillas y marcos de los modelos de fibra, bases estándar) | CC BY-NC 4.0 | derivado de los ficheros de datos de 3DNA (`fiber/strNN`, `config/Atomic_*.pdb`) |
 | `data/modxna_catalog.json`, librerías de residuos (`web/lib/residues/*.lib`), `frcmod.modxna` | GPL-3.0 | derivado de modXNA (github.com/modxna/modxna) |
-| `data/amber_residues.json` | nombres de átomo y cargas extraídos de AmberTools (`DNA.OL15.lib`, `RNA.lib`) | AmberTools |
+| `data/amber_residues.json` | dominio público, como los ficheros de `dat/leap` de AmberTools según su `LICENSE` | nombres de átomo, cargas, coordenadas y enlaces de las unidades de ácidos nucleicos de AmberTools 26 (`DNA.OL15.lib`, `RNA.lib`, con sha256); de ahí salen los hidrógenos de los nucleótidos canónicos |
 | Estructuras y paquetes generados por los usuarios | sin restricciones: son del usuario | — |
 
 ## 3DNA

@@ -156,7 +156,8 @@ def test_modified_duplexes(msession, rl, top, bottom, model):
         text = z.read(f"dsxnabuilder/libs/{resname}.lib").decode()
         assert f"loadoff libs/{resname}.lib" in leap
         units[resname] = parse_off(text)[resname]
-    # every residue: atoms written == heavy atoms of its unit; integer strand charge
+    # every residue: atoms written == atoms of its unit (hydrogens included);
+    # integer strand charge
     pdb = parse_pdb(z.read("dsxnabuilder/structure.pdb").decode())
     by_chain = {}
     for (chain, seq), ats in residues(pdb).items():
@@ -167,10 +168,10 @@ def test_modified_duplexes(msession, rl, top, bottom, model):
             rn = ats[0].resname
             names_ = {a.name for a in ats}
             if rn in units:
-                assert names_ == set(units[rn].heavy_atoms()), (rn,)
+                assert names_ == set(units[rn].atom_names), (rn,)
                 q += units[rn].net_charge
             else:
                 unit = rn + ("5" if k == 0 else "3" if k == len(rs) - 1 else "")
-                assert names_ == set(AMBER[unit]["heavy"]), unit
+                assert names_ == set(AMBER[unit]["atoms"]), unit
                 q += AMBER[unit]["charge"]
         assert abs(q - round(q)) < 1e-3, (chain, q)

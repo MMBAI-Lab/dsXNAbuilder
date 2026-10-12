@@ -26,14 +26,15 @@ def amber_unit(r, first, last):
 
 
 def preflight(res):
-    """Every atom written must exist in the Amber unit tleap will match."""
+    """Every atom written, hydrogens included, must exist in the Amber unit
+    tleap will match, and none may be missing (tleap would add it)."""
     by_chain = {}
     for r in res.residues:
         by_chain.setdefault(r.chain, []).append(r)
     for chain, rs in by_chain.items():
         for k, r in enumerate(rs):
             unit = amber_unit(r, k == 0, k == len(rs) - 1)
-            allowed = set(AMBER[unit]["heavy"])
+            allowed = set(AMBER[unit]["atoms"])
             extra = set(r.names) - allowed
             assert not extra, (chain, r.resseq, unit, extra)
             missing = allowed - set(r.names)
@@ -133,7 +134,10 @@ def test_default_output_is_a_self_describing_pdb(session):
                          "model": 4})
     assert out["ok"] and "zip" not in out
     lines = out["pdb"].splitlines()
-    assert sum(l.startswith("ATOM") for l in lines) == 486
+    atoms = [l for l in lines if l.startswith("ATOM")]
+    # 486 heavy atoms + 272 hydrogens: the 758 atoms of the Amber topology
+    assert len(atoms) == 758 and sum(l[76:78].strip() == "H" for l in atoms) == 272
+    assert out["summary"]["n_atoms"] == 758 and out["summary"]["n_heavy"] == 486
     assert any("CGCGAATTCGCG" in l for l in lines if l.startswith("REMARK"))
     assert all(len(l) <= 80 for l in lines)
 
@@ -168,8 +172,11 @@ def test_abasic_site(session):
     assert out["ok"]
     assert any(i["code"] == "ABASIC" for i in out["issues"])
     res = [l for l in out["pdb"].splitlines() if l.startswith("ATOM") and l[17:20] == "3DR"]
-    names = {l[12:16].strip() for l in res}
+    names = {l[12:16].strip() for l in res if l[76:78].strip() != "H"}
     assert names == {"P", "OP1", "OP2", "O5'", "C5'", "C4'", "O4'", "C3'", "O3'", "C2'", "C1'"}
+    # hydrogens named as in the PDB component 3DR (two on C1', H4'1)
+    hyd = {l[12:16].strip() for l in res if l[76:78].strip() == "H"}
+    assert hyd == {"H5'", "H5''", "H4'1", "H3'", "H2'", "H2''", "H1'1", "H1'2"}
     assert 1.55 <= out["summary"]["o3p"][0] and out["summary"]["o3p"][1] <= 1.65
     assert out["summary"]["clashes"] == 0
     remarks = [l for l in out["pdb"].splitlines() if l.startswith("REMARK")]

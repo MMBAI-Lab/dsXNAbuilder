@@ -4,9 +4,10 @@ dsxnabuilder.pdbout
 
 The default output: one self-describing PDB file.
 
-Heavy atoms only, with Amber-style residue and atom names (DA/DC/DG/DT,
-A/C/G/U; OP1/OP2; thymine C7), chain A = strand 1 and chain B = strand 2,
-both 5'->3'. Modified nucleotides keep the modXNA atom names and get a
+All atoms, hydrogens included, with Amber-style residue and atom names
+(DA/DC/DG/DT, A/C/G/U; OP1/OP2; thymine C7, H71-H73), chain A = strand 1 and
+chain B = strand 2, both 5'->3'. Modified nucleotides keep the modXNA atom
+names (hydrogens included) and get a
 three-character residue name (X01, X02, ...); REMARK 999 records spell out
 what each one is, together with the input, the fiber model and the data
 provenance, so the file can be used and reproduced with any program.
@@ -74,7 +75,9 @@ def remarks(res: BuildResult, fiber_provenance: Optional[dict] = None,
         if residue_index:
             out.append(f"modXNA {residue_index.get('modxna_version', '?')} "
                        f"@{str(residue_index.get('modxna_commit', '?'))[:7]}")
-    out.append("heavy atoms only (add hydrogens with your modeling or MD program)")
+    out.append("hydrogens placed on the built heavy atoms from the residue templates "
+               "(Amber DNA.OL15/RNA.lib for canonical nucleotides, modXNA for modified "
+               "ones) under the names tleap expects")
     return out
 
 

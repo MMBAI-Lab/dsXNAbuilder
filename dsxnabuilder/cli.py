@@ -63,7 +63,8 @@ def main(argv=None) -> int:
             fh.write(out["zip"])
     sm = out["summary"]
     print(f"{sm['n_bp']} bp on model #{sm['model']} ({sm['family']}): "
-          f"{sm['n_atoms']} heavy atoms, O3'-P {sm['o3p']}, clashes {sm['clashes']} -> {a.out}"
+          f"{sm['n_atoms']} atoms ({sm['n_heavy']} heavy), O3'-P {sm['o3p']}, "
+          f"clashes {sm['clashes']} -> {a.out}"
           + (f" + {a.amber}" if a.amber else ""))
     return 0
 
