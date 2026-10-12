@@ -199,6 +199,30 @@ def main() -> int:
         check(len(grows) == 8 and all("generic" in r.text for r in grows),
               f"{len(grows)} generic models highlighted in the table")
         shot("models")
+        # modXNA library tab: every fragment by section, prebuilt ones with their notation
+        drv.find_element(By.ID, "tab-library").click()
+        WebDriverWait(drv, 30).until(lambda d: d.find_elements(By.CSS_SELECTOR, "#libtables table"))
+        heads = [h.text for h in drv.find_elements(By.CSS_SELECTOR, "#libtables h3")]
+        n_rows = len(drv.find_elements(By.CSS_SELECTOR, "#libtables tbody tr"))
+        check(len(heads) == 8 and heads[0].startswith("Backbone") and n_rows >= 290,
+              f"library: {len(heads)} sections, {n_rows} rows")
+        avail = drv.find_elements(By.CSS_SELECTOR, "#libtables tr.avail")
+        text = " ".join(r.text for r in avail)
+        check(len(avail) == 17 and "*1" in text and "C^5mC" in text,
+              f"library: {len(avail)} prebuilt rows with their notation")
+        shot("library")
+        drv.find_element(By.ID, "libavail").click()
+        n_only = len(drv.find_elements(By.CSS_SELECTOR, "#libtables tbody tr"))
+        drv.find_element(By.ID, "libavail").click()
+        f = drv.find_element(By.ID, "libfilter")
+        f.send_keys("methyl")
+        rows = drv.find_elements(By.CSS_SELECTOR, "#libtables tbody tr")
+        check(n_only == 17 and 0 < len(rows) < n_rows
+              and all("methyl" in r.text.lower() for r in rows),
+              f"library: prebuilt-only shows {n_only}, filter 'methyl' {len(rows)} rows")
+        f.clear()
+        f.send_keys(" ")
+        f.clear()
         drv.find_element(By.ID, "tab-docs").click()
         shot("docs")
 
@@ -215,8 +239,11 @@ def main() -> int:
             return drv.execute_script(FRAME_METRICS)
 
         heights = {}
-        for tab in ("build", "docs", "models", "build"):
+        for tab in ("build", "docs", "models", "library", "build"):
             drv.find_element(By.ID, f"tab-{tab}").click()
+            if tab == "library":
+                WebDriverWait(drv, 30).until(
+                    lambda d: d.find_elements(By.CSS_SELECTOR, "#libtables table"))
             box, view, scroll, ovf = settled()
             heights.setdefault(tab, []).append(view)
             check(abs(view - box) <= 2 and scroll <= view and ovf == "visible",

@@ -33,6 +33,7 @@ DATA = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "data")
 class Session:
     def __init__(self, data_dir: Optional[str] = None, residue_library=None):
         d = data_dir or DATA
+        self.data_dir = d
         self.catalog = Catalog.from_json(os.path.join(d, "modxna_catalog.json"))
         self.aliases = AliasTable.load(os.path.join(d, "aliases.json"))
         self.fibers: FiberLibrary = load_library(os.path.join(d, "fiber_models.json"))
@@ -60,6 +61,11 @@ class Session:
         return {"version": __version__, "models": out, "excluded": excluded,
                 "references": self.fibers.references,
                 "provenance": self.fibers.provenance}
+
+    def fragments(self) -> dict:
+        """modXNA fragments by section, with names and availability (library tab)."""
+        from .fragments import fragment_table
+        return fragment_table(self.data_dir)
 
     def validate(self, request: dict) -> dict:
         """Parse and check without building coordinates."""

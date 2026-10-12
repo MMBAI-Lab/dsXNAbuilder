@@ -1,7 +1,7 @@
 """JSON dispatcher for the browser worker.
 
-``call(name, payload_json) -> result_json`` with ``name`` in models | validate
-| build | complement. Binary outputs (the zip) travel base64-encoded; the
+``call(name, payload_json) -> result_json`` with ``name`` in models | fragments
+| validate | build | complement. Binary outputs (the zip) travel base64-encoded; the
 package is a few hundred kB at most.
 """
 
@@ -53,6 +53,8 @@ def call(name: str, payload_json: str) -> str:
         s = session()
         if name == "models":
             result = s.models()
+        elif name == "fragments":
+            result = s.fragments()
         elif name == "validate":
             result = s.validate(payload)
         elif name == "complement":

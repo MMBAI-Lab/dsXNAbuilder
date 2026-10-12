@@ -23,6 +23,7 @@
   <nav class="tabs" role="tablist">
     <button role="tab" id="tab-build" aria-selected="true" aria-controls="view-build">Build</button>
     <button role="tab" id="tab-models" aria-selected="false" aria-controls="view-models">Helix models</button>
+    <button role="tab" id="tab-library" aria-selected="false" aria-controls="view-library">modXNA library</button>
     <button role="tab" id="tab-docs" aria-selected="false" aria-controls="view-docs">Documentation</button>
   </nav>
 
@@ -156,6 +157,29 @@
     </div>
   </section>
 
+  <!-- ============================================================ LIBRARY -->
+  <section id="view-library" class="hidden">
+    <div class="doc wide">
+      <p>The fragments of <a href="https://modxna.chpc.utah.edu/" target="_blank" rel="noopener">modXNA</a>
+      (Love et al. 2024): every modified nucleotide is a <b>backbone</b>, a <b>sugar</b> and a
+      <b>base</b>. Names and notes are those of the
+      <a href="https://modxna.chpc.utah.edu/catalog/" target="_blank" rel="noopener">modXNA catalogue</a>,
+      which also shows each fragment’s 2D and 3D structure. Fragments marked
+      <span class="badge avail">✓ prebuilt</span> are in the residue library of dsXNAbuilder, and every
+      combination of them is available, internal or at either end; the last column gives how to write
+      them. The others are listed for reference: they can be added to a local library with
+      <code>tools/build_residue_library.py</code> and used from the command line as explicit triplets
+      <code>{BACKBONE/SUGAR/BASE:LETTER}</code>.</p>
+      <div class="libbar">
+        <input type="search" id="libfilter" placeholder="Filter by code, name or note (e.g. M6A, methyl, thio)" aria-label="Filter fragments">
+        <label class="chk"><input type="checkbox" id="libavail"> prebuilt only</label>
+      </div>
+      <div class="jump" id="libjump"></div>
+      <div id="libtables"><p class="hint">Loading the catalogue…</p></div>
+      <p class="hint" id="libsource"></p>
+    </div>
+  </section>
+
   <!-- ============================================================ DOCS -->
   <section id="view-docs" class="hidden">
     <article class="doc">
@@ -250,9 +274,11 @@
       from modXNA; every strand keeps an integer charge. Each distinct residue gets a name X01, X02, …
       and its library file goes into <code>libs/</code> with <code>frcmod.modxna</code>; the
       manifest maps names to modXNA triplets.</p>
-      <p>Other modXNA backbones, sugars and bases can be written as explicit triplets but must exist in
-      the residue library; the command-line tools build more with
-      <code>tools/build_residue_library.py --only BB-SUGAR-BASE-int</code>.</p>
+      <p>The <b>modXNA library</b> tab lists every fragment of modXNA 1.9.3 (backbones, sugars and
+      base modifications by parent base) with the names of the modXNA catalogue, marks the ones
+      that are prebuilt here and shows how to write them. Other modXNA backbones, sugars and bases
+      can be written as explicit triplets but must exist in the residue library; the command-line
+      tools build more with <code>tools/build_residue_library.py --only BB-SUGAR-BASE-int</code>.</p>
 
       <h2>Helix models</h2>
       <p>The <b>Helix models</b> tab lists the 40 double-stranded 3DNA fiber models offered; those

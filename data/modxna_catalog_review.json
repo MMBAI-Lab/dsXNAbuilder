@@ -1,0 +1,25 @@
+{
+ "schema": "dsxnabuilder/catalog_review/1",
+ "source": "web-panmer data/modxna_catalog_review.csv @ddda1bd: structures compared as SDF heavy-atom graphs (with and without stereo) from github.com/modxna/modxna web/lib_base. To be reported to the modXNA team.",
+ "entries": {
+  "DTT": {"kind": "name", "text": "named “Cytidine” in the modXNA catalogue, but the structure is thymine (5-methyluracil)"},
+  "BSG": {"kind": "name", "text": "8-amino-dA (an adenine derivative) listed under G; both amines carry dmf protecting groups"},
+  "FYC": {"kind": "name", "text": "named 5-carboxy-dC, but the structure is identical to FWC (5-bromo-dC): it has Br and no carboxyl"},
+  "T6A": {"kind": "name", "text": "same heavy-atom graph as TCA (no extra methyl); only the stereochemistry differs"},
+  "M6U": {"kind": "name", "text": "structure identical to OAU (orotic acid), although the names imply one CH2 more"},
+  "S2U": {"kind": "duplicate", "text": "named 2′-thiouridine (a sugar position), but the base fragment is identical to SSU (2-thiouridine)"},
+  "SIA": {"kind": "duplicate", "text": "same compound as MIA"},
+  "FMC": {"kind": "duplicate", "text": "same structure as F5C (5-formylcytosine)"},
+  "BQG": {"kind": "duplicate", "text": "same structure as QUE (queuosine)"},
+  "NMG": {"kind": "duplicate", "text": "same structure as PQG (7-aminomethyl-7-carbaguanine)"},
+  "B8N": {"kind": "duplicate", "text": "same structure as MCY"},
+  "IGA": {"kind": "duplicate", "text": "isoguanine, also listed under G as ISG"},
+  "ISG": {"kind": "duplicate", "text": "isoguanine, also listed under A as IGA"},
+  "DHT": {"kind": "duplicate", "text": "same base as M5D (5-methyl-dihydrouracil, listed under U); the stereochemistry differs"},
+  "M5D": {"kind": "duplicate", "text": "same base as DHT (5-methyl-dihydrothymine, listed under T); the stereochemistry differs"}
+ },
+ "protected": {
+  "codes": ["FRC", "FQC", "FSC", "FUC", "FVC", "FWC", "FYC", "FZC", "FTC", "BRG", "BSG", "BTH", "BTG", "BUG"],
+  "text": "synthesis phosphoramidite: carries protecting groups (N-benzoyl, N-acetyl, dmf, acetal, cyclic carbamate) that are removed on deprotection, absent from the final oligonucleotide"
+ }
+}

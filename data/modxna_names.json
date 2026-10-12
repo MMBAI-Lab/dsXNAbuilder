@@ -1,0 +1,2299 @@
+{
+ "source": {
+  "url": "https://modxna.chpc.utah.edu/catalog/",
+  "read": "2026-10-12",
+  "sha256": "6ba59e2f45b595f8277aa29fd7e1c904f6df6fb52ebd9f8433697f49b7b68650"
+ },
+ "sections": [
+  {
+   "title": "Backbone",
+   "moiety": "backbone",
+   "parent": null,
+   "entries": [
+    {
+     "codes": [
+      "5PO"
+     ],
+     "name": "5PO",
+     "notes": [
+      "5′-terminal cap"
+     ]
+    },
+    {
+     "codes": [
+      "DPO"
+     ],
+     "name": "DPO",
+     "notes": [
+      "Standard dimethyl phosphate (regular backbone)",
+      "Charge -1",
+      "Atom types from OL15/21"
+     ]
+    },
+    {
+     "codes": [
+      "RPO"
+     ],
+     "name": "RPO",
+     "notes": [
+      "Standard dimethyl phosphate (regular backbone)",
+      "Charge -1",
+      "Atom types from OL3"
+     ]
+    },
+    {
+     "codes": [
+      "BPO"
+     ],
+     "name": "BPO",
+     "notes": []
+    },
+    {
+     "codes": [
+      "PSS"
+     ],
+     "name": "PSS",
+     "notes": [
+      "Phosphorodithioate",
+      "Charge -1"
+     ]
+    },
+    {
+     "codes": [
+      "PS1"
+     ],
+     "name": "PS1 (S)",
+     "notes": [
+      "Thiophosphate (S)",
+      "Charge -1",
+      "Other names: phosphorothioate"
+     ]
+    },
+    {
+     "codes": [
+      "PS2"
+     ],
+     "name": "PS2 (R)",
+     "notes": [
+      "Thiophosphate (R)",
+      "Charge -1",
+      "Other names: phosphorothioate"
+     ]
+    },
+    {
+     "codes": [
+      "MP1"
+     ],
+     "name": "MP1 (S)",
+     "notes": [
+      "Methylphosphate (S)"
+     ]
+    },
+    {
+     "codes": [
+      "MP2"
+     ],
+     "name": "MP2 (R)",
+     "notes": [
+      "Methylphosphate (R)"
+     ]
+    },
+    {
+     "codes": [
+      "NS1"
+     ],
+     "name": "NS1 (S)",
+     "notes": [
+      "Thio phosphoramidate (S)",
+      "Charge -1"
+     ]
+    },
+    {
+     "codes": [
+      "NS2"
+     ],
+     "name": "NS2 (R)",
+     "notes": [
+      "Thio phosphoramidate (R)",
+      "Charge -1"
+     ]
+    },
+    {
+     "codes": [
+      "PR1"
+     ],
+     "name": "PR1",
+     "notes": [
+      "Propyl backbone (S)"
+     ]
+    },
+    {
+     "codes": [
+      "PR2"
+     ],
+     "name": "PR2",
+     "notes": [
+      "Propyl backbone (R)"
+     ]
+    },
+    {
+     "codes": [
+      "IB1"
+     ],
+     "name": "IB1 (S)",
+     "notes": [
+      "Isobutyl backbone (S)"
+     ]
+    },
+    {
+     "codes": [
+      "IB2"
+     ],
+     "name": "IB2 (R)",
+     "notes": [
+      "Isobutyl backbone (R)"
+     ]
+    },
+    {
+     "codes": [
+      "MO1"
+     ],
+     "name": "MO1 (S)",
+     "notes": [
+      "MOP backbone (S)"
+     ]
+    },
+    {
+     "codes": [
+      "MO2"
+     ],
+     "name": "MO2 (R)",
+     "notes": [
+      "MOP backbone (R)"
+     ]
+    },
+    {
+     "codes": [
+      "PC1"
+     ],
+     "name": "PC1 (S)",
+     "notes": [
+      "Phosphonoacetate (S)",
+      "Charge -1"
+     ]
+    },
+    {
+     "codes": [
+      "PC2"
+     ],
+     "name": "PC2(R)",
+     "notes": [
+      "Phosphonoacetate (R)",
+      "Charge -1"
+     ]
+    },
+    {
+     "codes": [
+      "MES"
+     ],
+     "name": "MES",
+     "notes": [
+      "Charge -1"
+     ]
+    },
+    {
+     "codes": [
+      "MXG"
+     ],
+     "name": "MXG",
+     "notes": [
+      "Methylene phosphonate",
+      "Charge -1"
+     ]
+    },
+    {
+     "codes": [
+      "PN1"
+     ],
+     "name": "PN1 (S)",
+     "notes": [
+      "Phosphoryl guanidine (S)"
+     ]
+    },
+    {
+     "codes": [
+      "PN2"
+     ],
+     "name": "PN2 (R)",
+     "notes": [
+      "Phosphoryl guanidine (R)"
+     ]
+    },
+    {
+     "codes": [
+      "WX1"
+     ],
+     "name": "MX1 (S)",
+     "notes": [
+      "Mesyl -N-phosphonate (S)",
+      "Charge -1"
+     ]
+    },
+    {
+     "codes": [
+      "WX2"
+     ],
+     "name": "MX2 (R)",
+     "notes": [
+      "Mesyl -N-phosphonate (R)",
+      "Charge -1"
+     ]
+    },
+    {
+     "codes": [
+      "VX1"
+     ],
+     "name": "VX1 (S)",
+     "notes": [
+      "Ethyl-mesyl phosphonate (S)"
+     ]
+    },
+    {
+     "codes": [
+      "VX2"
+     ],
+     "name": "VX2 (R)",
+     "notes": [
+      "Ethyl-mesyl phosphonate (R)"
+     ]
+    },
+    {
+     "codes": [
+      "XV1"
+     ],
+     "name": "XV1 (S)",
+     "notes": [
+      "Isopropyl mesyl phosphonate (S)"
+     ]
+    },
+    {
+     "codes": [
+      "XV2"
+     ],
+     "name": "XV2 (R)",
+     "notes": [
+      "Isopropyl mesyl phosphonate (R)"
+     ]
+    },
+    {
+     "codes": [
+      "ZV1"
+     ],
+     "name": "ZV1 (S)",
+     "notes": [
+      "Amine-mesyl phosphonate (S)"
+     ]
+    },
+    {
+     "codes": [
+      "ZV2"
+     ],
+     "name": "ZV2 (R)",
+     "notes": [
+      "Amine-mesyl phosphonate (R)"
+     ]
+    }
+   ]
+  },
+  {
+   "title": "Sugar / Linker",
+   "moiety": "sugar",
+   "parent": null,
+   "entries": [
+    {
+     "codes": [
+      "DC2"
+     ],
+     "name": "Standard deoxyribose",
+     "notes": [
+      "Atom types from OL15"
+     ]
+    },
+    {
+     "codes": [
+      "2AD"
+     ],
+     "name": "2’amino-2’deoxy",
+     "notes": []
+    },
+    {
+     "codes": [
+      "A5L"
+     ],
+     "name": "(2-deoxy-2-fluoro-5-O-phosphono-beta-D-arabinofuranosyl)",
+     "notes": [
+      "2’FANA, built C2’endo"
+     ]
+    },
+    {
+     "codes": [
+      "A5O"
+     ],
+     "name": "arabinose",
+     "notes": [
+      "*note the 2’OH group points “up” instead of “down”"
+     ]
+    },
+    {
+     "codes": [
+      "A9Z"
+     ],
+     "name": "2′-(4-ethyl-1H-1,2,3-triazol-1-yl)",
+     "notes": []
+    },
+    {
+     "codes": [
+      "AF2"
+     ],
+     "name": "2′-deoxy-2′-fluoro",
+     "notes": [
+      "Built C3’endo"
+     ]
+    },
+    {
+     "codes": [
+      "aDX"
+     ],
+     "name": "aDX",
+     "notes": []
+    },
+    {
+     "codes": [
+      "aXX"
+     ],
+     "name": "aXX",
+     "notes": []
+    },
+    {
+     "codes": [
+      "bLD"
+     ],
+     "name": "bLD",
+     "notes": []
+    },
+    {
+     "codes": [
+      "bYX"
+     ],
+     "name": "bYX",
+     "notes": []
+    },
+    {
+     "codes": [
+      "CET"
+     ],
+     "name": "“gapmer”",
+     "notes": [
+      "https://pubs.acs.org/doi/abs/10.1021/jo502320y"
+     ]
+    },
+    {
+     "codes": [
+      "DBO"
+     ],
+     "name": "2′-O-benzyl",
+     "notes": [
+      "built-c2’endo"
+     ]
+    },
+    {
+     "codes": [
+      "DDD"
+     ],
+     "name": "DDD",
+     "notes": []
+    },
+    {
+     "codes": [
+      "DMP"
+     ],
+     "name": "2′-O-methyl-4-pyridine",
+     "notes": [
+      "built-c2’endo"
+     ]
+    },
+    {
+     "codes": [
+      "DMX"
+     ],
+     "name": "DMX",
+     "notes": [
+      "built-c2’endo"
+     ]
+    },
+    {
+     "codes": [
+      "DS4"
+     ],
+     "name": "4′-thio-4′-deoxy-cytosine-5′-monophosphate,S4C",
+     "notes": []
+    },
+    {
+     "codes": [
+      "DUD"
+     ],
+     "name": "Unlocked nucleic acid",
+     "notes": [
+      "Built C2’endo without OH"
+     ]
+    },
+    {
+     "codes": [
+      "GDS"
+     ],
+     "name": "GDS",
+     "notes": []
+    },
+    {
+     "codes": [
+      "GMS"
+     ],
+     "name": "GMS",
+     "notes": []
+    },
+    {
+     "codes": [
+      "GRS"
+     ],
+     "name": "GRS",
+     "notes": []
+    },
+    {
+     "codes": [
+      "LNA"
+     ],
+     "name": "Locked nucleic acid",
+     "notes": [
+      "Built C2’endo (but C3’endo also optimizes to C2’endo)"
+     ]
+    },
+    {
+     "codes": [
+      "M5M"
+     ],
+     "name": "2′-(N-acetamide)-cytidine-5′-monophosphate",
+     "notes": []
+    },
+    {
+     "codes": [
+      "MOE"
+     ],
+     "name": "2′-O-methoxyethyl",
+     "notes": [
+      "built-C3’endo only"
+     ]
+    },
+    {
+     "codes": [
+      "NAI"
+     ],
+     "name": "NAI",
+     "notes": [
+      "Built C2’endo"
+     ]
+    },
+    {
+     "codes": [
+      "OME"
+     ],
+     "name": "2’-O-methyl",
+     "notes": []
+    },
+    {
+     "codes": [
+      "P3S"
+     ],
+     "name": "P3S",
+     "notes": [
+      "Sulfonyl ester on O2′, Built C2’endo"
+     ]
+    },
+    {
+     "codes": [
+      "RBO"
+     ],
+     "name": "2′-O-benzyl",
+     "notes": [
+      "Built C3’endo"
+     ]
+    },
+    {
+     "codes": [
+      "RC3"
+     ],
+     "name": "Standard ribose sugar",
+     "notes": [
+      "C3’endo, atom types from OL3"
+     ]
+    },
+    {
+     "codes": [
+      "RMP"
+     ],
+     "name": "2′-O-methyl-4-pyridine",
+     "notes": [
+      "Built C3’endo"
+     ]
+    },
+    {
+     "codes": [
+      "RMX"
+     ],
+     "name": "2-amino-9-(6-deoxy-5-O-phosphono-beta-D-allofuranosyl)-3,9-dihydro-6H-purin-6-one",
+     "notes": [
+      "Built C3’endo"
+     ]
+    },
+    {
+     "codes": [
+      "RS4"
+     ],
+     "name": "S4C, 4′-thio-4′-deoxy-cytosine-5′-monophosphate",
+     "notes": []
+    },
+    {
+     "codes": [
+      "RUR"
+     ],
+     "name": "Unlocked nucleic acid",
+     "notes": [
+      "Built c3’endo with 2’OH"
+     ]
+    },
+    {
+     "codes": [
+      "TAE"
+     ],
+     "name": "TAE",
+     "notes": [
+      "Triazole aryl ether on O2′, Built with C2’endo"
+     ]
+    },
+    {
+     "codes": [
+      "U4M"
+     ],
+     "name": "1-{2,5-dideoxy-2-fluoro-4-[(phosphonooxy)methyl]-alpha-L-lyxofuranosyl}pyrimidine-2,4(1H,3H)-dione",
+     "notes": [
+      "Methyl group on C4’, fluorine on C2’"
+     ]
+    },
+    {
+     "codes": [
+      "U5M"
+     ],
+     "name": "1-(2,6-dideoxy-2-fluoro-5-O-phosphono-alpha-L-talofuranosyl)pyrimidine-2,4(1H,3H)-dione",
+     "notes": [
+      "Methyl group on C5’, fluorine on C2’"
+     ]
+    },
+    {
+     "codes": [
+      "U5R"
+     ],
+     "name": "1-(2,6-dideoxy-2-fluoro-5-O-phosphono-beta-D-allofuranosyl)pyrimidine-2,4(1H,3H)-dione",
+     "notes": [
+      "D-enantiomer version of U5M"
+     ]
+    },
+    {
+     "codes": [
+      "UFB"
+     ],
+     "name": "UFB",
+     "notes": []
+    },
+    {
+     "codes": [
+      "UMO"
+     ],
+     "name": "2′-F-4′-OMe uridine 5′-monophosphate",
+     "notes": []
+    },
+    {
+     "codes": [
+      "YLX"
+     ],
+     "name": "YLX",
+     "notes": []
+    }
+   ]
+  },
+  {
+   "title": "A-based modification",
+   "moiety": "base",
+   "parent": "A",
+   "entries": [
+    {
+     "codes": [
+      "DAA",
+      "RAA"
+     ],
+     "name": "Adenine (DAA) / Adenine (RAA)",
+     "notes": [
+      "Ideal module",
+      "Name HARDCODED",
+      "Charges from OL3/OL15"
+     ]
+    },
+    {
+     "codes": [
+      "1DP"
+     ],
+     "name": "N1-deaza-adenosine-5′-monophosphate",
+     "notes": []
+    },
+    {
+     "codes": [
+      "A6A"
+     ],
+     "name": "N6-acetyladenosine",
+     "notes": []
+    },
+    {
+     "codes": [
+      "BII"
+     ],
+     "name": "Inosine",
+     "notes": []
+    },
+    {
+     "codes": [
+      "C6A"
+     ],
+     "name": "N6-carbamoylmethyladenine",
+     "notes": []
+    },
+    {
+     "codes": [
+      "CTA"
+     ],
+     "name": "cyclic N6-threonylcarbamoyladenosine",
+     "notes": []
+    },
+    {
+     "codes": [
+      "DMA"
+     ],
+     "name": "2,8-dimethyladenosine",
+     "notes": []
+    },
+    {
+     "codes": [
+      "G6A"
+     ],
+     "name": "N6-glycinylcarbamoyladenosine",
+     "notes": []
+    },
+    {
+     "codes": [
+      "E6A"
+     ],
+     "name": "N-ethylpiperidine-6’triazole modified adenine",
+     "notes": [
+      "+1 charge"
+     ]
+    },
+    {
+     "codes": [
+      "E7A"
+     ],
+     "name": "N-ethylpiperidine-7’-EAA triazole modified adenine",
+     "notes": [
+      "+1 charge"
+     ]
+    },
+    {
+     "codes": [
+      "F6A"
+     ],
+     "name": "N6-formyladenosine",
+     "notes": []
+    },
+    {
+     "codes": [
+      "H6A"
+     ],
+     "name": "N6-hydroxynorvalylcarbamoyladenosine",
+     "notes": []
+    },
+    {
+     "codes": [
+      "HNA"
+     ],
+     "name": "6-hydroxyaminopurine",
+     "notes": []
+    },
+    {
+     "codes": [
+      "HMA"
+     ],
+     "name": "N6-hydroxymethyladenosine",
+     "notes": []
+    },
+    {
+     "codes": [
+      "HTA"
+     ],
+     "name": "Hydroxy-N6-threonylcarbamoyladenosine",
+     "notes": []
+    },
+    {
+     "codes": [
+      "I6A"
+     ],
+     "name": "N6-isopentenyladenosine",
+     "notes": []
+    },
+    {
+     "codes": [
+      "IGA"
+     ],
+     "name": "Isoguanosine",
+     "notes": []
+    },
+    {
+     "codes": [
+      "IOA"
+     ],
+     "name": "N6-(cis-hydroxyisopentenyl)adenosine",
+     "notes": []
+    },
+    {
+     "codes": [
+      "M1A"
+     ],
+     "name": "1-methyladenosine",
+     "notes": []
+    },
+    {
+     "codes": [
+      "M2A"
+     ],
+     "name": "2-methyladenosine",
+     "notes": []
+    },
+    {
+     "codes": [
+      "M3A"
+     ],
+     "name": "3-methyladenosine",
+     "notes": []
+    },
+    {
+     "codes": [
+      "M4A"
+     ],
+     "name": "4-methyladenosine",
+     "notes": []
+    },
+    {
+     "codes": [
+      "M6A"
+     ],
+     "name": "N6,N6-dimethyladenosine",
+     "notes": []
+    },
+    {
+     "codes": [
+      "M7A"
+     ],
+     "name": "7-methyladenosine",
+     "notes": []
+    },
+    {
+     "codes": [
+      "M8A"
+     ],
+     "name": "8-methyladenosine",
+     "notes": []
+    },
+    {
+     "codes": [
+      "MIA"
+     ],
+     "name": "2-methylthio-N6-isopentenyl-adenosine-5′-monophosphate",
+     "notes": []
+    },
+    {
+     "codes": [
+      "MSA"
+     ],
+     "name": "2-methylthio-N6-methyladenosine",
+     "notes": []
+    },
+    {
+     "codes": [
+      "MTA"
+     ],
+     "name": "2-methylthio cyclic N6-threonylcarbamoyladenosine",
+     "notes": []
+    },
+    {
+     "codes": [
+      "M1I"
+     ],
+     "name": "1-methylinosine",
+     "notes": []
+    },
+    {
+     "codes": [
+      "M3I"
+     ],
+     "name": "3-methylhypoxyanthine",
+     "notes": []
+    },
+    {
+     "codes": [
+      "M7I"
+     ],
+     "name": "7-methylhypoxanthine",
+     "notes": []
+    },
+    {
+     "codes": [
+      "N1A"
+     ],
+     "name": "N1-protonated adenosine",
+     "notes": [
+      "+1 charge"
+     ]
+    },
+    {
+     "codes": [
+      "N2A"
+     ],
+     "name": "2-aminoadenine",
+     "notes": []
+    },
+    {
+     "codes": [
+      "N6A"
+     ],
+     "name": "N6-methyladenosine",
+     "notes": []
+    },
+    {
+     "codes": [
+      "NHA"
+     ],
+     "name": "2-amino-6-hydroxyaminopurine",
+     "notes": []
+    },
+    {
+     "codes": [
+      "S6A"
+     ],
+     "name": "2-methylthio-N6-(cis-hydroxyisopentenyl) adenosine",
+     "notes": []
+    },
+    {
+     "codes": [
+      "SIA"
+     ],
+     "name": "2-methylthio-N6-isopentenyladenosine",
+     "notes": []
+    },
+    {
+     "codes": [
+      "SHA"
+     ],
+     "name": "2-methylthio-N6-hydroxynorvalylcarbamoyladenosine",
+     "notes": []
+    },
+    {
+     "codes": [
+      "STA"
+     ],
+     "name": "2-methylthio-N6-threonylcarbamoyladenosine",
+     "notes": []
+    },
+    {
+     "codes": [
+      "T6A"
+     ],
+     "name": "N6-methyl-N6-threonylcarbamoyladenosine",
+     "notes": []
+    },
+    {
+     "codes": [
+      "TCA"
+     ],
+     "name": "N6-threonylcarbamoyladenosine-5′-monophosphate",
+     "notes": []
+    },
+    {
+     "codes": [
+      "TMA"
+     ],
+     "name": "2- methylthiomethylenethio-N6-isopentenyl-adenosine",
+     "notes": []
+    },
+    {
+     "codes": [
+      "TMB"
+     ],
+     "name": "TMB",
+     "notes": []
+    },
+    {
+     "codes": [
+      "TMC"
+     ],
+     "name": "TMC",
+     "notes": []
+    },
+    {
+     "codes": [
+      "TIA"
+     ],
+     "name": "N2-trans-isosafrole-dA-adduct",
+     "notes": []
+    }
+   ]
+  },
+  {
+   "title": "C-based modification",
+   "moiety": "base",
+   "parent": "C",
+   "entries": [
+    {
+     "codes": [
+      "DCC",
+      "RCC"
+     ],
+     "name": "Cytidine (DCC) / Cytidine (RCC)",
+     "notes": [
+      "Ideal module",
+      "Name HARDCODED",
+      "Charges from OL3/OL15"
+     ]
+    },
+    {
+     "codes": [
+      "5FC"
+     ],
+     "name": "5-fluorocytidine 5′-(dihydrogen phosphate)",
+     "notes": []
+    },
+    {
+     "codes": [
+      "A4C"
+     ],
+     "name": "N4-acetylcytidine",
+     "notes": []
+    },
+    {
+     "codes": [
+      "B5C"
+     ],
+     "name": "5-bromocytidine 5′-(dihydrogen phosphate)",
+     "notes": []
+    },
+    {
+     "codes": [
+      "BIC"
+     ],
+     "name": "isocytidine-5′-monophosphate",
+     "notes": []
+    },
+    {
+     "codes": [
+      "BPC"
+     ],
+     "name": "agmatidine",
+     "notes": []
+    },
+    {
+     "codes": [
+      "C5C"
+     ],
+     "name": "5-carboxylcytosine",
+     "notes": []
+    },
+    {
+     "codes": [
+      "E3C"
+     ],
+     "name": "3-ethylcytosine",
+     "notes": []
+    },
+    {
+     "codes": [
+      "F5C"
+     ],
+     "name": "5-formylcytosine",
+     "notes": []
+    },
+    {
+     "codes": [
+      "G5C"
+     ],
+     "name": "5-glucosylmethylcytosine",
+     "notes": []
+    },
+    {
+     "codes": [
+      "H5C"
+     ],
+     "name": "5-hydroxymethylcytosine",
+     "notes": []
+    },
+    {
+     "codes": [
+      "K2C"
+     ],
+     "name": "2-lysidine",
+     "notes": []
+    },
+    {
+     "codes": [
+      "M2C"
+     ],
+     "name": "2-O-methylcytosine",
+     "notes": []
+    },
+    {
+     "codes": [
+      "M3C"
+     ],
+     "name": "3-methylcytosine",
+     "notes": []
+    },
+    {
+     "codes": [
+      "M4C"
+     ],
+     "name": "N4,N4-dimethylcytidine",
+     "notes": []
+    },
+    {
+     "codes": [
+      "M5C"
+     ],
+     "name": "5’-methylcytidine",
+     "notes": []
+    },
+    {
+     "codes": [
+      "N3C"
+     ],
+     "name": "N3-protonated cytidine",
+     "notes": [
+      "Charge +1"
+     ]
+    },
+    {
+     "codes": [
+      "N4C"
+     ],
+     "name": "N4-methylcytosine",
+     "notes": []
+    },
+    {
+     "codes": [
+      "N5C"
+     ],
+     "name": "5-nitrocytidine 5′-(dihydrogen phosphate)",
+     "notes": [
+      "Charge +1"
+     ]
+    },
+    {
+     "codes": [
+      "NEC"
+     ],
+     "name": "3,N4-ethenocytosine",
+     "notes": []
+    },
+    {
+     "codes": [
+      "O5C"
+     ],
+     "name": "5-hydroxycytidine",
+     "notes": []
+    },
+    {
+     "codes": [
+      "PPC"
+     ],
+     "name": "6’-phenylpyrrolo-cytosine",
+     "notes": []
+    },
+    {
+     "codes": [
+      "RYC"
+     ],
+     "name": "5′-3,6-dihydrocytidylic acid",
+     "notes": []
+    },
+    {
+     "codes": [
+      "S2C"
+     ],
+     "name": "2-thiocytidine",
+     "notes": []
+    },
+    {
+     "codes": [
+      "FMC"
+     ],
+     "name": "FMC",
+     "notes": []
+    },
+    {
+     "codes": [
+      "FRC"
+     ],
+     "name": "5-Formyl dC III CE",
+     "notes": []
+    },
+    {
+     "codes": [
+      "FQC"
+     ],
+     "name": "Ac-5-Me-dC-CE",
+     "notes": []
+    },
+    {
+     "codes": [
+      "FSC"
+     ],
+     "name": "5-Formyl-dC-CE",
+     "notes": []
+    },
+    {
+     "codes": [
+      "FUC"
+     ],
+     "name": "5-Hydroxymethyl-dC II-CE",
+     "notes": []
+    },
+    {
+     "codes": [
+      "FVC"
+     ],
+     "name": "5-I-dC-CE",
+     "notes": [
+      "5′-Dimethoxytrityl-N-benzoyl-5-iodo-2′-deoxyCytidine,3′-[(2-cyanoethyl)-(N,N-diisopropyl)]-phosphoramidite"
+     ]
+    },
+    {
+     "codes": [
+      "FWC"
+     ],
+     "name": "5-Br-dC-CE",
+     "notes": [
+      "5′-Dimethoxytrityl-N-benzoyl-5-bromo-2′-deoxyCytidine,3′-[(2-cyanoethyl)-(N,N-diisopropyl)]-phosphoramidite"
+     ]
+    },
+    {
+     "codes": [
+      "FYC"
+     ],
+     "name": "5-Carboxy-dC-CE",
+     "notes": [
+      "5′-Dimethoxytrityl-N-benzoyl-5-ethylcarboxy-2′-deoxyCytidine,3′-[(2-cyanoethyl)-(N,N-diisopropyl)]-phosphoramidite"
+     ]
+    },
+    {
+     "codes": [
+      "FZC"
+     ],
+     "name": "5-Hydroxymethyl-dC-CE",
+     "notes": [
+      "5′-Dimethoxytrityl-N-benzoyl-5-cyanoethoxy-methyl-2′-deoxyCytidine,3′-[(2-cyanoethyl)-(N,N-diisopropyl)]-phosphoramidite"
+     ]
+    },
+    {
+     "codes": [
+      "FTC"
+     ],
+     "name": "5-Me-dC-CE",
+     "notes": [
+      "5′-Dimethoxytrityl-N-benzoyl-5-methyl-2′-deoxyCytidine,3′-[(2-cyanoethyl)-(N,N-diisopropyl)]-phosphoramidite"
+     ]
+    }
+   ]
+  },
+  {
+   "title": "G-based modification",
+   "moiety": "base",
+   "parent": "G",
+   "entries": [
+    {
+     "codes": [
+      "DGG",
+      "RGG"
+     ],
+     "name": "Guanine (DGG) / Guanine (RGG)",
+     "notes": [
+      "Guanine"
+     ]
+    },
+    {
+     "codes": [
+      "TIG"
+     ],
+     "name": "N2-trans-isosafrole-dG-adduct",
+     "notes": []
+    },
+    {
+     "codes": [
+      "1NE"
+     ],
+     "name": "1,N2-ethenoguanine",
+     "notes": []
+    },
+    {
+     "codes": [
+      "2NE"
+     ],
+     "name": "N2,3-ethenoguanine",
+     "notes": []
+    },
+    {
+     "codes": [
+      "2MG"
+     ],
+     "name": "N2,N2-dimethylguanosine",
+     "notes": []
+    },
+    {
+     "codes": [
+      "7MG"
+     ],
+     "name": "N2,7-dimethylguanosine",
+     "notes": [
+      "+1 charge"
+     ]
+    },
+    {
+     "codes": [
+      "8OG"
+     ],
+     "name": "8-oxoguanine",
+     "notes": []
+    },
+    {
+     "codes": [
+      "ADG"
+     ],
+     "name": "7-amido-7-deazaguanosine",
+     "notes": []
+    },
+    {
+     "codes": [
+      "BGM"
+     ],
+     "name": "8-bromo-2′-deoxyguanosine-5′-monophosphate",
+     "notes": []
+    },
+    {
+     "codes": [
+      "BQG"
+     ],
+     "name": "BQG",
+     "notes": []
+    },
+    {
+     "codes": [
+      "C7G"
+     ],
+     "name": "7-cyano-7-carbaguanine",
+     "notes": []
+    },
+    {
+     "codes": [
+      "CEG"
+     ],
+     "name": "N2-carboxyethylguanine",
+     "notes": []
+    },
+    {
+     "codes": [
+      "ISG"
+     ],
+     "name": "Iso-guanine",
+     "notes": []
+    },
+    {
+     "codes": [
+      "M1G"
+     ],
+     "name": "1-methylguanine",
+     "notes": []
+    },
+    {
+     "codes": [
+      "M2G"
+     ],
+     "name": "2-methylguanine",
+     "notes": []
+    },
+    {
+     "codes": [
+      "M3G"
+     ],
+     "name": "3-methylguanine",
+     "notes": []
+    },
+    {
+     "codes": [
+      "M6G"
+     ],
+     "name": "6-O-methylguanine",
+     "notes": []
+    },
+    {
+     "codes": [
+      "M7G"
+     ],
+     "name": "7-methylguanine",
+     "notes": [
+      "+1 charge"
+     ]
+    },
+    {
+     "codes": [
+      "NMG"
+     ],
+     "name": "NMG",
+     "notes": []
+    },
+    {
+     "codes": [
+      "PQG"
+     ],
+     "name": "7-aminomethyl-7-carbaguanine",
+     "notes": []
+    },
+    {
+     "codes": [
+      "TMG"
+     ],
+     "name": "N2,N2,7-trimethylguanosine",
+     "notes": [
+      "+1 charge"
+     ]
+    },
+    {
+     "codes": [
+      "ACG"
+     ],
+     "name": "archaeosine",
+     "notes": []
+    },
+    {
+     "codes": [
+      "WYB"
+     ],
+     "name": "wybutosine",
+     "notes": []
+    },
+    {
+     "codes": [
+      "HWB"
+     ],
+     "name": "hydroxywybutosine",
+     "notes": []
+    },
+    {
+     "codes": [
+      "IPG"
+     ],
+     "name": "peroxywybutosine",
+     "notes": []
+    },
+    {
+     "codes": [
+      "OHW"
+     ],
+     "name": "undermodified hydroxywybutosine",
+     "notes": []
+    },
+    {
+     "codes": [
+      "OMW"
+     ],
+     "name": "methylated undermodified hydroxywybutosine",
+     "notes": []
+    },
+    {
+     "codes": [
+      "PYW"
+     ],
+     "name": "wybutosine[C15(S)]-5′-monophosphate",
+     "notes": []
+    },
+    {
+     "codes": [
+      "IMG"
+     ],
+     "name": "wyosine",
+     "notes": []
+    },
+    {
+     "codes": [
+      "IG2"
+     ],
+     "name": "isowyosine",
+     "notes": []
+    },
+    {
+     "codes": [
+      "I4G"
+     ],
+     "name": "4-demethylwyosine",
+     "notes": []
+    },
+    {
+     "codes": [
+      "MWG"
+     ],
+     "name": "methylwyosine",
+     "notes": []
+    },
+    {
+     "codes": [
+      "YW5"
+     ],
+     "name": "7-aminocarboxypropylwyosine methyl ester",
+     "notes": []
+    },
+    {
+     "codes": [
+      "YW7"
+     ],
+     "name": "7-aminocarboxypropylwyosine",
+     "notes": []
+    },
+    {
+     "codes": [
+      "YW8"
+     ],
+     "name": "7-aminocarboxypropyl-demethylwyosine",
+     "notes": []
+    },
+    {
+     "codes": [
+      "QUE"
+     ],
+     "name": "queuosine",
+     "notes": []
+    },
+    {
+     "codes": [
+      "EOQ"
+     ],
+     "name": "epoxyqueuosine",
+     "notes": []
+    },
+    {
+     "codes": [
+      "GAQ"
+     ],
+     "name": "galactosyl-queuosine",
+     "notes": []
+    },
+    {
+     "codes": [
+      "GLQ"
+     ],
+     "name": "glutamyl-queuosine",
+     "notes": []
+    },
+    {
+     "codes": [
+      "MQG"
+     ],
+     "name": "mannosyl-queuosine",
+     "notes": []
+    },
+    {
+     "codes": [
+      "XAN"
+     ],
+     "name": "Xantine",
+     "notes": []
+    },
+    {
+     "codes": [
+      "BRG"
+     ],
+     "name": "8-Br-dG-CE Phosphoramidite",
+     "notes": []
+    },
+    {
+     "codes": [
+      "BSG"
+     ],
+     "name": "8-Amino-dA-CE Phosphoramidite",
+     "notes": []
+    },
+    {
+     "codes": [
+      "BTH"
+     ],
+     "name": "7-Deaza-8-aza-dG-CE Phosphoramidite",
+     "notes": []
+    },
+    {
+     "codes": [
+      "BTG"
+     ],
+     "name": "7-deaza-dG-CE",
+     "notes": []
+    },
+    {
+     "codes": [
+      "BUG"
+     ],
+     "name": "8-Amino-dG-CE",
+     "notes": [
+      "5′-Dimethoxytrityl-N2,N8-bis(dimethylaminomethylidine)-8-amino-2′-deoxyGuanosine,3′-[(2-cyanoethyl)-(N,N-diisopropyl)]-phosphoramidite"
+     ]
+    }
+   ]
+  },
+  {
+   "title": "T-based modification",
+   "moiety": "base",
+   "parent": "T",
+   "entries": [
+    {
+     "codes": [
+      "DTT"
+     ],
+     "name": "Cytidine",
+     "notes": [
+      "Ideal module",
+      "Name HARDCODED",
+      "Charges from OL3/OL15"
+     ]
+    },
+    {
+     "codes": [
+      "APT"
+     ],
+     "name": "alpha-putrescinylthymine",
+     "notes": []
+    },
+    {
+     "codes": [
+      "DHT"
+     ],
+     "name": "5,6-dihydrothymine",
+     "notes": []
+    },
+    {
+     "codes": [
+      "M3T"
+     ],
+     "name": "3-methylthymine",
+     "notes": []
+    },
+    {
+     "codes": [
+      "O4T"
+     ],
+     "name": "O(4)-methylthymine",
+     "notes": []
+    }
+   ]
+  },
+  {
+   "title": "U-based modification",
+   "moiety": "base",
+   "parent": "U",
+   "entries": [
+    {
+     "codes": [
+      "RUU"
+     ],
+     "name": "Uracil",
+     "notes": [
+      "Ideal module",
+      "Name HARDCODED",
+      "Charges from OL3/OL15"
+     ]
+    },
+    {
+     "codes": [
+      "5BU"
+     ],
+     "name": "5-bromo-uridine",
+     "notes": []
+    },
+    {
+     "codes": [
+      "6BU"
+     ],
+     "name": "6-bromo-uridine",
+     "notes": []
+    },
+    {
+     "codes": [
+      "I6U"
+     ],
+     "name": "6-iodouridine",
+     "notes": []
+    },
+    {
+     "codes": [
+      "I5U"
+     ],
+     "name": "5-iodouridine",
+     "notes": []
+    },
+    {
+     "codes": [
+      "5CU"
+     ],
+     "name": "5-cyanomethyluridine",
+     "notes": []
+    },
+    {
+     "codes": [
+      "SSU"
+     ],
+     "name": "2-thiouridine",
+     "notes": []
+    },
+    {
+     "codes": [
+      "5SU"
+     ],
+     "name": "5-methyl-2-thiouridine",
+     "notes": []
+    },
+    {
+     "codes": [
+      "CGU"
+     ],
+     "name": "5-carboxymethylaminomethyl-2-geranylthiouridine",
+     "notes": []
+    },
+    {
+     "codes": [
+      "C5U"
+     ],
+     "name": "5-carboxymethyluridine",
+     "notes": []
+    },
+    {
+     "codes": [
+      "CHU"
+     ],
+     "name": "5-carboxyhydroxymethyluridine",
+     "notes": []
+    },
+    {
+     "codes": [
+      "CMU"
+     ],
+     "name": "5-carbamoylmethyluridine",
+     "notes": []
+    },
+    {
+     "codes": [
+      "CNU"
+     ],
+     "name": "5-carboxymethylaminomethyl-2-thiouridine",
+     "notes": []
+    },
+    {
+     "codes": [
+      "COU"
+     ],
+     "name": "5-carboxymethylaminomethyluridine",
+     "notes": []
+    },
+    {
+     "codes": [
+      "CSU"
+     ],
+     "name": "5-carboxymethyl-2-thiouridine",
+     "notes": []
+    },
+    {
+     "codes": [
+      "FDU"
+     ],
+     "name": "5’-fluoro-uridine",
+     "notes": []
+    },
+    {
+     "codes": [
+      "FHU"
+     ],
+     "name": "(5S,6R)-5-fluoro-6-hydroxy-pseudouridine-5′-monophosphate",
+     "notes": []
+    },
+    {
+     "codes": [
+      "GSU"
+     ],
+     "name": "2-geranylthiouridine",
+     "notes": []
+    },
+    {
+     "codes": [
+      "H5U"
+     ],
+     "name": "5-hydroxyuridine",
+     "notes": []
+    },
+    {
+     "codes": [
+      "HMU"
+     ],
+     "name": "5-(carboxyhydroxymethyl)uridine methyl ester",
+     "notes": []
+    },
+    {
+     "codes": [
+      "HOU"
+     ],
+     "name": "5-carbamoylhydroxymethyluridine",
+     "notes": []
+    },
+    {
+     "codes": [
+      "BNC"
+     ],
+     "name": "BNC",
+     "notes": []
+    },
+    {
+     "codes": [
+      "BOC"
+     ],
+     "name": "BOC",
+     "notes": []
+    },
+    {
+     "codes": [
+      "INU"
+     ],
+     "name": "5-(isopentenylaminomethyl)uridine",
+     "notes": []
+    },
+    {
+     "codes": [
+      "ISU"
+     ],
+     "name": "5-(isopentenylaminomethyl)-2-thiouridine",
+     "notes": []
+    },
+    {
+     "codes": [
+      "M3U"
+     ],
+     "name": "3-methyluridine",
+     "notes": []
+    },
+    {
+     "codes": [
+      "M5U"
+     ],
+     "name": "5-methyluridine",
+     "notes": []
+    },
+    {
+     "codes": [
+      "M6U"
+     ],
+     "name": "uracil-6-ylacetic acid: DNAmod",
+     "notes": []
+    },
+    {
+     "codes": [
+      "MCU"
+     ],
+     "name": "5-methoxycarbonylmethyluridine",
+     "notes": []
+    },
+    {
+     "codes": [
+      "MGU"
+     ],
+     "name": "5-methylaminomethyl-2-geranylthiouridine",
+     "notes": []
+    },
+    {
+     "codes": [
+      "MMU"
+     ],
+     "name": "5-methoxycarbonylmethyl-2-thiouridine",
+     "notes": []
+    },
+    {
+     "codes": [
+      "MNU"
+     ],
+     "name": "5-methylaminomethyluridine",
+     "notes": []
+    },
+    {
+     "codes": [
+      "MOU"
+     ],
+     "name": "5-methoxyuridine",
+     "notes": []
+    },
+    {
+     "codes": [
+      "MSU"
+     ],
+     "name": "5-methylaminomethyl-2-thiouridine",
+     "notes": []
+    },
+    {
+     "codes": [
+      "N3U"
+     ],
+     "name": "3-(3-amino-3-carboxypropyl)uridine",
+     "notes": []
+    },
+    {
+     "codes": [
+      "N5U"
+     ],
+     "name": "5-aminomethyluridine",
+     "notes": []
+    },
+    {
+     "codes": [
+      "NCD"
+     ],
+     "name": "3-(3-amino-3-carboxypropyl)-5,6-dihydrouridine",
+     "notes": []
+    },
+    {
+     "codes": [
+      "NGU"
+     ],
+     "name": "5-aminomethyl-2-geranylthiouridine",
+     "notes": []
+    },
+    {
+     "codes": [
+      "NMU"
+     ],
+     "name": "5-carbamoylmethyl-2-thiouridine",
+     "notes": []
+    },
+    {
+     "codes": [
+      "NSU"
+     ],
+     "name": "5-aminomethyl-2-thiouridine",
+     "notes": []
+    },
+    {
+     "codes": [
+      "O5U"
+     ],
+     "name": "uridine 5-oxyacetic acid",
+     "notes": []
+    },
+    {
+     "codes": [
+      "OMU"
+     ],
+     "name": "uridine 5-oxyacetic acid methyl ester",
+     "notes": []
+    },
+    {
+     "codes": [
+      "S2U"
+     ],
+     "name": "2’-thiouridine",
+     "notes": []
+    },
+    {
+     "codes": [
+      "S4U"
+     ],
+     "name": "4-thiouridine",
+     "notes": []
+    },
+    {
+     "codes": [
+      "T5U"
+     ],
+     "name": "5-taurinomethyluridine",
+     "notes": []
+    },
+    {
+     "codes": [
+      "TSU"
+     ],
+     "name": "5-taurinomethyl-2-thiouridine",
+     "notes": []
+    },
+    {
+     "codes": [
+      "B8N"
+     ],
+     "name": "(2~{R})-2-azanyl-4-[5-[(2~{S},3~{R},4~{S},5~{R})-3,4-bis(oxidanyl)-5-(phosphonooxymethyl)oxolan-2-yl]-3-methyl-2,6-bis(oxidanylidene)pyrimidin-1-yl]butanoic acid",
+     "notes": []
+    },
+    {
+     "codes": [
+      "BDD"
+     ],
+     "name": "Dihydrouridine",
+     "notes": []
+    },
+    {
+     "codes": [
+      "M5D"
+     ],
+     "name": "5-methyldihydrouridine",
+     "notes": []
+    },
+    {
+     "codes": [
+      "PUU"
+     ],
+     "name": "Pseudouridine",
+     "notes": []
+    },
+    {
+     "codes": [
+      "C3Y"
+     ],
+     "name": "3-(3-amino-3-carboxypropyl)pseudouridine",
+     "notes": []
+    },
+    {
+     "codes": [
+      "MCY"
+     ],
+     "name": "1-methyl-3-(3-amino-3-carboxypropyl)pseudouridine",
+     "notes": []
+    },
+    {
+     "codes": [
+      "M1Y"
+     ],
+     "name": "1-methylpseudouridine",
+     "notes": []
+    },
+    {
+     "codes": [
+      "M3Y"
+     ],
+     "name": "3-methylpseudouridine",
+     "notes": []
+    },
+    {
+     "codes": [
+      "GXT"
+     ],
+     "name": "GXT",
+     "notes": []
+    },
+    {
+     "codes": [
+      "GYT"
+     ],
+     "name": "GYT",
+     "notes": []
+    },
+    {
+     "codes": [
+      "TIP"
+     ],
+     "name": "Tipiracil",
+     "notes": []
+    },
+    {
+     "codes": [
+      "SFF"
+     ],
+     "name": "Saflufenacil",
+     "notes": []
+    },
+    {
+     "codes": [
+      "OAU"
+     ],
+     "name": "Orotic acid",
+     "notes": []
+    },
+    {
+     "codes": [
+      "OBU"
+     ],
+     "name": "Orotate",
+     "notes": []
+    },
+    {
+     "codes": [
+      "EMU"
+     ],
+     "name": "Emivirine",
+     "notes": []
+    },
+    {
+     "codes": [
+      "PVU"
+     ],
+     "name": "6-methyl-2-thiouracil",
+     "notes": []
+    },
+    {
+     "codes": [
+      "PSU"
+     ],
+     "name": "6-ethyl-2-thiouracil",
+     "notes": []
+    },
+    {
+     "codes": [
+      "PTU"
+     ],
+     "name": "6-propyl-2-thiouracil",
+     "notes": []
+    },
+    {
+     "codes": [
+      "PWU"
+     ],
+     "name": "6-butyl-2-thiouracil",
+     "notes": []
+    },
+    {
+     "codes": [
+      "5NU"
+     ],
+     "name": "5-nitrouracil",
+     "notes": []
+    },
+    {
+     "codes": [
+      "RAU"
+     ],
+     "name": "5-cyclohexane-uracil",
+     "notes": []
+    },
+    {
+     "codes": [
+      "RBU"
+     ],
+     "name": "5-phenyl-uracil",
+     "notes": []
+    },
+    {
+     "codes": [
+      "RCU"
+     ],
+     "name": "p-methylphenyl-5-uracil",
+     "notes": []
+    },
+    {
+     "codes": [
+      "RDU"
+     ],
+     "name": "p-ethylphenyl-5-uracil",
+     "notes": []
+    },
+    {
+     "codes": [
+      "REU"
+     ],
+     "name": "p-propyl phenyl-5 uracil",
+     "notes": []
+    },
+    {
+     "codes": [
+      "RFU"
+     ],
+     "name": "C=4",
+     "notes": []
+    },
+    {
+     "codes": [
+      "RGU"
+     ],
+     "name": "C=5",
+     "notes": []
+    }
+   ]
+  },
+  {
+   "title": "Other base modification",
+   "moiety": "base",
+   "parent": "other",
+   "entries": [
+    {
+     "codes": [
+      "1RN"
+     ],
+     "name": "(E)-N-{[4-oxo-1-(5-O-phosphono-beta-D-arabinofuranosyl)-2-thioxo-1,2,3,4-tetrahydropyrimidin-5-yl]methylidene}glycin",
+     "notes": []
+    },
+    {
+     "codes": [
+      "3TD"
+     ],
+     "name": "(1S)-1,4-anhydro-1-(3-methyl-2,4-dioxo-1,2,3,4-tetrahydropyrimidin-5-yl)-5-O-phosphono-D-ribitol",
+     "notes": []
+    },
+    {
+     "codes": [
+      "2PR"
+     ],
+     "name": "2-amino-9-[2-deoxyribofuranosyl]-9H-purine-5′-monophosphate",
+     "notes": []
+    },
+    {
+     "codes": [
+      "5NI"
+     ],
+     "name": "5’-nitroindole",
+     "notes": []
+    },
+    {
+     "codes": [
+      "7AT"
+     ],
+     "name": "1-(5-O-phosphono-beta-D-ribofuranosyl)-3-(1H-1,2,3-triazol-5-yl)-1H-pyrazolo[3,4-d]pyrimidin-4-amine",
+     "notes": []
+    },
+    {
+     "codes": [
+      "8AZ"
+     ],
+     "name": "8-aza-nebularine-5′-monophosphate",
+     "notes": []
+    },
+    {
+     "codes": [
+      "A7C"
+     ],
+     "name": "3-[1-(4-bromophenyl)-1H-1,2,3-triazol-4-yl]-1-[5-O-(trihydroxy-lambda~5~-phosphanyl)-beta-D-ribofuranosyl]-1H-pyrazolo[3,4-d]pyrimidin-4-amine",
+     "notes": []
+    },
+    {
+     "codes": [
+      "A7E"
+     ],
+     "name": "3-ethynyl-1-(5-O-phosphono-beta-D-ribofuranosyl)-1H-pyrazolo[3,4-d]pyrimidin-4-amine",
+     "notes": []
+    },
+    {
+     "codes": [
+      "B8H"
+     ],
+     "name": "[(2~{R},3~{S},4~{R},5~{S})-5-[1-methyl-2,4-bis(oxidanylidene)pyrimidin-5-yl]-3,4-bis(oxidanyl)oxolan-2-yl]methyl dihydrogen phosphate",
+     "notes": []
+    },
+    {
+     "codes": [
+      "BRF"
+     ],
+     "name": "2’,4’-difluorotoluyl ribonucleoside",
+     "notes": []
+    },
+    {
+     "codes": [
+      "F4F"
+     ],
+     "name": "F4F",
+     "notes": []
+    },
+    {
+     "codes": [
+      "C4J"
+     ],
+     "name": "(5S)-5-{3-[(3S)-3-amino-3-carboxypropyl]-1-methyl-2,4-dioxo-1,2,3,4-tetrahydropyrimidin-5-yl}-2,5-anhydro-1-O-phosphono-L-arabinitol",
+     "notes": []
+    },
+    {
+     "codes": [
+      "MTU"
+     ],
+     "name": "9-beta-D-ribofuranosyl-9H-purin-2-amine",
+     "notes": []
+    },
+    {
+     "codes": [
+      "N6G"
+     ],
+     "name": "((2R,3S,4R,5S)-5-(2,6-diamino-9H-purin-9-YL)-3,4-dihydroxy-tetrahydrofuran-2-YL)methyl dihydrogen phosphate",
+     "notes": []
+    },
+    {
+     "codes": [
+      "NF2"
+     ],
+     "name": "(1S)-1,4-anhydro-1-(2,4-difluoro-5-methylphenyl)-5-O-phosphono-D-ribitol",
+     "notes": []
+    },
+    {
+     "codes": [
+      "O2Z"
+     ],
+     "name": "[(2~{R},3~{S},4~{R},5~{R})-5-(2-azanyl-6-diazanyl-purin-9-yl)-3,4-bis(oxidanyl)oxolan-2-yl]methoxyphosphinic acid",
+     "notes": []
+    },
+    {
+     "codes": [
+      "ONE"
+     ],
+     "name": "1-(beta-D-ribofuranosyl)-pyridin-4-one-5′-phosphate",
+     "notes": []
+    },
+    {
+     "codes": [
+      "P5P"
+     ],
+     "name": "purine riboside-5′-monophosphate",
+     "notes": []
+    },
+    {
+     "codes": [
+      "PYO"
+     ],
+     "name": "1-(beta-D-ribofuranosyl)-pyrimidin-2-one-5′-phosphate",
+     "notes": []
+    },
+    {
+     "codes": [
+      "PYY"
+     ],
+     "name": "D-ribofuranosyl-benzene-5′-monophosphate",
+     "notes": []
+    },
+    {
+     "codes": [
+      "GCL"
+     ],
+     "name": "GCL",
+     "notes": []
+    },
+    {
+     "codes": [
+      "GC2"
+     ],
+     "name": "GC2",
+     "notes": []
+    }
+   ]
+  }
+ ]
+}

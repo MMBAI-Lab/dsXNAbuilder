@@ -33,6 +33,9 @@ The same Python package also works from the command line.
   - linkages: phosphodiester and the two phosphorothioates;
   - internal, 5′-terminal and 3′-terminal versions of each.
 
+  The web app's **modXNA library** tab lists all 298 fragments of modXNA 1.9.3 by section,
+  with the names of the modXNA catalogue, and marks the prebuilt ones with their notation.
+
   They are *transplanted* onto the fiber scaffold. Shared atoms keep the fiber coordinates,
   so the helix and the backbone stay exact; only the modification atoms are placed from
   the modXNA geometry. LNA bridges are relaxed to their library geometry.
@@ -103,6 +106,7 @@ unzip dickerson.zip && cd dsxnabuilder && ./run.sh     # tleap -> system.parm7/r
 | `tools/build_residue_library.py` | builds the modXNA residue library with `modxna.sh` (run under `LC_ALL=C`; see the note in the script) |
 | `tools/smoke_tleap.py` | runs tleap (and sander) on every library residue and on random modified duplexes |
 | `tools/build_data.py`, `tools/amber_residue_names.py`, `tools/build_catalog.py` | regenerate the JSON tables |
+| `tools/fetch_catalog_names.py` | fragment names and notes from the modXNA catalogue page → `data/modxna_names.json` |
 
 ### Rebuilding everything
 

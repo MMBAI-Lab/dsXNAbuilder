@@ -6,6 +6,8 @@
 | `data/fiber_models.json` (plantillas y marcos de los modelos de fibra, bases estándar) | CC BY-NC 4.0 | derivado de los ficheros de datos de 3DNA (`fiber/strNN`, `config/Atomic_*.pdb`) |
 | `data/modxna_catalog.json`, librerías de residuos (`web/lib/residues/*.lib`), `frcmod.modxna` | GPL-3.0 | derivado de modXNA (github.com/modxna/modxna) |
 | `data/amber_residues.json` | dominio público, como los ficheros de `dat/leap` de AmberTools según su `LICENSE` | nombres de átomo, cargas, coordenadas y enlaces de las unidades de ácidos nucleicos de AmberTools 26 (`DNA.OL15.lib`, `RNA.lib`, con sha256); de ahí salen los hidrógenos de los nucleótidos canónicos |
+| `data/modxna_names.json` | datos fácticos (nombres y notas de los fragmentos), con atribución | página del catálogo de modXNA (modxna.chpc.utah.edu/catalog), con URL, fecha de lectura y sha256 del HTML (`tools/fetch_catalog_names.py`) |
+| `data/modxna_catalog_review.json` | GPL-3.0 (este proyecto) | incidencias del catálogo de modXNA halladas por panmer (`web-panmer` `data/modxna_catalog_review.csv` @ddda1bd) |
 | Estructuras y paquetes generados por los usuarios | sin restricciones: son del usuario | — |
 
 ## 3DNA

@@ -60,6 +60,7 @@ function onStatus(d) {
     $('#ver').textContent = 'v' + d.version;
     $('#status').textContent = '';
     call('models').then((info) => { setModels(info); applyURL(); });
+    if (!$('#view-library').classList.contains('hidden')) loadLibrary();
   } else if (d.status === 'error') {
     $('#status').innerHTML = `<span class="error">Could not start the engine: ${esc(d.error)}</span>`;
   } else {
@@ -124,6 +125,62 @@ function renderModelTables() {
   $('#excludedtable').innerHTML = '<thead><tr><th>#</th><th>family</th><th>3DNA description</th><th>reason</th></tr></thead><tbody>' +
     (state.excluded || []).map((m) => `<tr><td class="num">${m.id}</td><td>${esc(m.family)}</td><td class="desc">${esc(m.description)}</td><td class="desc">${esc((m.issues || []).join('; '))}</td></tr>`).join('') + '</tbody>';
   for (const b of $$('[data-use]')) b.onclick = () => { $('#model').value = b.dataset.use; showModelInfo(); selectTab('build'); validateSoon(0); };
+}
+
+// ------------------------------------------------------------------ modXNA library
+// Every fragment of the modXNA release, by section; "prebuilt" ones are in the residue
+// library (every combination of them is available) and come with their notation.
+async function loadLibrary() {
+  if (state.fragments || !state.ready) return;
+  try {
+    state.fragments = await call('fragments');
+  } catch (e) {
+    $('#libtables').innerHTML = `<p class="error">${esc(e.message)}</p>`;
+    return;
+  }
+  const t = state.fragments;
+  $('#libsource').innerHTML = `${t.n_fragments} fragments of modXNA ${esc(t.modxna.version)} ` +
+    `(@${esc((t.modxna.commit || '').slice(0, 7))}). Names and notes from the modXNA catalogue page, read on ` +
+    `${esc(t.names_source.read)}. Flagged entries: ${esc(t.review_source)}`;
+  renderLibrary();
+}
+function writeCell(w) {
+  // "* or *1" -> code spans; descriptive values ("default linkage") stay text
+  return w.split(' or ').map((x) => (x.includes(' ') ? esc(x) : `<code>${esc(x)}</code>`)).join(' or ');
+}
+function noteHTML(n) {
+  return /^https?:\/\//.test(n) ? `<a href="${esc(n)}" target="_blank" rel="noopener">${esc(n)}</a>` : esc(n);
+}
+const FLAG = { name: '⚠ catalogue error: ', duplicate: '⚠ ', protected: 'protected: ', stereo: 'ⓘ ' };
+function renderLibrary() {
+  const t = state.fragments;
+  if (!t) return;
+  const q = $('#libfilter').value.trim().toLowerCase();
+  const only = $('#libavail').checked;
+  const match = (e) => (!only || e.available) &&
+    (!q || [e.codes.join('/'), e.name, ...e.notes].join(' ').toLowerCase().includes(q));
+  let html = '';
+  const jump = [];
+  t.sections.forEach((s, i) => {
+    const rows = s.entries.filter(match);
+    if (!rows.length) return;
+    const n = rows.reduce((k, e) => k + e.codes.length, 0);
+    const avail = rows.filter((e) => e.available).reduce((k, e) => k + e.codes.length, 0);
+    const short = s.moiety === 'base' ? (s.parent === 'other' ? 'other bases' : `${s.parent}-based`) : s.title.split(' ')[0].toLowerCase();
+    jump.push(`<button type="button" data-libjump="${i}">${esc(short)} <span>${n}</span></button>`);
+    html += `<h3 id="libsec-${i}">${esc(s.title)} <span class="count">${n} fragment${n === 1 ? '' : 's'}` +
+      `${avail ? ` · ${avail} prebuilt` : ''}</span></h3>` +
+      '<div class="flowtable"><table class="libtable"><thead><tr><th>code</th><th>name</th><th>notes</th><th>in dsXNAbuilder</th></tr></thead><tbody>' +
+      rows.map((e) => `<tr${e.available ? ' class="avail"' : ''}>
+        <td class="code">${e.codes.map(esc).join('<br>')}</td>
+        <td class="name">${esc(e.name)}${e.flags.map((f) => `<div class="flag ${esc(f.kind)}">${FLAG[f.kind] || ''}${esc(f.text)}</div>`).join('')}</td>
+        <td class="desc">${e.notes.map(noteHTML).join('<br>')}</td>
+        <td class="use">${e.available ? `<span class="badge avail">✓ prebuilt</span> ${writeCell(e.write || '')}` : ''}</td></tr>`).join('') +
+      '</tbody></table></div>';
+  });
+  $('#libtables').innerHTML = html || '<p class="hint">No fragment matches.</p>';
+  $('#libjump').innerHTML = jump.length > 1 ? 'Jump to ' + jump.join('') : '';
+  for (const b of $$('[data-libjump]')) b.onclick = () => $(`#libsec-${b.dataset.libjump}`).scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 // ------------------------------------------------------------------ request
@@ -362,7 +419,8 @@ function applyURL() {
 
 // ------------------------------------------------------------------ tabs, examples
 function selectTab(name) {
-  for (const tab of ['build', 'models', 'docs']) {
+  if (name === 'library') loadLibrary();
+  for (const tab of ['build', 'models', 'library', 'docs']) {
     $(`#tab-${tab}`).setAttribute('aria-selected', String(tab === name));
     $(`#view-${tab}`).classList.toggle('hidden', tab !== name);
   }
@@ -378,7 +436,9 @@ function renderExamples() {
 }
 
 // ------------------------------------------------------------------ wiring
-for (const tab of ['build', 'models', 'docs']) $(`#tab-${tab}`).onclick = () => selectTab(tab);
+for (const tab of ['build', 'models', 'library', 'docs']) $(`#tab-${tab}`).onclick = () => selectTab(tab);
+$('#libfilter').addEventListener('input', renderLibrary);
+$('#libavail').addEventListener('change', renderLibrary);
 for (const id of ['#top', '#bottom']) $(id).addEventListener('input', () => validateSoon());
 for (const id of ['#model', '#water', '#dnaff', '#box', '#buffer']) $(id).addEventListener('change', () => { showModelInfo(); validateSoon(0); });
 $('#build').onclick = build;
