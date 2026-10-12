@@ -11,6 +11,8 @@ srv = subprocess.Popen([sys.executable, os.path.join(ROOT, "scripts", "serve.py"
                        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 time.sleep(1)
 o = Options(); o.add_argument("-headless")
+# 3x device pixels: the screenshots are printed at ~2.8 in, so 1x would be ~135 dpi
+o.set_preference("layout.css.devPixelsPerPx", "3.0")
 d = webdriver.Firefox(options=o, service=Service("/snap/bin/geckodriver"))
 d.set_window_size(1500, 1200)
 try:

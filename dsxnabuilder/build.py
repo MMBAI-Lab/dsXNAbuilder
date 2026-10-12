@@ -186,6 +186,9 @@ def build_duplex(top: str, bottom: str, model_id: int, lib: FiberLibrary,
             resname = namer.name_for(r, (strand_name, r.column) in modx)
             residues.append(BuiltResidue(chain, seq, r, resname, names, xyz, flags))
 
+    if not dry_run and residue_library is not None:
+        _orient_2o_chains(residues, residue_library)
+
     # -- orientation and centring -----------------------------------------
     allxyz = np.vstack([r.xyz for r in residues])
     R = rot_x(180.0) if flipped else np.eye(3)
@@ -374,6 +377,150 @@ def _native_top(model: FiberModel, slot: str) -> str:
 def _short(cols: Sequence[int], limit: int = 8) -> str:
     s = ", ".join(str(c) for c in cols[:limit])
     return s + (", ..." if len(cols) > limit else "")
+
+
+CHAIN_CONTACT = 2.9        # heavy-atom distance a 2'-O substituent should keep
+CHAIN_STEP = 30.0          # torsion scan step (degrees)
+
+
+def _orient_2o_chains(residues: Sequence[BuiltResidue], residue_library) -> None:
+    """Choose the torsions of flexible 2'-O substituents (2'-OMe, MOE) in context.
+
+    The transplant copies the substituent from the modXNA residue, minimized as
+    an isolated nucleotide, so in a duplex the MOE chain can run into the next
+    nucleotide (C6' 1.2 A from its C5'). The library conformation is kept when
+    it makes no contact shorter than CHAIN_CONTACT; otherwise the chain
+    torsions are scanned in CHAIN_STEP steps, two bonds at a time from O2'
+    outwards, and the contact-free conformation closest to the library one is
+    taken. Rotations are rigid about each bond, so bond lengths and angles stay
+    those of the library. The LNA bridge closes a ring and is not touched.
+    """
+    allxyz = np.vstack([r.xyz for r in residues])
+    owner = np.concatenate([[k] * len(r.names) for k, r in enumerate(residues)])
+    for k, r in enumerate(residues):
+        if not r.flags.get("modxna") or "O2'" not in r.names:
+            continue
+        unit = residue_library.unit(r.flags["key"])
+        heavy = set(r.names)
+        nb = {a: [b for b in unit.neighbours().get(a, []) if b in heavy] for a in r.names}
+        tree = _substituent_tree(nb)
+        if not tree:
+            continue
+        parent, chain = tree
+        idx = {n: i for i, n in enumerate(r.names)}
+        # rotatable bonds from O2' outwards and the atoms each one moves
+        desc = {a: [b for b in chain if _ancestor(parent, b, a)] for a in ["O2'"] + chain}
+        bonds = [(parent[a] if a != "O2'" else "C2'", a, desc[a]) for a in ["O2'"] + chain
+                 if desc[a]]
+        # environment: other residues near O2', and own atoms >= 5 bonds away (1-5
+        # contacts such as CM2...C4' at 2.9 A belong to the minimized modXNA residue)
+        o2 = r.xyz[idx["O2'"]]
+        near = (owner != k) & (np.linalg.norm(allxyz - o2, axis=1) < 10.0)
+        env = [allxyz[near]]
+        far = _graph_far(nb, chain, 5)
+        own = [n for n in r.names if n not in chain and n in far]
+        if own:
+            env.append(r.xyz[[idx[n] for n in own]])
+        env = np.vstack(env)
+        chain_far = [(i, j) for i, a in enumerate(chain) for j, b in enumerate(chain)
+                     if i < j and b in _graph_far(nb, [a], 5)]
+        start = {a: r.xyz[idx[a]].copy() for a in r.names}
+
+        def build(angles):
+            pos = dict(start)
+            for (u, v, moving), ang in zip(bonds, angles):
+                if ang:
+                    pts = np.array([pos[m] for m in moving])
+                    pts = _rotate(pts, pos[v], pos[v] - pos[u], ang)
+                    for m, p in zip(moving, pts):
+                        pos[m] = p
+            return pos
+
+        def penalty(pos):
+            c = np.array([pos[a] for a in chain])
+            d = np.linalg.norm(c[:, None, :] - env[None, :, :], axis=2)
+            p = float(np.sum(np.clip(CHAIN_CONTACT - d, 0.0, None) ** 2))
+            for i, j in chain_far:
+                p += max(0.0, CHAIN_CONTACT - float(np.linalg.norm(c[i] - c[j]))) ** 2
+            return p
+
+        best = [0.0] * len(bonds)
+        best_p = penalty(build(best))
+        if best_p == 0.0:
+            continue
+        grid = [CHAIN_STEP * i for i in range(int(round(360.0 / CHAIN_STEP)))]
+        cost = lambda a: sum(min(x % 360.0, 360.0 - x % 360.0) for x in a)
+        for _ in range(2):
+            for s in range(0, len(bonds), 2):
+                pair = range(s, min(s + 2, len(bonds)))
+                cands = [[]]
+                for _j in pair:
+                    cands = [c + [g] for c in cands for g in grid]
+                for c in cands:
+                    trial = list(best)
+                    for j, g in zip(pair, c):
+                        trial[j] = g
+                    p = penalty(build(trial))
+                    if p < best_p - 1e-9 or (abs(p - best_p) <= 1e-9 and cost(trial) < cost(best)):
+                        best, best_p = trial, p
+        pos = build(best)
+        for a in chain:
+            r.xyz[idx[a]] = pos[a]
+        r.flags["chain_torsions"] = [round(x, 1) for x in best]
+
+
+def _substituent_tree(nb: Dict[str, List[str]]):
+    """Atoms hanging from O2' (not through C2') as a tree: (parent, atoms in BFS
+    order), or None when there are none or they close a ring (LNA/cEt)."""
+    parent = {"O2'": None}
+    order: List[str] = []
+    queue = ["O2'"]
+    while queue:
+        a = queue.pop(0)
+        for b in nb.get(a, []):
+            if a == "O2'" and b == "C2'":
+                continue
+            if b in parent:
+                if parent[a] != b:
+                    return None
+                continue
+            parent[b] = a
+            order.append(b)
+            queue.append(b)
+    return (parent, order) if order else None
+
+
+def _ancestor(parent: Dict[str, Optional[str]], atom: str, anc: str) -> bool:
+    a = parent.get(atom)
+    while a is not None:
+        if a == anc:
+            return True
+        a = parent.get(a)
+    return False
+
+
+def _graph_far(nb: Dict[str, List[str]], sources: Sequence[str], n: int) -> set:
+    """Atoms at least ``n`` bonds from every atom in ``sources``."""
+    dist = {s: 0 for s in sources}
+    queue = list(sources)
+    while queue:
+        a = queue.pop(0)
+        if dist[a] >= n - 1:
+            continue
+        for b in nb.get(a, []):
+            if b not in dist:
+                dist[b] = dist[a] + 1
+                queue.append(b)
+    return {a for a in nb if a not in dist}
+
+
+def _rotate(points: np.ndarray, origin: np.ndarray, axis: np.ndarray, deg: float) -> np.ndarray:
+    """Rotate points by ``deg`` about the axis through ``origin`` (Rodrigues)."""
+    k = axis / np.linalg.norm(axis)
+    t = math.radians(deg)
+    p = points - origin
+    return (origin + p * math.cos(t) + np.cross(k, p) * math.sin(t)
+            + np.outer(p @ k, k) * (1.0 - math.cos(t)))
 
 
 def count_clashes(residues: Sequence[BuiltResidue], cutoff: float = CLASH_DISTANCE) -> int:

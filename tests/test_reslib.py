@@ -107,6 +107,33 @@ def test_lna_bridge_closes(rl, lib):
 
 
 @pytest.mark.parametrize("top,bottom,model", [
+    ("GCGAeUAGCG", "r(CGCUAUCGC)", 20),          # library MOE chain hit C5' of i+1
+    ("GCGAeCAGCG", "r(CGCUGUCGC)", 22),
+    ("eC*eG*eT*eT*eA*dC*dA*dT*dG*dA*dC*dT*dT*dA*dC*eG*eT*eA*eC*eG",
+     "r(GCAAUGUACUGAAUGCAUGC)", 22),             # 5-10-5 MOE gapmer
+])
+def test_moe_chain_avoids_contacts(msession, rl, top, bottom, model):
+    """2'-O chains are rotated out of contacts; bonds and angles stay the library's."""
+    from dsxnabuilder.structure import parse_pdb, residues
+    out = msession.build({"top": top, "bottom": bottom, "model": model})
+    assert out["ok"], out["issues"]
+    assert out["summary"]["clashes"] == 0
+    assert "CLASHES" not in [i["code"] for i in out["issues"]]
+    ref = rl.unit("RPO-MOE-RAA-int").coords()
+    chain = ["O2'", "C6'", "C7'", "O7'", "C8'"]
+    for ats in residues(parse_pdb(out["pdb"])).values():
+        c = {a.name: np.asarray(a.xyz) for a in ats}
+        if "C7'" not in c:
+            continue
+        # the transplant keeps bonds within 0.03 A of the library (O2' is a scaffold
+        # atom); the torsion scan is rigid and must not add to that
+        for a, b in zip(chain, chain[1:]):
+            assert abs(np.linalg.norm(c[a] - c[b]) - np.linalg.norm(ref[a] - ref[b])) < 0.03
+        for a, b, d in zip(chain, chain[1:], chain[2:]):   # bond angles via 1-3 distances
+            assert abs(np.linalg.norm(c[a] - c[d]) - np.linalg.norm(ref[a] - ref[d])) < 0.06
+
+
+@pytest.mark.parametrize("top,bottom,model", [
     ("mG*mA*fC*mU*fA*mG*fC*mU*mG*mA", "CUGAUCGACU", 20),
     ("r(GACUAGCUGA)", "+C*+T*+G*dA*dT*dC*dG*+A*+C*+T", 22),
     ("eG*eA*C^5mC*T*A*G*C*eT*eA*eG", "CTGATCGATC", 54),

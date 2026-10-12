@@ -15,6 +15,7 @@ SYS = [("dickerson", "Dickerson–Drew B-DNA", "#3A6EA5"),
        ("gapmer", "LNA/PS gapmer : RNA", "#C8553D"),
        ("sirna", "2′-OMe/2′-F/PS siRNA", "#2E9E5B")]
 LS = {"dickerson": "-", "gapmer": "--", "sirna": ":"}
+SHORT = {"dickerson": "dodecamer", "gapmer": "gapmer", "sirna": "siRNA"}
 CLASS_COL = {"DNA": "#3A6EA5", "RNA": "#8c564b", "LNA": "#C8553D", "2'-OMe": "#2E9E5B",
              "2'-F": "#9467bd", "MOE": "#e377c2"}
 
@@ -36,7 +37,7 @@ def main():
                 color=col, label=label)
     ax.set_xlabel("time (ns)"); ax.set_ylabel("RMSD to built model (Å)")
     ax.set_ylim(0, 6.2)
-    ax.legend(frameon=False, fontsize=6.5, loc="upper right", handlelength=1.5)
+    ax.legend(frameon=False, fontsize=7, loc="upper right", handlelength=1.5)
     ax.text(-0.06, 1.02, "a", transform=ax.transAxes, fontsize=11, fontweight="bold")
     # b: pseudorotation phase by sugar class
     axb = fig.add_subplot(gs[0, 2])
@@ -51,13 +52,13 @@ def main():
                 cl = k[7:]
                 h, _ = np.histogram(s[k], bins=bins, density=True)
                 axb.plot(0.5 * (bins[1:] + bins[:-1]), h, color=CLASS_COL.get(cl, "k"), lw=0.9,
-                         ls=LS[name], label=f"{cl} ({name})")
+                         ls=LS[name], label=f"{cl.replace(chr(39), chr(8242))} ({SHORT[name]})")
     axb.axvspan(0, 90, color="#eeeeee", zorder=0); axb.axvspan(270, 360, color="#eeeeee", zorder=0)
     axb.set_xlabel("pseudorotation phase P (°)"); axb.set_ylabel("density")
     axb.set_xticks([0, 90, 180, 270, 360])
     axb.text(45, 1.0, "N", transform=axb.get_xaxis_transform(), ha="center", va="bottom", fontsize=7)
     axb.text(180, 1.0, "S", transform=axb.get_xaxis_transform(), ha="center", va="bottom", fontsize=7)
-    axb.legend(frameon=False, fontsize=5.5, loc="upper right", handlelength=2.6)
+    axb.legend(frameon=False, fontsize=7, loc="upper right", handlelength=2.6)
     axb.text(-0.2, 1.02, "b", transform=axb.transAxes, fontsize=11, fontweight="bold")
     # c: snapshots
     for k, (name, label, col) in enumerate(SYS):

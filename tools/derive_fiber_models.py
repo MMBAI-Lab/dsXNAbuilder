@@ -79,15 +79,32 @@ REFERENCES = {
     "Arnott1999": "Arnott S (1999) Polynucleotide secondary structures: an "
                   "historical perspective. In: Neidle S (ed) Oxford Handbook of "
                   "Nucleic Acid Structure, pp 1-38. Oxford University Press",
-    "Chandrasekaran1990": "Chandrasekaran R, Arnott S (1990) The structures of DNA "
+    "Chandrasekaran1989": "Chandrasekaran R, Arnott S (1989) The structures of DNA "
                           "and RNA helices in oriented fibers. In: Saenger W (ed) "
-                          "Landolt-Bornstein, Group VII, vol 1b, pp 31-170. Springer",
+                          "Landolt-Bornstein, Group VII, vol 1b, pp 31-170. Springer. "
+                          "doi:10.1007/b36675 (volume)",
     "Alexeev1987": "Alexeev DG, Lipanov AA, Skuratovskii IYa (1987) The structure "
                    "of poly(dA).poly(dT) as revealed by an X-ray fibre diffraction. "
-                   "J Biomol Struct Dyn 4:989-1011",
+                   "J Biomol Struct Dyn 4:989-1012. doi:10.1080/07391102.1987.10507693",
     "vanDam2000": "van Dam L, Levitt MH (2000) BII nucleotides in the B and C forms "
                   "of natural-sequence polymeric DNA: a new model for the C form of "
                   "DNA. J Mol Biol 304:541-561",
+    "Premilat1983": "Premilat S, Albiser G (1983) Conformations of A-DNA and B-DNA in "
+                    "agreement with fiber X-ray and infrared dichroism. Nucleic Acids "
+                    "Res 11:1897-1908. doi:10.1093/nar/11.6.1897",
+    "Premilat1984": "Premilat S, Albiser G (1984) Conformations of C-DNA in agreement "
+                    "with fiber X-ray and infrared dichroism. J Biomol Struct Dyn "
+                    "2:607-613. doi:10.1080/07391102.1984.10507594",
+    "Premilat1986": "Premilat S, Albiser G (1986) DNA models for A, B, C and D "
+                    "conformations related to fiber X-ray, infrared and NMR "
+                    "measurements. J Biomol Struct Dyn 3:1033-1043. "
+                    "doi:10.1080/07391102.1986.10508480",
+    "Premilat1997": "Premilat S, Albiser G (1997) X-ray fibre diffraction study of an "
+                    "elevated temperature structure of poly(dA).poly(dT). J Mol Biol "
+                    "274:64-71. doi:10.1006/jmbi.1997.1378",
+    "Premilat1999": "Premilat S, Albiser G (1999) Helix-helix transitions in DNA: fibre "
+                    "X-ray study of the particular cases poly(dG-dC).poly(dG-dC) and "
+                    "poly(dA).2poly(dT). Eur Biophys J 28:574-582. doi:10.1007/s002490050239",
     "Premilat2001": "Premilat S, Albiser G (2001) A new D-DNA form of "
                     "poly(dA-dT).poly(dA-dT): an A-DNA type structure with reversed "
                     "Hoogsteen pairing. Eur Biophys J 30:404-410",
@@ -117,13 +134,17 @@ def references_for(mid: int) -> List[str]:
     if mid <= 41:
         refs.append("Arnott1999")
     elif mid <= 43:
-        refs.append("Chandrasekaran1990")
+        refs.append("Chandrasekaran1989")
     elif mid <= 45:
         refs.append("Alexeev1987")
     elif mid <= 47:
         refs.append("vanDam2000")
     else:
-        refs.append("Premilat2001")
+        # per model, from the citation headers of the 3DNA strNN data files
+        # (49/50 S-DNA: the only paper of the series that proposes two S models)
+        refs.append({48: "Premilat2001", 49: "Premilat1999", 50: "Premilat1999",
+                     51: "Premilat1997", 52: "Premilat1986", 53: "Premilat1984",
+                     54: "Premilat1983", 55: "Premilat1983"}[mid])
     return refs
 
 
