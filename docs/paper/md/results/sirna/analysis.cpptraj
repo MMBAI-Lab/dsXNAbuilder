@@ -1,0 +1,8 @@
+parm /home/pdans/Documents/web-dsXNAbuilder/build/md/sirna/dsxnabuilder/system.parm7
+reference /home/pdans/Documents/web-dsXNAbuilder/build/md/sirna/dsxnabuilder/system.rst7 name built
+trajin /home/pdans/Documents/web-dsXNAbuilder/build/md/sirna/dsxnabuilder/prod.nc 1 last 10
+autoimage
+rms fit :2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39&!@H= ref built out /home/pdans/Documents/web-dsXNAbuilder/docs/paper/md/results/sirna/rmsd.dat mass time 100
+nastruct NA resmap X01:G resmap X02:C resmap X03:A resmap X04:A resmap X05:G resmap X06:C resmap X07:U resmap X08:G resmap X09:A resmap X10:C resmap X11:U resmap X12:U resmap X13:U resmap X14:A resmap X15:U resmap X16:U specifiedbp pairs 1-40,2-39,3-38,4-37,5-36,6-35,7-34,8-33,9-32,10-31,11-30,12-29,13-28,14-27,15-26,16-25,17-24,18-23,19-22 naout /home/pdans/Documents/web-dsXNAbuilder/docs/paper/md/results/sirna/na.dat
+multipucker P resrange 1-42 out /home/pdans/Documents/web-dsXNAbuilder/docs/paper/md/results/sirna/pucker.dat range360
+run

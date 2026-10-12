@@ -1,0 +1,8 @@
+parm /home/pdans/Documents/web-dsXNAbuilder/build/md/gapmer/dsxnabuilder/system.parm7
+reference /home/pdans/Documents/web-dsXNAbuilder/build/md/gapmer/dsxnabuilder/system.rst7 name built
+trajin /home/pdans/Documents/web-dsXNAbuilder/build/md/gapmer/dsxnabuilder/prod.nc 1 last 10
+autoimage
+rms fit :2,3,4,5,6,7,8,9,10,11,12,13,14,15,18,19,20,21,22,23,24,25,26,27,28,29,30,31&!@H= ref built out /home/pdans/Documents/web-dsXNAbuilder/docs/paper/md/results/gapmer/rmsd.dat mass time 100
+nastruct NA resmap X01:G resmap X02:C resmap X03:A resmap X04:T resmap X05:C resmap X06:A resmap X07:G resmap X08:T resmap X09:G resmap X10:C specifiedbp pairs 1-32,2-31,3-30,4-29,5-28,6-27,7-26,8-25,9-24,10-23,11-22,12-21,13-20,14-19,15-18,16-17 naout /home/pdans/Documents/web-dsXNAbuilder/docs/paper/md/results/gapmer/na.dat
+multipucker P resrange 1-32 out /home/pdans/Documents/web-dsXNAbuilder/docs/paper/md/results/gapmer/pucker.dat range360
+run

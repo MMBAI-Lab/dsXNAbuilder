@@ -52,6 +52,9 @@ def analyze(sysdir, outdir, stride):
     inner = paired[1:-1]
     core = sorted([colsA[c] for c in inner] + [colsB[c] for c in inner])
     mask = ":" + ",".join(map(str, core)) + "&!@H="
+    # The pairs are known by construction. nastruct's default (geometric search
+    # on the first frame) paired two stacked neighbours of the gapmer strand.
+    bplist = ",".join(f"{colsA[c]}-{colsB[c]}" for c in paired)
     tag = os.path.basename(os.path.abspath(sysdir))
     o = os.path.abspath(os.path.join(outdir, tag))
     os.makedirs(o, exist_ok=True)
@@ -60,7 +63,7 @@ reference {pkg}/system.rst7 name built
 trajin {pkg}/prod.nc 1 last {stride}
 autoimage
 rms fit {mask} ref built out {o}/rmsd.dat mass time {10 * stride}
-nastruct NA {'resmap ' + ','.join(resmap) if resmap else ''} naout {o}/na.dat
+nastruct NA {' '.join('resmap ' + m for m in resmap)} specifiedbp pairs {bplist} naout {o}/na.dat
 multipucker P resrange 1-{n} out {o}/pucker.dat range360
 run
 """
@@ -78,11 +81,18 @@ run
     hi = {k: i for i, k in enumerate(h)}
     stepvals = {k: np.array([float(r[hi[k]]) for r in steps]) for k in
                 ("Shift", "Slide", "Rise", "Tilt", "Roll", "Twist")}
+    # nastruct writes one row per pair and frame even when the pair is broken,
+    # so occupancy comes from its BP flag and H-bond count, not from row counts.
     hb, bps = read_table(f"{o}/BP.na.dat")
     bi = {k: i for i, k in enumerate(hb)}
     nframes = len(rows)
     npairs_expected = len(paired)
-    formed = len(bps) / max(1, nframes * npairs_expected)
+    per_pair = {}
+    for r in bps:
+        per_pair.setdefault(f"{r[bi['Base1']]}-{r[bi['Base2']]}", []).append(
+            (int(r[bi["BP"]]), int(r[bi["HB"]])))
+    occ = {k: {"bp": float(np.mean([b for b, _ in v])), "hb2": float(np.mean([h >= 2 for _, h in v]))}
+           for k, v in per_pair.items()}
     hp, pk = read_table(f"{o}/pucker.dat")
     pucker = {}
     for j, name in enumerate(hp[1:], start=1):
@@ -107,13 +117,24 @@ run
             by_class.setdefault(cl, []).append(vals)
     north = {cl: float(np.mean([(v < 90) | (v > 270) for vs in arr for v in vs]))
              for cl, arr in by_class.items()}
+    # conventional pseudorotation quadrants N 315-45, E 45-135, S 135-225, W 225-315
+    quadrants = {}
+    for cl, arr in by_class.items():
+        v = np.concatenate(arr) % 360
+        quadrants[cl] = {q: float(np.mean(((v - lo) % 360) < 90))
+                         for q, lo in (("N", 315), ("E", 45), ("S", 135), ("W", 225))}
     summary = {
         "system": tag, "frames": nframes, "time_ns": float(t[-1]) if len(t) else 0.0,
         "rmsd_mean": float(rmsd[len(rmsd) // 5:].mean()), "rmsd_sd": float(rmsd[len(rmsd) // 5:].std()),
         "rmsd_max": float(rmsd.max()),
-        "pairs_formed_fraction": float(formed), "paired_columns": npairs_expected,
+        "paired_columns": npairs_expected, "pairs_tracked": len(per_pair),
+        "bp_fraction": float(np.mean([v["bp"] for v in occ.values()])),
+        "hb2_fraction": float(np.mean([v["hb2"] for v in occ.values()])),
+        "hb2_fraction_min_pair": float(min(v["hb2"] for v in occ.values())),
+        "pair_occupancy": occ,
         "steps_mean": {k: float(np.nanmean(v)) for k, v in stepvals.items()},
         "north_fraction_by_class": north,
+        "pucker_quadrants_by_class": quadrants,
         "resmap": resmap,
     }
     np.savez(f"{o}/series.npz", t=t, rmsd=rmsd,

@@ -1,0 +1,8 @@
+parm /home/pdans/Documents/web-dsXNAbuilder/build/md/dickerson/dsxnabuilder/system.parm7
+reference /home/pdans/Documents/web-dsXNAbuilder/build/md/dickerson/dsxnabuilder/system.rst7 name built
+trajin /home/pdans/Documents/web-dsXNAbuilder/build/md/dickerson/dsxnabuilder/prod.nc 1 last 10
+autoimage
+rms fit :2,3,4,5,6,7,8,9,10,11,14,15,16,17,18,19,20,21,22,23&!@H= ref built out /home/pdans/Documents/web-dsXNAbuilder/docs/paper/md/results/dickerson/rmsd.dat mass time 100
+nastruct NA  specifiedbp pairs 1-24,2-23,3-22,4-21,5-20,6-19,7-18,8-17,9-16,10-15,11-14,12-13 naout /home/pdans/Documents/web-dsXNAbuilder/docs/paper/md/results/dickerson/na.dat
+multipucker P resrange 1-24 out /home/pdans/Documents/web-dsXNAbuilder/docs/paper/md/results/dickerson/pucker.dat range360
+run

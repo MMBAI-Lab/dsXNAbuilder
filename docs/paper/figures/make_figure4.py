@@ -13,6 +13,7 @@ plt.rcParams.update({"font.family": "DejaVu Sans", "font.size": 8, "axes.spines.
 SYS = [("dickerson", "Dickerson–Drew B-DNA", "#3A6EA5"),
        ("gapmer", "LNA/PS gapmer : RNA", "#C8553D"),
        ("sirna", "2′-OMe/2′-F/PS siRNA", "#2E9E5B")]
+LS = {"dickerson": "-", "gapmer": "--", "sirna": ":"}
 CLASS_COL = {"DNA": "#3A6EA5", "RNA": "#8c564b", "LNA": "#C8553D", "2'-OMe": "#2E9E5B",
              "2'-F": "#9467bd", "MOE": "#e377c2"}
 
@@ -28,9 +29,13 @@ def main():
             continue
         s = np.load(f)
         summ[name] = json.load(open(f"{R}/{name}/summary.json"))
-        ax.plot(s["t"], s["rmsd"], lw=0.6, color=col, label=label)
-    ax.set_xlabel("time (ns)"); ax.set_ylabel("heavy-atom RMSD to built model (Å)")
-    ax.legend(frameon=False, fontsize=7, ncol=3, loc="upper left")
+        ax.plot(s["t"], s["rmsd"], lw=0.4, color=col, alpha=0.35)
+        w = 10                                        # 1-ns running mean (100-ps frames)
+        ax.plot(s["t"][w - 1:], np.convolve(s["rmsd"], np.ones(w) / w, "valid"), lw=1.1,
+                color=col, label=label)
+    ax.set_xlabel("time (ns)"); ax.set_ylabel("RMSD to built model (Å)")
+    ax.set_ylim(0, 6.2)
+    ax.legend(frameon=False, fontsize=6.5, loc="upper right", handlelength=1.5)
     ax.text(-0.06, 1.02, "a", transform=ax.transAxes, fontsize=11, fontweight="bold")
     # b: pseudorotation phase by sugar class
     axb = fig.add_subplot(gs[0, 2])
@@ -45,11 +50,13 @@ def main():
                 cl = k[7:]
                 h, _ = np.histogram(s[k], bins=bins, density=True)
                 axb.plot(0.5 * (bins[1:] + bins[:-1]), h, color=CLASS_COL.get(cl, "k"), lw=0.9,
-                         label=f"{cl} ({name})")
+                         ls=LS[name], label=f"{cl} ({name})")
     axb.axvspan(0, 90, color="#eeeeee", zorder=0); axb.axvspan(270, 360, color="#eeeeee", zorder=0)
     axb.set_xlabel("pseudorotation phase P (°)"); axb.set_ylabel("density")
     axb.set_xticks([0, 90, 180, 270, 360])
-    axb.legend(frameon=False, fontsize=5.5)
+    axb.text(45, 1.0, "N", transform=axb.get_xaxis_transform(), ha="center", va="bottom", fontsize=7)
+    axb.text(180, 1.0, "S", transform=axb.get_xaxis_transform(), ha="center", va="bottom", fontsize=7)
+    axb.legend(frameon=False, fontsize=5.5, loc="upper right", handlelength=2.6)
     axb.text(-0.2, 1.02, "b", transform=axb.transAxes, fontsize=11, fontweight="bold")
     # c: snapshots
     for k, (name, label, col) in enumerate(SYS):
@@ -60,7 +67,7 @@ def main():
         axc.axis("off")
         axc.set_title(label, fontsize=7.5)
         if k == 0:
-            axc.text(-0.05, 1.02, "c", transform=axc.transAxes, fontsize=11, fontweight="bold")
+            axc.text(-0.2, 1.02, "c", transform=axc.transAxes, fontsize=11, fontweight="bold")
     fig.savefig(f"{D}/figure4.png", bbox_inches="tight"); fig.savefig(f"{D}/figure4.pdf", bbox_inches="tight")
     json.dump(summ, open(f"{R}/all_summaries.json", "w"), indent=1)
 
