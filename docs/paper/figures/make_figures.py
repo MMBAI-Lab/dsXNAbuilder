@@ -33,13 +33,22 @@ os.makedirs(B, exist_ok=True)
 plt.rcParams.update({"font.family": "DejaVu Sans", "font.size": 8, "axes.linewidth": 0.6,
                      "xtick.major.width": 0.6, "ytick.major.width": 0.6,
                      "axes.spines.top": False, "axes.spines.right": False,
-                     "savefig.dpi": 300})
+                     "savefig.dpi": 300,
+                     # editable SVG: text stays <text>, not glyph paths
+                     "svg.fonttype": "none"})
 C_STRAND1, C_STRAND2, C_MOD, C_GREY = "#3A6EA5", "#C8553D", "#2E9E5B", "#6b6b6b"
 
 
 def panel(ax, letter):
     ax.text(-0.02, 1.02, letter, transform=ax.transAxes, fontsize=11, fontweight="bold",
             va="bottom", ha="right")
+
+
+def save(fig, name, **kw):
+    """PNG and PDF for the manuscript, SVG for editing (fixed metadata, no date)."""
+    fig.savefig(f"{D}/{name}.png", **kw)
+    fig.savefig(f"{D}/{name}.pdf", **kw)
+    fig.savefig(f"{D}/{name}.svg", metadata={"Date": None}, **kw)
 
 
 def show(ax, path):
@@ -181,8 +190,7 @@ def figure1():
              bbox=dict(boxstyle="round,pad=0.6", fc="#f7f7f7", ec="#bbbbbb", lw=0.5))
     axd.text(0.09, 0.985, "header of the output PDB (REMARK 999 records)", transform=axd.transAxes,
              fontsize=6, va="bottom")
-    fig.savefig(f"{D}/figure1.png", bbox_inches="tight")
-    fig.savefig(f"{D}/figure1.pdf", bbox_inches="tight")
+    save(fig, "figure1", bbox_inches="tight")
     plt.close(fig)
 
 
@@ -198,8 +206,7 @@ def figure2():
         ax.text(0.5, -0.02, f"{m.bp_twist:+.1f}°\n{m.bp_rise:.2f} Å", transform=ax.transAxes,
                 ha="center", va="top", fontsize=6.3)
     fig.subplots_adjust(wspace=0.02, left=0.01, right=0.99, top=0.86, bottom=0.12)
-    fig.savefig(f"{D}/figure2.png", bbox_inches="tight")
-    fig.savefig(f"{D}/figure2.pdf", bbox_inches="tight")
+    save(fig, "figure2", bbox_inches="tight")
     plt.close(fig)
 
 
@@ -280,8 +287,7 @@ def figure3():
             transform=ax.transAxes, ha="right", va="bottom", fontsize=6.5)
     panel(ax, "d")
     fig.tight_layout()
-    fig.savefig(f"{D}/figure3.png", bbox_inches="tight")
-    fig.savefig(f"{D}/figure3.pdf", bbox_inches="tight")
+    save(fig, "figure3", bbox_inches="tight")
     plt.close(fig)
 
 
@@ -305,6 +311,7 @@ def graphical_abstract():
     axr.text(0.0, 0.72, "exact screw symmetry\n244 modXNA residues\nPDB for any program\nAmber/modXNA topology\nruns in the browser",
              fontsize=8, va="top", linespacing=1.5)
     fig.savefig(f"{D}/graphical_abstract.png", dpi=300)
+    fig.savefig(f"{D}/graphical_abstract.svg", dpi=300, metadata={"Date": None})
     plt.close(fig)
 
 

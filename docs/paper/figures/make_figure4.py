@@ -9,7 +9,8 @@ import numpy as np
 R = "docs/paper/md/results"
 D = "docs/paper/figures"
 plt.rcParams.update({"font.family": "DejaVu Sans", "font.size": 8, "axes.spines.top": False,
-                     "axes.spines.right": False, "savefig.dpi": 300})
+                     "axes.spines.right": False, "savefig.dpi": 300,
+                     "svg.fonttype": "none"})        # editable SVG text
 SYS = [("dickerson", "Dickerson–Drew B-DNA", "#3A6EA5"),
        ("gapmer", "LNA/PS gapmer : RNA", "#C8553D"),
        ("sirna", "2′-OMe/2′-F/PS siRNA", "#2E9E5B")]
@@ -69,6 +70,7 @@ def main():
         if k == 0:
             axc.text(-0.2, 1.02, "c", transform=axc.transAxes, fontsize=11, fontweight="bold")
     fig.savefig(f"{D}/figure4.png", bbox_inches="tight"); fig.savefig(f"{D}/figure4.pdf", bbox_inches="tight")
+    fig.savefig(f"{D}/figure4.svg", bbox_inches="tight", metadata={"Date": None})
     json.dump(summ, open(f"{R}/all_summaries.json", "w"), indent=1)
 
 
