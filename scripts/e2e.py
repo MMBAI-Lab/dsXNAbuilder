@@ -27,6 +27,26 @@ from selenium.webdriver.support.ui import WebDriverWait
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 PORT = 8767
+# Stand-in for components/AppFrame.tsx of web-danslab: same-origin frame with a 1px
+# border, content-box, no scrolling, sized from the app's "app:height" messages.
+HOST = """
+const url = arguments[0];
+document.open();
+document.write(`<!doctype html><html><body style="margin:0">
+<iframe id="f" src="${url}" scrolling="no"
+  style="width:1100px;height:560px;border:1px solid #888;box-sizing:content-box"></iframe>
+<script>
+addEventListener('message', (e) => {
+  if (e.origin !== location.origin || !e.data || e.data.type !== 'app:height') return;
+  document.getElementById('f').style.height =
+    Math.min(Math.max(Math.round(e.data.height), 560), 20000) + 'px';
+});
+<\/script></body></html>`);
+document.close();
+"""
+# inside the frame: [html box height, frame viewport height, scrollHeight, body overflow-y]
+FRAME_METRICS = ("const r = document.documentElement; return [r.getBoundingClientRect().height, "
+                 "innerHeight, r.scrollHeight, getComputedStyle(document.body).overflowY];")
 
 
 def main() -> int:
@@ -181,6 +201,35 @@ def main() -> int:
         shot("models")
         drv.find_element(By.ID, "tab-docs").click()
         shot("docs")
+
+        # embedded in danslab.xyz: one scrollbar, the site's. The frame must take the
+        # app's height (no overflow inside it), grow with the help and shrink back.
+        drv.get(url.rstrip("/") + "/style.css")      # any same-origin page shown inline
+        drv.execute_script(HOST, url)
+        drv.switch_to.frame(drv.find_element(By.ID, "f"))
+        WebDriverWait(drv, 180).until(
+            lambda d: d.find_element(By.ID, "model").find_elements(By.TAG_NAME, "option"))
+
+        def settled():
+            time.sleep(1.5)     # ResizeObserver + the 1 s fallback report
+            return drv.execute_script(FRAME_METRICS)
+
+        heights = {}
+        for tab in ("build", "docs", "models", "build"):
+            drv.find_element(By.ID, f"tab-{tab}").click()
+            box, view, scroll, ovf = settled()
+            heights.setdefault(tab, []).append(view)
+            check(abs(view - box) <= 2 and scroll <= view and ovf == "visible",
+                  f"embedded, {tab}: frame {view} px for a {box:.0f} px page, no inner scroll")
+            if tab == "models":
+                inner = drv.execute_script(
+                    "return [...document.querySelectorAll('.tablewrap')]"
+                    ".every(t => t.scrollHeight <= t.clientHeight + 1);")
+                check(inner, "embedded: model tables flow with the page (no scroll box)")
+        check(heights["docs"][0] > heights["build"][0] + 500
+              and abs(heights["build"][1] - heights["build"][0]) <= 2,
+              f"embedded: frame grows for the help and shrinks back ({heights})")
+        drv.switch_to.default_content()
         logs = []
         try:
             logs = drv.get_log("browser")

@@ -432,4 +432,24 @@ addEventListener('storage', (ev) => {
   }
 });
 
+// ------------------------------------------------------------------ embedding
+// On danslab.xyz the app runs in a same-origin iframe (components/AppFrame.tsx). Reporting
+// our height lets the host grow the frame, so the page has one scrollbar instead of two.
+// The height is that of the <html> box, not scrollHeight: scrollHeight never drops below
+// the frame's current height, so the frame could grow (Documentation) but never shrink back.
+if (window.parent !== window) {
+  document.documentElement.classList.add('embedded');
+  let last = 0;
+  const report = () => {
+    const h = Math.ceil(document.documentElement.getBoundingClientRect().height);
+    if (Math.abs(h - last) < 2) return;
+    last = h;
+    parent.postMessage({ type: 'app:height', height: h }, location.origin);
+  };
+  if (window.ResizeObserver) new ResizeObserver(report).observe(document.documentElement);
+  addEventListener('load', report);
+  setInterval(report, 1000);      // catches growth the observer misses (fonts)
+  report();
+}
+
 renderExamples();

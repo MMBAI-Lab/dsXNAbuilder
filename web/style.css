@@ -148,6 +148,11 @@ details.mods .inner { padding: 0 10px 10px; }
 .actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0; }
 .tablewrap { overflow: auto; max-height: 560px; border: 1px solid var(--recess-edge);
   border-radius: 4px; box-shadow: var(--recess); }
+/* embedded in danslab.xyz the frame grows with the app and the site page scrolls, so the
+   model tables flow with it instead of scrolling in a box of their own (only a narrow
+   screen keeps a horizontal scrollbar). Nothing may set overflow on body here: hiding one
+   axis makes the other compute to auto and gives the body a scrollbar inside the frame. */
+:root.embedded .tablewrap { max-height: none; }
 table { border-collapse: collapse; width: 100%; font-size: 13px; }
 th, td { padding: 5px 10px; text-align: left; border-bottom: 1px solid var(--border); white-space: nowrap; }
 th { position: sticky; top: 0; color: var(--muted); font-weight: 600;
