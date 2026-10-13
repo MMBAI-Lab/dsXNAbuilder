@@ -13,8 +13,7 @@ rm -f web/dsxnabuilder.zip
 "$PY" - <<'PY'
 import pathlib, zipfile
 DATA = ["fiber_models.json", "modxna_catalog.json", "aliases.json", "base_pairing.json",
-        "residue_index.json", "amber_residues.json", "modxna_names.json",
-        "modxna_catalog_review.json"]
+        "residue_index.json", "amber_residues.json"]
 with zipfile.ZipFile("web/dsxnabuilder.zip", "w", zipfile.ZIP_DEFLATED) as z:
     for p in sorted(pathlib.Path("dsxnabuilder").rglob("*.py")):
         z.write(p)

@@ -62,10 +62,10 @@ class Session:
                 "references": self.fibers.references,
                 "provenance": self.fibers.provenance}
 
-    def fragments(self) -> dict:
-        """modXNA fragments by section, with names and availability (library tab)."""
-        from .fragments import fragment_table
-        return fragment_table(self.data_dir)
+    def pieces(self) -> dict:
+        """Sugars, bases and linkages of the prebuilt library (modXNA library tab)."""
+        from .fragments import pieces
+        return pieces(self.data_dir)
 
     def validate(self, request: dict) -> dict:
         """Parse and check without building coordinates."""

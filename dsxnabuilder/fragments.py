@@ -2,26 +2,22 @@
 dsxnabuilder.fragments
 ======================
 
-The modXNA fragment list of the web app's "modXNA library" tab.
+The pieces of the web app's "modXNA library" tab, and helpers for the
+offline residue-library tools.
 
-Every fragment of the modXNA release the residue library was built from
-(data/modxna_catalog.json) is listed by section, as in the modXNA catalogue
-page: backbones, sugars/linkers and base modifications grouped by parent base.
-Names and notes come from that page (data/modxna_names.json, written by
-tools/fetch_catalog_names.py); known errors and duplicates of the catalogue
-are flagged from data/modxna_catalog_review.json.
+``pieces()`` lists what the sequence language writes and the prebuilt
+residue library has in every combination: the sugars (prefix letters), the
+bases (letters and C^5mC) and the linkages (phosphodiester, *1, *2), with
+their notation. Every sugar x base x linkage combination is prebuilt,
+internal and at either end, so the tab offers only what can be built.
 
-A fragment is *available* when the prebuilt residue library uses it, at least
-with canonical partners; fragments with a symbol in the sequence language also
-get the notation that writes it (from the alias table). The exact residues
-prebuilt (``prebuilt``, keys BACKBONE-SUGAR-BASE-cap) and those that could not
-be built or do not fit a fiber scaffold (``unavailable``, with the reason) let
-the residue composer of the web app say whether a given combination exists.
+The other helpers (catalogue names and base families, the scaffold used to
+try a residue) serve tools/build_residue_library.py, which can also build
+the extended set of every catalogue fragment with canonical partners.
 """
 
 from __future__ import annotations
 
-import collections
 import json
 import os
 import re
@@ -32,14 +28,53 @@ from .catalog import CANONICAL
 DATA = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "data")
 # the page gives some backbones only as a label ("PS1 (S)") and their name in the notes
 _LABEL = re.compile(r"^[A-Za-z0-9]{3}\s*(\((S|R)\))?$")
-_STEREO_NOTE = ("modXNA labels it {label}. In dsXNAbuilder PS1 puts the sulfur on OP1 and PS2 "
-                "on OP2 (Amber convention); their absolute Rp/Sp configuration in a duplex is "
-                "not confirmed yet.")
+
+# Names of the pieces as shown in the tab; prefixes in the order they are offered.
+SUGARS = [("d", "DC2", "2′-deoxyribose (DNA)"), ("r", "RC3", "ribose (RNA)"),
+          ("m", "OME", "2′-O-methylribose (2′-OMe)"),
+          ("f", "AF2", "2′-deoxy-2′-fluororibose (2′-F)"),
+          ("e", "MOE", "2′-O-methoxyethylribose (2′-MOE)"),
+          ("+", "LNA", "LNA: ribose with a 2′-O,4′-C-methylene bridge")]
+BASES = {"A": "adenine", "C": "cytosine", "G": "guanine", "T": "thymine", "U": "uracil"}
+LINKAGES = [("", ["DPO", "RPO"], "phosphodiester"),
+            ("*1", ["PS1"], "phosphorothioate PS1: sulfur on OP1, keeps OP2"),
+            ("*2", ["PS2"], "phosphorothioate PS2: sulfur on OP2, keeps OP1")]
 
 
 def _load(name: str, data_dir: str) -> dict:
     with open(os.path.join(data_dir, name), encoding="utf-8") as fh:
         return json.load(fh)
+
+
+def pieces(data_dir: Optional[str] = None) -> dict:
+    """Sugars, bases and linkages of the prebuilt library, with their notation."""
+    d = data_dir or DATA
+    aliases = _load("aliases.json", d)
+    pairing = _load("base_pairing.json", d)["pairing"]
+    index = _load("residue_index.json", d)
+    used = {m: set() for m in ("backbone", "sugar", "base")}
+    for r in index["residues"].values():
+        for moiety, code in zip(("backbone", "sugar", "base"), r["triplet"]):
+            used[moiety].add(code)
+    other = {}                                   # code -> other prefixes that write it
+    for prefix, code in aliases.get("sugar", {}).items():
+        other.setdefault(code, []).append(prefix)
+    sugars = [{"prefix": p, "code": c, "name": n,
+               "also": [x for x in other.get(c, []) if x != p]}
+              for p, c, n in SUGARS if c in used["sugar"] and aliases["sugar"].get(p) == c]
+    bases = [{"write": letter, "name": name} for letter, name in BASES.items()]
+    for alias, code in aliases.get("base", {}).items():
+        if code in used["base"]:
+            bases.append({"write": f"{pairing[code]}^{alias}", "name": _BASE_NAMES.get(code, code)})
+    linkages = [{"write": w, "codes": cs, "name": n} for w, cs, n in LINKAGES
+                if all(c in used["backbone"] for c in cs if c not in ("DPO", "RPO"))]
+    return {"sugars": sugars, "bases": bases, "linkages": linkages,
+            "n_residues": len(index["residues"]),
+            "modxna": {"version": index.get("modxna_version"),
+                       "commit": index.get("modxna_commit")}}
+
+
+_BASE_NAMES = {"M5C": "5-methylcytosine"}
 
 
 def notation(aliases: dict, pairing: Dict[str, str]) -> Dict[str, str]:
@@ -59,66 +94,6 @@ def notation(aliases: dict, pairing: Dict[str, str]) -> Dict[str, str]:
     write = {code: " or ".join(dict.fromkeys(syms)) for code, syms in out.items()}
     write.update({"DPO": "default linkage", "RPO": "default linkage", "5PO": "5′ end (automatic)"})
     return write
-
-
-def fragment_table(data_dir: Optional[str] = None) -> dict:
-    d = data_dir or DATA
-    names = _load("modxna_names.json", d)
-    review = _load("modxna_catalog_review.json", d)
-    catalog = _load("modxna_catalog.json", d)
-    index = _load("residue_index.json", d)
-    write = notation(_load("aliases.json", d), _load("base_pairing.json", d)["pairing"])
-    in_release = {(f["moiety"], f["code"]) for f in catalog["fragments"]}
-    used = {m: set() for m in ("backbone", "sugar", "base")}
-    for r in index["residues"].values():
-        for moiety, code in zip(("backbone", "sugar", "base"), r["triplet"]):
-            used[moiety].add(code)
-    protected = set(review.get("protected", {}).get("codes", []))
-    unavailable = index.get("unavailable", {})
-    why: Dict[str, collections.Counter] = {}
-    for key, reason in unavailable.items():
-        for code in key.split("-")[:3]:
-            why.setdefault(code, collections.Counter())[_short_reason(reason)] += 1
-    sections = []
-    for s in names["sections"]:
-        entries = []
-        for e in s["entries"]:
-            label = e["name"] if _LABEL.match(e["name"]) and e["notes"] else None
-            name, notes = _display(e["name"], list(e["notes"]))
-            codes = e["codes"]
-            flags = []
-            for c in codes:
-                if c in review["entries"]:
-                    flags.append(dict(review["entries"][c], code=c))
-                if c in protected:
-                    flags.append({"kind": "protected", "code": c,
-                                  "text": review["protected"]["text"]})
-                if c in ("PS1", "PS2"):
-                    flags.append({"kind": "stereo", "code": c,
-                                  "text": _STEREO_NOTE.format(label=label or c)})
-            available = all(c in used[s["moiety"]] for c in codes)
-            reason = None
-            if not available:
-                if any(c in protected for c in codes):
-                    reason = "protected phosphoramidite: not prebuilt"
-                else:
-                    counts = sum((why.get(c, collections.Counter()) for c in codes),
-                                 collections.Counter())
-                    reason = counts.most_common(1)[0][0] if counts else "not prebuilt"
-            entries.append({
-                "codes": codes, "name": name, "notes": notes,
-                "available": available, "reason": reason,
-                "write": write.get(codes[0]) if available else None,
-                "in_release": all((s["moiety"], c) in in_release for c in codes),
-                "flags": flags})
-        sections.append({"title": s["title"], "moiety": s["moiety"], "parent": s["parent"],
-                         "entries": entries})
-    return {"sections": sections, "names_source": names["source"],
-            "prebuilt": sorted(index["residues"]), "unavailable": unavailable,
-            "review_source": review["source"],
-            "modxna": {"version": index.get("modxna_version"),
-                       "commit": index.get("modxna_commit")},
-            "n_fragments": len(in_release)}
 
 
 def _display(name: str, notes: List[str]):
@@ -162,10 +137,3 @@ def test_context(triplet, catalog, families: Dict[str, str]):
     chem = "RNA" if set(catalog[sugar].atom_names) & {"O2'", "F2'"} else "DNA"
     model = 20 if catalog[sugar].pucker_domain == "North" else 4
     return letter, chem, model
-
-
-def _short_reason(reason: str) -> str:
-    """One reason per kind: drop the distances and the model of the scaffold check."""
-    reason = re.sub(r" \(model #\d+\)", "", reason)
-    reason = re.sub(r"\s+-?\d+\.\d+(/-?\d+\.\d+)? A", "", reason)
-    return reason

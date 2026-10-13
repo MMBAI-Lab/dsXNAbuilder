@@ -71,7 +71,7 @@ from dsxnabuilder.reslib import duplicate_names, tleap_name, transplant  # noqa:
 
 UNIT = "MXR"
 MODXNA = os.path.join(ROOT, "external", "modxna")
-EXTRA = [("PS2", "2AD", "RYC", "int")]       # example "modXNA code" of the web app
+EXTRA = [("PS2", "2AD", "RYC", "int")]       # Pablo's first "modXNA code" example (extended set)
 SUGARS = {"DC2": "DNA", "RC3": "RNA", "OME": "RNA", "AF2": "RNA", "MOE": "RNA", "LNA": "RNA"}
 BASES = {"DNA": ["DAA", "DCC", "DGG", "DTT", "RUU", "M5C"],
          "RNA": ["RAA", "RCC", "RGG", "RUU", "DTT", "M5C"]}
@@ -276,8 +276,9 @@ def main(argv=None) -> int:
     ap.add_argument("--cpptraj", default=os.path.join(ROOT, "external", "cpptraj", "bin"))
     ap.add_argument("--amberhome", default=os.environ.get("AMBERHOME", "/opt/amber26"))
     ap.add_argument("--jobs", type=int, default=max(1, (os.cpu_count() or 2) - 1))
-    ap.add_argument("--set", choices=("curated", "extended"), default="extended",
-                    help="curated: what the sequence language writes; extended (default): "
+    ap.add_argument("--set", choices=("curated", "extended"), default="curated",
+                    help="curated (default, what the web app serves): what the sequence language "
+                         "writes; extended: "
                          "plus every catalogue fragment with canonical partners and EXTRA")
     ap.add_argument("--validate-only", action="store_true",
                     help="re-run the scaffold check on the current library (after a change "

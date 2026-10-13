@@ -158,17 +158,17 @@ def main() -> int:
         # explicit triplet example, then rename its residues
         s, iss = run_example("modxna", 14)
         rows = drv.find_elements(By.CSS_SELECTOR, "#nametable tbody tr")
-        check("ABASIC" in iss and len(rows) == 3 and "PS2/2AD/RYC" in rows[0].text,
+        check("ABASIC" in iss and len(rows) == 3 and "PS2/OME/M5C" in rows[0].text,
               f"modXNA code example: {len(rows)} named residues")
         inp = drv.find_element(By.CSS_SELECTOR, "#nametable input.resname")
         inp.clear()
-        inp.send_keys("ryc")
+        inp.send_keys("omc")
         drv.find_element(By.ID, "applynames").click()
         WebDriverWait(drv, 60).until(lambda d: "names=" in d.current_url)
         time.sleep(0.5)
         first = drv.find_element(By.CSS_SELECTOR, "#nametable input.resname").get_attribute("value")
-        check(first == "RYC" and "PS2%2F2AD%2FRYC%2Fint%3DRYC" in drv.current_url,
-              "residue renamed to RYC (kept in the reproducible link)")
+        check(first == "OMC" and "PS2%2FOME%2FM5C%2Fint%3DOMC" in drv.current_url,
+              "residue renamed to OMC (kept in the reproducible link)")
         run_example("mc", 12)        # the package below needs a duplex without abasic sites
         drv.find_element(By.CSS_SELECTOR, "#advanced summary").click()
         drv.find_element(By.ID, "dlzip").click()
@@ -230,41 +230,21 @@ def main() -> int:
         check(len(grows) == 8 and all("generic" in r.text for r in grows),
               f"{len(grows)} generic models highlighted in the table")
         shot("models")
-        # modXNA library tab: compose a residue by clicking, add it to strand 1
+        # modXNA library tab: click a sugar, a base and a linkage, add it to strand 1
         drv.find_element(By.ID, "tab-library").click()
         WebDriverWait(drv, 30).until(lambda d: d.find_elements(By.CSS_SELECTOR, "#c-sugar button"))
-        for sel in ('[data-backbone="PS2"]', '[data-sugar="2AD"]', '[data-family="C"]',
-                    '[data-base="RYC"]'):
+        for sel in ('[data-sugar="5"]', '[data-base="5"]', '[data-link="1"]'):     # +, 5mC, *1
             drv.find_element(By.CSS_SELECTOR, f"#composer {sel}").click()
-        code = drv.find_element(By.ID, "c-code").text
-        status = drv.find_element(By.ID, "c-status").text
-        check(code == "{PS2/2AD/RYC:C}" and status.splitlines()[0].endswith("prebuilt"),
-              f"composer: {code}, internal prebuilt")
+        top_code = drv.find_element(By.ID, "c-top-code").text
+        bottom_code = drv.find_element(By.ID, "c-bottom-code").text
+        n_pieces = len(drv.find_elements(By.CSS_SELECTOR, "#piecetable tbody tr"))
+        check(top_code == "*1+C^5mC" and bottom_code == "+C^5mC*1" and n_pieces == 15,
+              f"composer: {top_code} / {bottom_code}, {n_pieces} pieces listed")
         shot("library")
         drv.find_element(By.ID, "c-top").click()
         top = drv.find_element(By.ID, "top").get_attribute("value")
         check(drv.find_element(By.ID, "tab-build").get_attribute("aria-selected") == "true"
-              and "{PS2/2AD/RYC:C}" in top, "composer: code added to strand 1")
-        drv.find_element(By.ID, "tab-library").click()
-        # the full list: every fragment by section, with names and notation
-        drv.find_element(By.CSS_SELECTOR, "#libdetails summary").click()
-        heads = [h.text for h in drv.find_elements(By.CSS_SELECTOR, "#libtables h3")]
-        n_rows = len(drv.find_elements(By.CSS_SELECTOR, "#libtables tbody tr"))
-        check(len(heads) == 8 and heads[0].startswith("Backbone") and n_rows >= 290,
-              f"library: {len(heads)} sections, {n_rows} rows")
-        avail = drv.find_elements(By.CSS_SELECTOR, "#libtables tr.avail")
-        text = " ".join(r.text for r in avail)
-        check(len(avail) > 100 and "*1" in text and "C^5mC" in text,
-              f"library: {len(avail)} rows available here, with their notation")
-        f = drv.find_element(By.ID, "libfilter")
-        f.send_keys("methyl")
-        rows = drv.find_elements(By.CSS_SELECTOR, "#libtables tbody tr")
-        check(0 < len(rows) < n_rows and all("methyl" in r.text.lower() for r in rows),
-              f"library: filter 'methyl' {len(rows)} rows")
-        f.clear()
-        f.send_keys(" ")
-        f.clear()
-        drv.find_element(By.CSS_SELECTOR, "#libdetails summary").click()
+              and top.endswith("*1+C^5mC"), "composer: nucleotide added to strand 1")
         drv.find_element(By.ID, "tab-docs").click()
         shot("docs")
 
@@ -285,7 +265,7 @@ def main() -> int:
             drv.find_element(By.ID, f"tab-{tab}").click()
             if tab == "library":
                 WebDriverWait(drv, 30).until(
-                    lambda d: d.find_elements(By.CSS_SELECTOR, "#libtables table"))
+                    lambda d: d.find_elements(By.CSS_SELECTOR, "#piecetable tbody tr"))
             box, view, scroll, ovf = settled()
             heights.setdefault(tab, []).append(view)
             check(abs(view - box) <= 2 and scroll <= view and ovf == "visible",

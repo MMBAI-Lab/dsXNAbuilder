@@ -34,12 +34,11 @@ def test_index_complete_and_charged(rl):
     import sys
     sys.path.insert(0, os.path.join(ROOT, "tools"))
     from build_residue_library import curated
-    # the curated set (what the language writes without explicit blocks) is complete;
-    # the extended set adds what modxna.sh builds and a fiber scaffold takes
-    assert {"-".join(j) for j in curated()} <= set(rl.residues)
-    assert len(rl.residues) > 1000
-    assert all(isinstance(v, str) and v for v in rl.index["unavailable"].values())
-    assert not set(rl.residues) & set(rl.index["unavailable"])
+    # the web app serves the curated set: what the language writes without explicit blocks
+    # (tools/build_residue_library.py --set extended can add every catalogue fragment)
+    assert set(rl.residues) == {"-".join(j) for j in curated()}
+    assert all(isinstance(v, str) and v for v in rl.index.get("unavailable", {}).values())
+    assert not set(rl.residues) & set(rl.index.get("unavailable", {}))
     for key, r in rl.residues.items():
         assert abs(r["charge"] - CAP_CHARGE[r["cap"]]) < 1e-4, key
         assert key == "-".join(r["triplet"] + [r["cap"]])
@@ -192,6 +191,9 @@ def _c2_handedness(xyz):
     return np.sign(np.dot(u[0], np.cross(u[1], u[2])))
 
 
+@pytest.mark.skipif(not os.path.exists(os.path.join(ROOT, "web", "lib", "residues",
+                                                   "RPO-A5O-RAA-int.lib")),
+                    reason="arabinose is only in the extended library (--set extended)")
 def test_arabinose_o2_on_its_own_face(msession, rl):
     """The scaffold puts O2' on the ribose face; arabinose has it on the other one, so the
     transplant must place it from the residue, not keep the scaffold's."""
@@ -225,7 +227,7 @@ def test_transplant_is_independent_of_hash_seed():
             "from dsxnabuilder.service import Session\n"
             "from dsxnabuilder.reslib import ResidueLibrary\n"
             "s = Session(residue_library=ResidueLibrary.load_default())\n"
-            "o = s.build({'top': 'd(GC){DPO/DC2/ACG:G}d(GC)', 'bottom': 'd(CGCCG)', 'model': 4})\n"
+            "o = s.build({'top': 'mG*eA*+C^5mC*fU*mG', 'bottom': 'CUGGC', 'model': 20})\n"
             "print(o['ok'], hashlib.sha256(o['pdb'].encode()).hexdigest())" % ROOT)
     outs = {subprocess.run([sys.executable, "-c", code], capture_output=True, text=True,
                            env=dict(os.environ, PYTHONHASHSEED=str(seed))).stdout
@@ -244,13 +246,13 @@ def test_atom_names_as_tleap_reads_them(rl):
 
 
 def test_modxna_code_example(msession):
-    out = msession.build({"top": "CG{PS2/2AD/RYC:C}GAA*2TTC-CG--",
+    out = msession.build({"top": "CG{PS2/OME/M5C:C}GAA*2TTC-CG--",
                           "bottom": "GCGCTT*1AAGCGCAA", "model": 4})
     assert out["ok"], out["issues"]
     codes = {i["code"] for i in out["issues"]}
     assert {"ABASIC", "OVERHANG", "PUCKER_FORCED"} <= codes and "CLASHES" not in codes
-    assert out["summary"]["named"][0]["key"] == "PS2/2AD/RYC/int"
-    assert "dihydrocytidylic" in out["summary"]["named"][0]["description"]
+    assert out["summary"]["named"][0]["key"] == "PS2/OME/M5C/int"
+    assert "5-methylcytosine" in out["summary"]["named"][0]["description"]
 
 
 def test_phosphorus_follows_the_modxna_geometry(rl, lib):
@@ -263,10 +265,11 @@ def test_phosphorus_follows_the_modxna_geometry(rl, lib):
         p = c["P"]
         return np.sign(np.dot(c[x] - p, np.cross(c[kept] - p, c["O5'"] - p)))
     names, xyz = scaffold(lib, 4, "C", "DNA")
-    u = rl.unit("WX2-DC2-DCC-int")
-    out_names, out_xyz, _ = transplant(u, names, xyz)
-    built = dict(zip(out_names, out_xyz))
-    assert hand(built, "N2", "OP2") == hand(u.coords(), "N2", "OP2")
+    if "WX2-DC2-DCC-int" in rl.residues:          # extended library only
+        u = rl.unit("WX2-DC2-DCC-int")
+        out_names, out_xyz, _ = transplant(u, names, xyz)
+        built = dict(zip(out_names, out_xyz))
+        assert hand(built, "N2", "OP2") == hand(u.coords(), "N2", "OP2")
     for key, s in (("PS1-DC2-DCC-int", "S1"), ("PS2-DC2-DCC-int", "S2")):
         out_names, out_xyz, _ = transplant(rl.unit(key), names, xyz)
         built = dict(zip(out_names, out_xyz))
