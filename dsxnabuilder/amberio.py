@@ -157,7 +157,9 @@ def manifest(res: BuildResult, opts: AmberOptions, files: Dict[str, bytes],
                   "model": m.id, "amber": asdict(opts)},
         "reproduce": (f"dsxnabuilder build --top {json.dumps(res.duplex.top.raw)} "
                       f"--bottom {json.dumps(res.duplex.bottom.raw)} --model {m.id} "
-                      f"--amber package.zip"),
+                      + "".join(f"--name {json.dumps(k + '=' + v)} "
+                                for k, v in sorted(res.custom_names.items()))
+                      + "--amber package.zip"),
         "model": {"id": m.id, "family": m.family, "description": m.description,
                   "repeat_bp": m.k, "twist_per_bp": m.bp_twist, "rise_per_bp": m.bp_rise,
                   "handedness": m.handedness, "references": m.references,

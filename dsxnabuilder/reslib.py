@@ -28,12 +28,25 @@ the sulfur takes the place of the oxygen that the fragment does *not* keep:
 PS1 puts S on the scaffold's OP1, PS2 on its OP2, with OP1/OP2 in the Amber
 convention (the scaffold is relabelled by chirality in
 tools/derive_fiber_models.py). The absolute Rp/Sp labels are not asserted.
+The same rule places every backbone modified at phosphorus that keeps one of
+the two oxygens (methylphosphonate, phosphoryl guanidine, ...).
+
+Checks
+------
+A transplant is refused rather than returned wrong: every carbon or sulfur
+stereocentre must keep the handedness it has in the modXNA residue (a shared
+substituent such as the O2' of arabinose, which the scaffold puts on the
+ribose face, is placed from the residue instead; ring atoms cannot be), every
+bond must keep its length within GEOMETRY_TOL and no two atoms three or more
+bonds apart may come closer than CONTACT_MIN. modXNA atom names with a leading
+digit are read as tleap reads them back from a PDB ("1H15" -> "H151").
 """
 
 from __future__ import annotations
 
 import json
 import os
+import re
 from collections import deque
 from typing import Dict, List, Optional, Tuple
 
@@ -46,10 +59,41 @@ from .offlib import OffUnit, parse_off, rename_unit
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.abspath(os.path.join(HERE, ".."))
 STRAIN_TOL = 0.15     # A, bond length change where a new atom closes a ring
+GEOMETRY_TOL = 0.30   # A, bond length change that makes a transplant unusable
+CONTACT_MIN = 2.0     # A, non-bonded atoms of one residue (1-4 and beyond)
+CHIRAL_MIN = 0.25     # |u1 . (u2 x u3)| of a tetrahedral centre is ~0.5-0.6; planar ~0
 # Scaffold atoms that always keep their fiber coordinates: furanose ring,
 # backbone and glycosidic atoms (they define the helical frame and O3'-P).
 CORE_ATOMS = {"P", "OP1", "OP2", "O5'", "C5'", "C4'", "O4'", "C3'", "O3'", "C2'", "C1'",
               "N9", "N1"}
+
+
+def tleap_name(name: str) -> str:
+    """Atom name as tleap reads it from a PDB: leading digits move to the end
+    (old PDB convention, "1H15" -> "H151"). modXNA names some hydrogens with a
+    leading digit; written as such, tleap would not match them to the unit."""
+    m = re.match(r"^(\d+)(\D.*)$", name)
+    return m.group(2) + m.group(1) if m else name
+
+
+def duplicate_names(unit: OffUnit) -> List[str]:
+    """Atom names that occur twice in a unit (as tleap reads them)."""
+    seen, out = set(), []
+    for n in unit.atom_names:
+        if n in seen and n not in out:
+            out.append(n)
+        seen.add(n)
+    return out
+
+
+def _tleap_names(unit: OffUnit) -> OffUnit:
+    unit.atom_names = [tleap_name(n) for n in unit.atom_names]
+    return unit
+
+
+def _rename_atoms_off(text: str) -> str:
+    """Apply tleap_name to the quoted atom names of an OFF file."""
+    return re.sub(r'"(\d+\D[^"\s]*)"', lambda m: f'"{tleap_name(m.group(1))}"', text)
 
 
 def residue_key(backbone: str, sugar: str, base: str, cap: str) -> str:
@@ -105,8 +149,9 @@ class ResidueLibrary:
         return key in self._texts or self.root is not None
 
     def unit(self, key: str) -> OffUnit:
+        """The modXNA unit, with atom names as tleap reads them back from the PDB."""
         if key not in self._units:
-            self._units[key] = parse_off(self.text(key))[self.unit_name]
+            self._units[key] = _tleap_names(parse_off(self.text(key))[self.unit_name])
         return self._units[key]
 
     def frcmod(self) -> str:
@@ -124,6 +169,14 @@ class ResidueLibrary:
         unit = self.unit(key)
         new_names, new_xyz, report = transplant(unit, names, xyz)
         issues = []
+        bad = ([f"configuration at {', '.join(report['stereo'])}"] if report["stereo"] else []) + \
+            report["distorted"][:3] + report["contacts"][:3]
+        if bad:
+            issues.append(Issue("error", spec.column, "TRANSPLANT_FAILED",
+                                f"{spec.token}: the {'/'.join(spec.triplet())} residue does not fit "
+                                f"the fiber scaffold ({'; '.join(bad)})",
+                                {"token": spec.token, "triplet": "/".join(spec.triplet()),
+                                 "detail": "; ".join(bad)}, None))
         if report["strained"]:
             issues.append(Issue("warning", spec.column, "TRANSPLANT_STRAIN",
                                 f"{spec.token}: modified atoms close onto the scaffold with "
@@ -141,14 +194,25 @@ class ResidueLibrary:
             fname = f"{r.resname}.lib"
             if fname in out:
                 continue
-            out[fname] = rename_unit(self.text(self.key_for(r.spec)), self.unit_name, r.resname)
+            # atoms first: a residue name the user chose may start with a digit
+            out[fname] = rename_unit(_rename_atoms_off(self.text(self.key_for(r.spec))),
+                                     self.unit_name, r.resname)
         return out, self.frcmod()
 
 
 # --------------------------------------------------------------------------
 def transplant(unit: OffUnit, names: List[str], xyz: np.ndarray
                ) -> Tuple[List[str], np.ndarray, dict]:
-    """Install ``unit`` (heavy atoms) on a scaffold nucleotide (names, xyz)."""
+    """Install ``unit`` (heavy atoms) on a scaffold nucleotide (names, xyz).
+
+    The report lists the atoms placed, strained ring closures (a warning) and
+    what makes the result unusable: stereocentres whose configuration differs
+    from the modXNA residue (``stereo``), bonds of the residue stretched or
+    compressed beyond GEOMETRY_TOL (``distorted``) and non-bonded atoms closer
+    than CONTACT_MIN (``contacts``), as when the scaffold ring cannot carry the
+    sugar (L- or alpha-sugars, unlocked rings) or base atoms share names with a
+    different ring.
+    """
     sc = {n: p for n, p in zip(names, xyz)}
     lib = unit.coords()
     heavy = unit.heavy_atoms()
@@ -156,13 +220,7 @@ def transplant(unit: OffUnit, names: List[str], xyz: np.ndarray
     unb = unit.neighbours()
     nb = {a: [b for b in unb[a] if b in hset] for a in heavy}
     placed: Dict[str, np.ndarray] = {}
-    special = {}
-    # phosphorothioate rule (see module docstring)
-    if "P" in sc:
-        if "S1" in hset and "OP2" in hset and "OP1" in sc:
-            special["S1"] = "OP1"
-        if "S2" in hset and "OP1" in hset and "OP2" in sc:
-            special["S2"] = "OP2"
+    special = _phosphorus_rule(nb, hset, sc)
     for a in heavy:
         if a in sc and a not in special:
             placed[a] = np.array(sc[a], float)
@@ -184,12 +242,78 @@ def transplant(unit: OffUnit, names: List[str], xyz: np.ndarray
         d = float(np.linalg.norm(lib[s_name] - lib["P"]))
         placed[s_name] = sc["P"] + d * v / np.linalg.norm(v)
     new = [a for a in heavy if a not in placed and a not in special]
+    order = _place(new, placed, lib, nb, unit.name)
+    if released:
+        _refine(list(new), placed, lib, nb)
+    # A shared substituent kept from the scaffold can sit on the wrong face for
+    # this sugar (O2' of arabinose: the scaffold puts it where ribose has it).
+    # Such atoms are placed from the residue instead; ring atoms cannot be.
+    # stereocentres: carbon and sulfur (a three-coordinate N or O inverts freely)
+    centres = {n for n, e in zip(unit.atom_names, unit.elements) if e in (6, 16) and n in hset}
+    stereo = _stereo_mismatches(lib, placed, nb, centres)
+    rings = _ring_atoms(nb)
+    redo = sorted({a for c in stereo for a in [c] + nb[c]
+                   if a in sc and a not in CORE_ATOMS and a not in special and a not in rings})
+    if redo:
+        for a in redo:
+            placed.pop(a)
+        order += _place(redo, placed, lib, nb, unit.name)
+        new += redo
+        stereo = _stereo_mismatches(lib, placed, nb, centres)
+    strained, distorted = [], []
+    newset = set(new) | set(special)
+    for i, j in unit.bonds:
+        a, b = unit.atom_names[i], unit.atom_names[j]
+        if a not in hset or b not in hset:
+            continue
+        d0 = float(np.linalg.norm(lib[a] - lib[b]))
+        d1 = float(np.linalg.norm(placed[a] - placed[b]))
+        if abs(d1 - d0) > GEOMETRY_TOL:
+            distorted.append(f"{a}-{b} {d1:.2f}/{d0:.2f} A")
+        elif {a, b} & newset and abs(d1 - d0) > STRAIN_TOL:
+            strained.append(f"{a}-{b} {d1:.2f}/{d0:.2f} A")
+    out_names = list(heavy)
+    out_xyz = np.array([placed[a] for a in out_names])
+    if not np.all(np.isfinite(out_xyz)):        # a ring closure that would not relax
+        distorted.insert(0, "ring closure did not converge")
+    return out_names, out_xyz, {"placed": order + list(special), "strained": strained,
+                                "stereo": stereo, "distorted": distorted,
+                                "contacts": _close_contacts(out_names, out_xyz, nb)}
+
+
+def _phosphorus_rule(nb: Dict[str, List[str]], hset: set, sc: Dict[str, np.ndarray]
+                     ) -> Dict[str, str]:
+    """New atom on P -> scaffold oxygen whose position it takes.
+
+    modXNA backbones modified at phosphorus keep one of the two non-bridging
+    oxygens by name (PS1 keeps OP2, MP1 keeps OP1, ...) and put the new group
+    on the other; the new atom takes the place of the scaffold oxygen the
+    fragment does not keep (Amber OP1/OP2, by chirality). PSS carries two
+    sulfurs, S1 on OP1 and S2 on OP2. Fragments that follow neither pattern
+    keep the geometry of the residue.
+    """
+    if "P" not in sc or "P" not in hset:
+        return {}
+    missing = [o for o in ("OP1", "OP2") if o not in hset and o in sc]
+    # bridging atoms (bonded to the sugar, e.g. N5' of a phosphoramidate) stay put
+    new = sorted(b for b in nb["P"] if b not in sc and "C5'" not in nb[b])
+    if len(missing) == 1 and len(new) == 1:
+        return {new[0]: missing[0]}
+    if missing == ["OP1", "OP2"] and new == ["S1", "S2"]:
+        return {"S1": "OP1", "S2": "OP2"}
+    return {}
+
+
+def _place(atoms: List[str], placed: Dict[str, np.ndarray], lib: Dict[str, np.ndarray],
+           nb: Dict[str, List[str]], unit_name: str) -> List[str]:
+    """Place ``atoms`` one by one, most-anchored first, by local superposition."""
     order: List[str] = []
-    pending = set(new)
+    pending = set(atoms)
     while pending:
         progress = False
-        # atoms with the most placed neighbours first
-        cands = sorted(pending, key=lambda a: -sum(b in placed for b in nb[a]))
+        # atoms with the most placed neighbours first; ties by name, so that the
+        # result does not depend on set order (string hashing differs per process)
+        cands = sorted(pending, key=lambda a: (-sum(b in placed for b in nb[a]), a))
         for a in cands:
             if not any(b in placed for b in nb[a]):
                 continue
@@ -206,22 +330,65 @@ def transplant(unit: OffUnit, names: List[str], xyz: np.ndarray
             progress = True
             break
         if not progress:
-            raise ValueError(f"cannot place atoms {sorted(pending)} of {unit.name}")
-    if released:
-        _refine(list(new), placed, lib, nb)
-    strained = []
-    newset = set(new) | set(special)
-    for i, j in unit.bonds:
-        a, b = unit.atom_names[i], unit.atom_names[j]
-        if a not in hset or b not in hset or not ({a, b} & newset):
+            raise ValueError(f"cannot place atoms {sorted(pending)} of {unit_name}")
+    return order
+
+
+def _ring_atoms(nb: Dict[str, List[str]]) -> set:
+    """Atoms on a ring: two of their neighbours stay connected without them."""
+    out = set()
+    for a, ns in nb.items():
+        if len(ns) < 2:
             continue
-        d0 = float(np.linalg.norm(lib[a] - lib[b]))
-        d1 = float(np.linalg.norm(placed[a] - placed[b]))
-        if abs(d1 - d0) > STRAIN_TOL:
-            strained.append(f"{a}-{b} {d1:.2f}/{d0:.2f} A")
-    out_names = list(heavy)
-    out_xyz = np.array([placed[a] for a in out_names])
-    return out_names, out_xyz, {"placed": order + list(special), "strained": strained}
+        seen, q = {ns[0]}, deque([ns[0]])
+        while q:
+            x = q.popleft()
+            for y in nb.get(x, []):
+                if y != a and y not in seen:
+                    seen.add(y)
+                    q.append(y)
+        if any(n in seen for n in ns[1:]):
+            out.add(a)
+    return out
+
+
+def _chirality(pos: Dict[str, np.ndarray], c: str, ns: List[str]) -> float:
+    u = [(pos[n] - pos[c]) / np.linalg.norm(pos[n] - pos[c]) for n in ns[:3]]
+    return float(np.dot(u[0], np.cross(u[1], u[2])))
+
+
+def _stereo_mismatches(lib: Dict[str, np.ndarray], placed: Dict[str, np.ndarray],
+                       nb: Dict[str, List[str]], centres: set) -> List[str]:
+    """sp3 ``centres`` (three or more heavy neighbours, not planar in the residue)
+    whose handedness differs from the modXNA residue, or that came out flat.
+    Phosphorus is not among them: its configuration follows _phosphorus_rule."""
+    out = []
+    for c, ns in nb.items():
+        if c not in centres or len(ns) < 3:
+            continue
+        ns = sorted(ns)
+        v0 = _chirality(lib, c, ns)
+        if abs(v0) < CHIRAL_MIN:
+            continue
+        v1 = _chirality(placed, c, ns)
+        if v0 * v1 <= 0 or abs(v1) < CHIRAL_MIN / 2:
+            out.append(c)
+    return sorted(out)
+
+
+def _close_contacts(names: List[str], xyz: np.ndarray, nb: Dict[str, List[str]]) -> List[str]:
+    """Atom pairs of the residue three or more bonds apart closer than CONTACT_MIN."""
+    idx = {n: i for i, n in enumerate(names)}
+    d = np.linalg.norm(xyz[:, None, :] - xyz[None, :, :], axis=2)
+    out = []
+    for i, j in zip(*np.nonzero(np.triu(d < CONTACT_MIN, 1))):
+        a, b = names[i], names[j]
+        near = {a}
+        for _ in range(2):          # atoms within two bonds of a
+            near |= {y for x in near for y in nb.get(x, [])}
+        if b not in near:
+            out.append(f"{a}...{b} {d[i, j]:.2f} A")
+    return out
 
 
 def _refs(atom: str, nb: Dict[str, List[str]], placed: Dict[str, np.ndarray],
@@ -233,7 +400,7 @@ def _refs(atom: str, nb: Dict[str, List[str]], placed: Dict[str, np.ndarray],
         a = q.popleft()
         if seen[a] == depth:
             continue
-        for b in nb[a]:
+        for b in sorted(nb[a]):
             if b not in seen:
                 seen[b] = seen[a] + 1
                 q.append(b)

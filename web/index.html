@@ -43,6 +43,7 @@
         <div class="actions tight">
           <button class="btn ghost small" id="complement" type="button">Complement strand 1</button>
           <button class="btn ghost small" id="clear" type="button">Clear</button>
+          <button class="btn ghost small" id="gocompose" type="button">Compose a modXNA residue…</button>
         </div>
         <details class="notation">
           <summary>Notation</summary>
@@ -108,6 +109,14 @@
         </div>
         <div id="legend" class="legend" aria-label="Colour legend"></div>
         <div id="summary" class="stats hidden"></div>
+        <div id="names" class="names hidden">
+          <h3>Residue names</h3>
+          <p class="hint">Names of the modified residues in the PDB and the Amber package: one to three
+          letters or digits. Edit them and press <b>Apply names</b>.</p>
+          <div class="flowtable"><table id="nametable"></table></div>
+          <div class="actions tight"><button class="btn ghost small" id="applynames" type="button">Apply names</button>
+          <button class="btn ghost small" id="resetnames" type="button">Automatic names</button></div>
+        </div>
         <div class="actions" id="downloads">
           <button class="btn" id="dlpdb" type="button" disabled>Download PDB</button>
           <button class="btn ghost" id="link" type="button" disabled>Copy reproducible link</button>
@@ -160,22 +169,45 @@
   <!-- ============================================================ LIBRARY -->
   <section id="view-library" class="hidden">
     <div class="doc wide">
-      <p>The fragments of <a href="https://modxna.chpc.utah.edu/" target="_blank" rel="noopener">modXNA</a>
-      (Love et al. 2024): every modified nucleotide is a <b>backbone</b>, a <b>sugar</b> and a
-      <b>base</b>. Names and notes are those of the
+      <p>Every modified nucleotide of <a href="https://modxna.chpc.utah.edu/" target="_blank" rel="noopener">modXNA</a>
+      (Love et al. 2024) is a <b>backbone</b>, a <b>sugar</b> and a <b>base</b>. Click one of each to
+      compose a residue, then add it to a strand. Names come from the
       <a href="https://modxna.chpc.utah.edu/catalog/" target="_blank" rel="noopener">modXNA catalogue</a>,
-      which also shows each fragment’s 2D and 3D structure. Fragments marked
-      <span class="badge avail">✓ prebuilt</span> are in the residue library of dsXNAbuilder, and every
-      combination of them is available, internal or at either end; the last column gives how to write
-      them. The others are listed for reference: they can be added to a local library with
-      <code>tools/build_residue_library.py</code> and used from the command line as explicit triplets
-      <code>{BACKBONE/SUGAR/BASE:LETTER}</code>.</p>
-      <div class="libbar">
-        <input type="search" id="libfilter" placeholder="Filter by code, name or note (e.g. M6A, methyl, thio)" aria-label="Filter fragments">
-        <label class="chk"><input type="checkbox" id="libavail"> prebuilt only</label>
+      which also shows the structures.</p>
+
+      <div class="panel composer" id="composer">
+        <div class="crow"><div class="clabel">Backbone</div><div class="chips" id="c-backbone"></div></div>
+        <div class="cinfo" id="i-backbone"></div>
+        <div class="crow"><div class="clabel">Sugar</div><div class="chips" id="c-sugar"></div></div>
+        <div class="cinfo" id="i-sugar"></div>
+        <div class="crow"><div class="clabel">Base</div>
+          <div><span class="seg small" id="c-family" role="group" aria-label="Base family"></span>
+          <div class="chips" id="c-base"></div></div></div>
+        <div class="cinfo" id="i-base"></div>
+        <div class="crow"><div class="clabel">Pairs as</div>
+          <div><span class="seg small" id="c-letter" role="group" aria-label="Pairing letter"></span>
+          <span class="hint" id="c-letterhint"></span></div></div>
+        <div class="cresult">
+          <code id="c-code"></code>
+          <div id="c-status" class="cstatus"></div>
+          <div class="actions tight">
+            <button class="btn small" id="c-top" type="button">Add to strand 1</button>
+            <button class="btn small" id="c-bottom" type="button">Add to strand 2</button>
+            <button class="btn ghost small" id="c-copy" type="button">Copy</button>
+            <label class="chk"><input type="checkbox" id="c-all"> show fragments not available here</label>
+          </div>
+        </div>
       </div>
-      <div class="jump" id="libjump"></div>
-      <div id="libtables"><p class="hint">Loading the catalogue…</p></div>
+
+      <details class="advanced" id="libdetails">
+        <summary>All fragments with names and notes</summary>
+        <div class="libbar">
+          <input type="search" id="libfilter" placeholder="Filter by code, name or note (e.g. M6A, methyl, thio)" aria-label="Filter fragments">
+          <label class="chk"><input type="checkbox" id="libavail"> available here only</label>
+        </div>
+        <div class="jump" id="libjump"></div>
+        <div id="libtables"><p class="hint">Loading the catalogue…</p></div>
+      </details>
       <p class="hint" id="libsource"></p>
     </div>
   </section>
@@ -244,9 +276,10 @@
       each strand has a 5′-OH.</p>
 
       <h2>Modified nucleotides (modXNA)</h2>
-      <p>Modified nucleotides come from a library of 244 residues prebuilt with
+      <p>Modified nucleotides come from a library of 1151 residues prebuilt with
       <a href="https://github.com/modxna/modxna">modxna.sh</a> (modXNA 1.9.3, current cpptraj and
-      AmberTools 26), so no parametrization runs in your browser:</p>
+      AmberTools 26), so no parametrization runs in your browser. The sequence language writes
+      these directly:</p>
       <table>
         <thead><tr><th>part</th><th>available</th></tr></thead>
         <tbody>
@@ -257,6 +290,20 @@
           <tr><td>ends</td><td>5′-OH and 3′-OH terminal versions of all of them</td></tr>
         </tbody>
       </table>
+      <p>The library also has every other modXNA fragment that can be used, combined with canonical
+      partners (bases on 2′-deoxyribose and ribose, sugars with A, C, G, T and U), so that in all 142
+      of the 228 bases, 17 of the 39 sugars and 8 of the 31 backbones of modXNA can be used. Write
+      them as explicit triplets, e.g. <code>{DPO/DC2/M6A:A}</code>, or click them
+      together in the <b>modXNA library</b> tab, which says whether a combination is prebuilt for
+      each position in a strand. A fragment is left out when modxna.sh cannot build it (parameters
+      missing from modXNA), when its residue has two atoms with the same name (the PDB could not
+      tell them apart), or when a fiber scaffold cannot carry it: an α- or L-sugar, an unlocked
+      ring, a base whose ring atoms share names with a different ring. The tab gives the reason for
+      each.</p>
+      <p><b>Residue names.</b> Each distinct modified residue is named X01, X02, … in the PDB
+      (Y01 after X99); after a build, the <b>Residue names</b> table under the structure lets you
+      choose other names (one to three letters or digits, not a standard residue name). The names
+      are kept in the reproducible link, the PDB header and the Amber package.</p>
       <p><b>How they are placed.</b> Each modified nucleotide is first built as the unmodified one in
       the fiber model. The modXNA residue is then <i>transplanted</i> onto it: the atoms it shares
       with the scaffold keep their fiber coordinates, so the helix and the O3′–P bonds stay exact,
@@ -265,6 +312,9 @@
       the pucker of the model. 2′-substituted sugars on a model with C2′-endo sugars (B, C, D-DNA)
       get a <i>forced pucker</i> warning; LNA cannot take that pucker and is refused there (use an
       A-form or hybrid model).</p>
+      <p><b>Checks.</b> After the transplant, every stereocentre of the residue must keep its
+      configuration, every bond its length within 0.3 Å and no two atoms three or more bonds apart
+      may come closer than 2 Å; otherwise the residue is refused rather than built wrong.</p>
       <p><b>Phosphorothioates.</b> modXNA PS1 keeps OP2 and PS2 keeps OP1; dsXNAbuilder puts the
       sulfur on the position of the oxygen that is not kept (OP1 or OP2 in the Amber convention), so
       the two give the two P diastereomers. Their absolute Rp/Sp labels have not been confirmed yet,

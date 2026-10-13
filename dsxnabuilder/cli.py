@@ -29,6 +29,9 @@ def main(argv=None) -> int:
     b.add_argument("--water", default="none", help="package option (none, opc, tip3p, spce)")
     b.add_argument("--box", default="octahedral", help="package option (octahedral, cubic)")
     b.add_argument("--buffer", type=float, default=10.0, help="package option, A")
+    b.add_argument("--name", action="append", default=[], metavar="KEY=NAME",
+                   help="residue name for a modXNA residue, e.g. PS1/OME/RAA/int=OMA "
+                        "(repeatable; the others are named X01, X02, ...)")
     b.add_argument("--json", action="store_true", help="print issues as JSON")
     a = ap.parse_args(argv)
 
@@ -43,7 +46,9 @@ def main(argv=None) -> int:
             print(f"{m['id']:>3}  (excluded) {'; '.join(m.get('issues') or [])[:90]}")
         return 0
 
+    names = dict(n.rsplit("=", 1) for n in a.name if "=" in n)
     req = {"top": a.top, "bottom": a.bottom, "model": a.model, "package": bool(a.amber),
+           "names": names,
            "amber": {"dna_ff": a.dna_ff, "water": a.water, "box": a.box, "buffer": a.buffer}}
     out = s.build(req)
     if a.json:

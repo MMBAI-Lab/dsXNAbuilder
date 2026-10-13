@@ -31,7 +31,15 @@ def msession(rl):
 
 
 def test_index_complete_and_charged(rl):
-    assert len(rl.residues) == 244
+    import sys
+    sys.path.insert(0, os.path.join(ROOT, "tools"))
+    from build_residue_library import curated
+    # the curated set (what the language writes without explicit blocks) is complete;
+    # the extended set adds what modxna.sh builds and a fiber scaffold takes
+    assert {"-".join(j) for j in curated()} <= set(rl.residues)
+    assert len(rl.residues) > 1000
+    assert all(isinstance(v, str) and v for v in rl.index["unavailable"].values())
+    assert not set(rl.residues) & set(rl.index["unavailable"])
     for key, r in rl.residues.items():
         assert abs(r["charge"] - CAP_CHARGE[r["cap"]]) < 1e-4, key
         assert key == "-".join(r["triplet"] + [r["cap"]])
@@ -175,3 +183,71 @@ def test_modified_duplexes(msession, rl, top, bottom, model):
                 assert names_ == set(AMBER[unit]["atoms"]), unit
                 q += AMBER[unit]["charge"]
         assert abs(q - round(q)) < 1e-3, (chain, q)
+
+
+def _c2_handedness(xyz):
+    """Sign of the C2' centre (C1', C3', O2'), as in reslib._chirality."""
+    o = xyz["C2'"]
+    u = [(xyz[n] - o) / np.linalg.norm(xyz[n] - o) for n in ("C1'", "C3'", "O2'")]
+    return np.sign(np.dot(u[0], np.cross(u[1], u[2])))
+
+
+def test_arabinose_o2_on_its_own_face(msession, rl):
+    """The scaffold puts O2' on the ribose face; arabinose has it on the other one, so the
+    transplant must place it from the residue, not keep the scaffold's."""
+    from dsxnabuilder.structure import parse_pdb, residues
+    lib = rl.unit("RPO-A5O-RAA-int").coords()
+    rib = rl.unit("RPO-OME-RAA-int").coords()
+    assert _c2_handedness(lib) != _c2_handedness(rib)
+    out = msession.build({"top": "r(GC){RPO/A5O/RAA:A}r(GC)", "bottom": "r(GCUGC)",
+                          "model": 20})
+    assert out["ok"], out["issues"]
+    ats = residues(parse_pdb(out["pdb"]))[("A", 3)]
+    built = {a.name: np.asarray(a.xyz) for a in ats}
+    assert _c2_handedness(built) == _c2_handedness(lib)
+
+
+def test_transplant_refuses_what_the_scaffold_cannot_carry(rl, lib):
+    """LNA on a C2'-endo scaffold: the bridge would run through O3'."""
+    from dsxnabuilder.reslib import transplant
+    names, xyz = scaffold(lib, 4, "C", "RNA")
+    _, _, rep = transplant(rl.unit("PS1-LNA-RCC-int"), names, xyz)
+    assert rep["contacts"]
+    _, _, rep = transplant(rl.unit("PS1-LNA-RCC-int"), *scaffold(lib, 20, "C", "RNA"))
+    assert not (rep["contacts"] or rep["distorted"] or rep["stereo"])
+
+
+def test_transplant_is_independent_of_hash_seed():
+    """Ties in the placement order are broken by name, not by set order."""
+    import subprocess
+    import sys
+    code = ("import sys, hashlib; sys.path.insert(0, %r)\n"
+            "from dsxnabuilder.service import Session\n"
+            "from dsxnabuilder.reslib import ResidueLibrary\n"
+            "s = Session(residue_library=ResidueLibrary.load_default())\n"
+            "o = s.build({'top': 'd(GC){DPO/DC2/ACG:G}d(GC)', 'bottom': 'd(CGCCG)', 'model': 4})\n"
+            "print(o['ok'], hashlib.sha256(o['pdb'].encode()).hexdigest())" % ROOT)
+    outs = {subprocess.run([sys.executable, "-c", code], capture_output=True, text=True,
+                           env=dict(os.environ, PYTHONHASHSEED=str(seed))).stdout
+            for seed in (1, 2, 3)}
+    assert len(outs) == 1 and next(iter(outs)).startswith("True"), outs
+
+
+def test_atom_names_as_tleap_reads_them(rl):
+    from dsxnabuilder.reslib import _rename_atoms_off, duplicate_names, tleap_name
+    assert tleap_name("1H15") == "H151" and tleap_name("C1'") == "C1'"
+    assert _rename_atoms_off('"1H15" "HC" 0\n"MXR"') == '"H151" "HC" 0\n"MXR"'
+    for key in rl.residues:
+        u = rl.unit(key)
+        assert not duplicate_names(u), key
+        assert not any(n[0].isdigit() for n in u.atom_names), key
+
+
+def test_modxna_code_example(msession):
+    out = msession.build({"top": "CG{PS2/2AD/RYC:C}GAA*2TTC-CG--",
+                          "bottom": "GCGCTT*1AAGCGCAA", "model": 4})
+    assert out["ok"], out["issues"]
+    codes = {i["code"] for i in out["issues"]}
+    assert {"ABASIC", "OVERHANG", "PUCKER_FORCED"} <= codes and "CLASHES" not in codes
+    assert out["summary"]["named"][0]["key"] == "PS2/2AD/RYC/int"
+    assert "dihydrocytidylic" in out["summary"]["named"][0]["description"]

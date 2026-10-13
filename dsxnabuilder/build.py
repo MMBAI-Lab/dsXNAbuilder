@@ -30,7 +30,7 @@ from .catalog import Catalog, Issue
 from .fibers import FiberLibrary, FiberModel
 from .geometry import rot_x
 from .hydrogens import Template, add_hydrogens, amber_templates, amber_unit
-from .naming import ResidueNamer
+from .naming import ResidueNamer, check_names
 from .nucleotide import PHOSPHATE_ATOMS, PURINES, pair_kind
 from .seqlang import AliasTable, DuplexSpec, ResidueSpec, SequenceParseError, parse_duplex
 from .structure import Atom, element_of, o3p_distances
@@ -61,6 +61,7 @@ class BuildResult:
     o3p: List[Tuple[str, int, float]]
     n_clashes: int = 0
     phase: int = 0
+    custom_names: Dict[str, str] = field(default_factory=dict)
 
     @property
     def ok(self) -> bool:
@@ -97,15 +98,23 @@ def choose_orientation(model: FiberModel, duplex: DuplexSpec) -> bool:
 
 def build_duplex(top: str, bottom: str, model_id: int, lib: FiberLibrary,
                  catalog: Catalog, aliases: AliasTable,
-                 residue_library=None, dry_run: bool = False) -> BuildResult:
+                 residue_library=None, dry_run: bool = False,
+                 names: Optional[Dict[str, str]] = None) -> BuildResult:
     """Build the duplex. Raises :class:`BuildError` with the issues on failure.
 
     ``residue_library`` provides the modXNA residues; without it any
     non-canonical residue is reported as ``NOT_IN_LIBRARY``. ``dry_run``
     checks that they exist without transplanting them (the browser validates
-    before it has fetched the library files).
+    before it has fetched the library files). ``names`` maps residue keys
+    (``BACKBONE/SUGAR/BASE/cap``) to residue names chosen by the user.
     """
     issues: List[Issue] = []
+    bad_names = check_names({k: v.strip().upper() for k, v in (names or {}).items()
+                             if v and v.strip()})
+    if bad_names:
+        raise BuildError([Issue("error", None, "RESIDUE_NAME",
+                                "residue names: " + "; ".join(bad_names),
+                                {"detail": "; ".join(bad_names)})])
     try:
         model = lib.get(model_id)
     except KeyError as exc:
@@ -137,7 +146,7 @@ def build_duplex(top: str, bottom: str, model_id: int, lib: FiberLibrary,
     issues += sequence_issues(model, duplex, flipped, phase)
 
     # -- place nucleotides -------------------------------------------------
-    namer = ResidueNamer()
+    namer = ResidueNamer(names)
     res_issues: List[Issue] = []
     placed: Dict[Tuple[str, int], Tuple[List[str], np.ndarray, dict]] = {}
     for strand_name, strand, slot in (("top", duplex.top, slot_top),
@@ -201,6 +210,7 @@ def build_duplex(top: str, bottom: str, model_id: int, lib: FiberLibrary,
 
     result = BuildResult(model, duplex, residues, issues, flipped, namer.mapping, [])
     result.phase = phase
+    result.custom_names = namer.used_custom
     result.o3p = o3p_distances(result.atoms())
     bad = [(c, i, d) for c, i, d in result.o3p if not (1.45 <= d <= 1.75)]
     if bad:

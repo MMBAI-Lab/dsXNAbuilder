@@ -155,6 +155,21 @@ def main() -> int:
         for ex, n in (("sirna", 10), ("moe", 10), ("mc", 12)):
             s, iss = run_example(ex, n)
             check("modXNA residues" in s, f"example {ex} built")
+        # explicit triplet example, then rename its residues
+        s, iss = run_example("modxna", 14)
+        rows = drv.find_elements(By.CSS_SELECTOR, "#nametable tbody tr")
+        check("ABASIC" in iss and len(rows) == 3 and "PS2/2AD/RYC" in rows[0].text,
+              f"modXNA code example: {len(rows)} named residues")
+        inp = drv.find_element(By.CSS_SELECTOR, "#nametable input.resname")
+        inp.clear()
+        inp.send_keys("ryc")
+        drv.find_element(By.ID, "applynames").click()
+        WebDriverWait(drv, 60).until(lambda d: "names=" in d.current_url)
+        time.sleep(0.5)
+        first = drv.find_element(By.CSS_SELECTOR, "#nametable input.resname").get_attribute("value")
+        check(first == "RYC" and "PS2%2F2AD%2FRYC%2Fint%3DRYC" in drv.current_url,
+              "residue renamed to RYC (kept in the reproducible link)")
+        run_example("mc", 12)        # the package below needs a duplex without abasic sites
         drv.find_element(By.CSS_SELECTOR, "#advanced summary").click()
         drv.find_element(By.ID, "dlzip").click()
         path = wait_file(os.path.join(dl, "dsxnabuilder-amber.zip"))
@@ -199,30 +214,41 @@ def main() -> int:
         check(len(grows) == 8 and all("generic" in r.text for r in grows),
               f"{len(grows)} generic models highlighted in the table")
         shot("models")
-        # modXNA library tab: every fragment by section, prebuilt ones with their notation
+        # modXNA library tab: compose a residue by clicking, add it to strand 1
         drv.find_element(By.ID, "tab-library").click()
-        WebDriverWait(drv, 30).until(lambda d: d.find_elements(By.CSS_SELECTOR, "#libtables table"))
+        WebDriverWait(drv, 30).until(lambda d: d.find_elements(By.CSS_SELECTOR, "#c-sugar button"))
+        for sel in ('[data-backbone="PS2"]', '[data-sugar="2AD"]', '[data-family="C"]',
+                    '[data-base="RYC"]'):
+            drv.find_element(By.CSS_SELECTOR, f"#composer {sel}").click()
+        code = drv.find_element(By.ID, "c-code").text
+        status = drv.find_element(By.ID, "c-status").text
+        check(code == "{PS2/2AD/RYC:C}" and status.splitlines()[0].endswith("prebuilt"),
+              f"composer: {code}, internal prebuilt")
+        shot("library")
+        drv.find_element(By.ID, "c-top").click()
+        top = drv.find_element(By.ID, "top").get_attribute("value")
+        check(drv.find_element(By.ID, "tab-build").get_attribute("aria-selected") == "true"
+              and "{PS2/2AD/RYC:C}" in top, "composer: code added to strand 1")
+        drv.find_element(By.ID, "tab-library").click()
+        # the full list: every fragment by section, with names and notation
+        drv.find_element(By.CSS_SELECTOR, "#libdetails summary").click()
         heads = [h.text for h in drv.find_elements(By.CSS_SELECTOR, "#libtables h3")]
         n_rows = len(drv.find_elements(By.CSS_SELECTOR, "#libtables tbody tr"))
         check(len(heads) == 8 and heads[0].startswith("Backbone") and n_rows >= 290,
               f"library: {len(heads)} sections, {n_rows} rows")
         avail = drv.find_elements(By.CSS_SELECTOR, "#libtables tr.avail")
         text = " ".join(r.text for r in avail)
-        check(len(avail) == 17 and "*1" in text and "C^5mC" in text,
-              f"library: {len(avail)} prebuilt rows with their notation")
-        shot("library")
-        drv.find_element(By.ID, "libavail").click()
-        n_only = len(drv.find_elements(By.CSS_SELECTOR, "#libtables tbody tr"))
-        drv.find_element(By.ID, "libavail").click()
+        check(len(avail) > 100 and "*1" in text and "C^5mC" in text,
+              f"library: {len(avail)} rows available here, with their notation")
         f = drv.find_element(By.ID, "libfilter")
         f.send_keys("methyl")
         rows = drv.find_elements(By.CSS_SELECTOR, "#libtables tbody tr")
-        check(n_only == 17 and 0 < len(rows) < n_rows
-              and all("methyl" in r.text.lower() for r in rows),
-              f"library: prebuilt-only shows {n_only}, filter 'methyl' {len(rows)} rows")
+        check(0 < len(rows) < n_rows and all("methyl" in r.text.lower() for r in rows),
+              f"library: filter 'methyl' {len(rows)} rows")
         f.clear()
         f.send_keys(" ")
         f.clear()
+        drv.find_element(By.CSS_SELECTOR, "#libdetails summary").click()
         drv.find_element(By.ID, "tab-docs").click()
         shot("docs")
 

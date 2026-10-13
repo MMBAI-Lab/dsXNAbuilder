@@ -11,14 +11,17 @@ Names and notes come from that page (data/modxna_names.json, written by
 tools/fetch_catalog_names.py); known errors and duplicates of the catalogue
 are flagged from data/modxna_catalog_review.json.
 
-A fragment is *available* when the prebuilt residue library uses it. Every
-combination of the available backbones, sugars and bases is prebuilt, so each
-available fragment also gets the notation that writes it (from the alias
-table); the rest are listed for reference.
+A fragment is *available* when the prebuilt residue library uses it, at least
+with canonical partners; fragments with a symbol in the sequence language also
+get the notation that writes it (from the alias table). The exact residues
+prebuilt (``prebuilt``, keys BACKBONE-SUGAR-BASE-cap) and those that could not
+be built or do not fit a fiber scaffold (``unavailable``, with the reason) let
+the residue composer of the web app say whether a given combination exists.
 """
 
 from __future__ import annotations
 
+import collections
 import json
 import os
 import re
@@ -71,15 +74,17 @@ def fragment_table(data_dir: Optional[str] = None) -> dict:
         for moiety, code in zip(("backbone", "sugar", "base"), r["triplet"]):
             used[moiety].add(code)
     protected = set(review.get("protected", {}).get("codes", []))
+    unavailable = index.get("unavailable", {})
+    why: Dict[str, collections.Counter] = {}
+    for key, reason in unavailable.items():
+        for code in key.split("-")[:3]:
+            why.setdefault(code, collections.Counter())[_short_reason(reason)] += 1
     sections = []
     for s in names["sections"]:
         entries = []
         for e in s["entries"]:
-            name, notes = e["name"], list(e["notes"])
-            if _LABEL.match(name) and notes:
-                label, name = name, notes.pop(0)
-            else:
-                label = None
+            label = e["name"] if _LABEL.match(e["name"]) and e["notes"] else None
+            name, notes = _display(e["name"], list(e["notes"]))
             codes = e["codes"]
             flags = []
             for c in codes:
@@ -92,16 +97,75 @@ def fragment_table(data_dir: Optional[str] = None) -> dict:
                     flags.append({"kind": "stereo", "code": c,
                                   "text": _STEREO_NOTE.format(label=label or c)})
             available = all(c in used[s["moiety"]] for c in codes)
+            reason = None
+            if not available:
+                if any(c in protected for c in codes):
+                    reason = "protected phosphoramidite: not prebuilt"
+                else:
+                    counts = sum((why.get(c, collections.Counter()) for c in codes),
+                                 collections.Counter())
+                    reason = counts.most_common(1)[0][0] if counts else "not prebuilt"
             entries.append({
                 "codes": codes, "name": name, "notes": notes,
-                "available": available,
+                "available": available, "reason": reason,
                 "write": write.get(codes[0]) if available else None,
                 "in_release": all((s["moiety"], c) in in_release for c in codes),
                 "flags": flags})
         sections.append({"title": s["title"], "moiety": s["moiety"], "parent": s["parent"],
                          "entries": entries})
     return {"sections": sections, "names_source": names["source"],
+            "prebuilt": sorted(index["residues"]), "unavailable": unavailable,
             "review_source": review["source"],
             "modxna": {"version": index.get("modxna_version"),
                        "commit": index.get("modxna_commit")},
             "n_fragments": len(in_release)}
+
+
+def _display(name: str, notes: List[str]):
+    """(name, remaining notes): a bare label ("PS1 (S)") gives way to the first note."""
+    if _LABEL.match(name) and notes:
+        return notes[0], notes[1:]
+    return name, notes
+
+
+def fragment_names(data_dir: Optional[str] = None) -> Dict[str, str]:
+    """Fragment code -> name shown in the catalogue."""
+    names = _load("modxna_names.json", data_dir or DATA)
+    out = {}
+    for s in names["sections"]:
+        for e in s["entries"]:
+            for c in e["codes"]:
+                out[c] = _display(e["name"], e["notes"])[0]
+    return out
+
+
+def base_families(data_dir: Optional[str] = None) -> Dict[str, str]:
+    """Base code -> parent base of its catalogue section (A, C, G, T, U or other)."""
+    names = _load("modxna_names.json", data_dir or DATA)
+    return {c: s["parent"] for s in names["sections"] if s["moiety"] == "base"
+            for e in s["entries"] for c in e["codes"]}
+
+
+CANONICAL_LETTER = {code: letter for (_, letter), code in CANONICAL.items()}
+
+
+def test_context(triplet, catalog, families: Dict[str, str]):
+    """(letter, chem, model) to try a residue on a fiber scaffold: the pairing
+    letter of its base (canonical, tabulated, or the catalogue family; purine
+    or pyrimidine for "other" bases), the strand chemistry its sugar implies
+    (ribo-type when 2'-substituted) and a model with its sugar pucker (A-RNA
+    #20 for North, B-DNA #4 otherwise)."""
+    bb, sugar, base = triplet
+    letter = CANONICAL_LETTER.get(base) or {"M5C": "C"}.get(base) or families.get(base)
+    if letter in (None, "other"):
+        letter = "A" if catalog[base].base_class == "purine" else "C"
+    chem = "RNA" if set(catalog[sugar].atom_names) & {"O2'", "F2'"} else "DNA"
+    model = 20 if catalog[sugar].pucker_domain == "North" else 4
+    return letter, chem, model
+
+
+def _short_reason(reason: str) -> str:
+    """One reason per kind: drop the distances and the model of the scaffold check."""
+    reason = re.sub(r" \(model #\d+\)", "", reason)
+    reason = re.sub(r"\s+-?\d+\.\d+(/-?\d+\.\d+)? A", "", reason)
+    return reason

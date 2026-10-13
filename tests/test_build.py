@@ -193,3 +193,29 @@ def test_abasic_rna_keeps_o2prime(session):
               if l.startswith("ATOM") and l[17:20].strip() == "X01"]
     assert {l[12:16].strip() for l in abasic} >= {"C1'", "C2'", "O2'"}
     assert not {"N9", "N1"} & {l[12:16].strip() for l in abasic}
+
+
+@pytest.mark.skipif(not os.path.isdir(os.path.join(ROOT, "web", "lib", "residues")),
+                    reason="residue library not built (tools/build_residue_library.py)")
+def test_residue_names_chosen_by_the_user(session):
+    from dsxnabuilder.reslib import ResidueLibrary
+    from dsxnabuilder.service import Session
+    s = Session(residue_library=ResidueLibrary.load_default())
+    req = {"top": "mA*mC*fG", "bottom": "UGC", "model": 20,
+           "names": {"PS1/OME/RCC/int": "omc", "PS1/AF2/RGG/3cap": "X01"}}
+    out = s.build(dict(req, package=True))
+    assert out["ok"], out["issues"]
+    names = {n["key"]: n["name"] for n in out["summary"]["named"]}
+    # user names are applied (upper case); automatic ones skip the names taken
+    assert names == {"5PO/OME/RAA/5cap": "X02", "PS1/OME/RCC/int": "OMC",
+                     "PS1/AF2/RGG/3cap": "X01"}
+    resnames = {l[17:20].strip() for l in out["pdb"].splitlines() if l.startswith("ATOM")}
+    assert {"OMC", "X01", "X02"} <= resnames
+    z = zipfile.ZipFile(io.BytesIO(out["zip"]))
+    assert "dsxnabuilder/libs/OMC.lib" in z.namelist()
+    man = json.loads(z.read("dsxnabuilder/manifest.json"))
+    assert '--name "PS1/OME/RCC/int=OMC"' in man["reproduce"]
+    for bad in ({"PS1/OME/RCC/int": "DA"}, {"PS1/OME/RCC/int": "ABCD"},
+                {"PS1/OME/RCC/int": "QQ1", "PS1/AF2/RGG/3cap": "QQ1"}):
+        out = s.build(dict(req, names=bad))
+        assert not out["ok"] and out["issues"][0]["code"] == "RESIDUE_NAME", bad

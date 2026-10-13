@@ -27,6 +27,21 @@ sugars d, r, m (2'-OMe), f (2'-F), e (MOE), + (LNA); bases A C G T U 5mC on
 each; phosphodiester and both phosphorothioates; internal, 5'- and 3'-capped.
 Canonical capped residues are included because a strand with a modXNA end must
 take both ends from modXNA (terminal charges differ from Amber's).
+
+The extended set adds every other fragment of the catalogue with canonical
+partners, so that each one can be used on its own:
+  base      with 2'-deoxyribose/phosphodiester and ribose/phosphodiester,
+            internal, 5'- and 3'-capped (protected phosphoramidites excluded);
+  sugar     with A C G T U and the phosphodiester of its pucker family,
+            internal, 5'- and 3'-capped;
+  backbone  with 2'-deoxyribose + dA dC dG dT and ribose + rA rC rG rU,
+            internal and 3'-capped (a 5' end has no phosphate).
+EXTRA lists specific combinations (the web examples).
+
+Every residue built is then tried on a fiber scaffold (dsxnabuilder.reslib
+transplant): those whose stereocentres, bonds or contacts cannot be reproduced
+there are left out, like those modxna.sh cannot build (missing parameters);
+both are recorded with the reason in residue_index.json ("unavailable").
 """
 
 from __future__ import annotations
@@ -36,6 +51,7 @@ import concurrent.futures as cf
 import hashlib
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -44,10 +60,17 @@ import tempfile
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 sys.path.insert(0, ROOT)
 
-from dsxnabuilder.catalog import CANONICAL_BACKBONE, CANONICAL_SUGAR, CAP_5_OH  # noqa: E402
+from typing import Optional  # noqa: E402
+
+from dsxnabuilder.catalog import (CANONICAL_BACKBONE, CANONICAL_SUGAR, CAP_5_OH,  # noqa: E402
+                                  Catalog)
+from dsxnabuilder.fibers import load_library  # noqa: E402
+from dsxnabuilder.fragments import base_families, test_context  # noqa: E402
 from dsxnabuilder.offlib import parse_off  # noqa: E402
+from dsxnabuilder.reslib import duplicate_names, tleap_name, transplant  # noqa: E402
 
 UNIT = "MXR"
+EXTRA = [("PS2", "2AD", "RYC", "int")]       # example "modXNA code" of the web app
 SUGARS = {"DC2": "DNA", "RC3": "RNA", "OME": "RNA", "AF2": "RNA", "MOE": "RNA", "LNA": "RNA"}
 BASES = {"DNA": ["DAA", "DCC", "DGG", "DTT", "RUU", "M5C"],
          "RNA": ["RAA", "RCC", "RGG", "RUU", "DTT", "M5C"]}
@@ -73,6 +96,114 @@ def curated() -> list:
     return out
 
 
+def ambiguous_backbones(catalog) -> dict:
+    """Stereo pairs XX1/XX2 that keep the same non-bridging oxygen: the configuration
+    at P follows the oxygen kept (reslib._phosphorus_rule), so the two would come out
+    as the same diastereomer and at least one file contradicts its name."""
+    kept = {f.code: {o for o in ("OP1", "OP2") if o in f.atom_names}
+            for f in catalog.by_moiety("backbone")}
+    out = {}
+    for code, k in kept.items():
+        twin = code[:-1] + {"1": "2", "2": "1"}.get(code[-1], "")
+        if code[-1] in "12" and twin in kept and len(k) == 1 and kept[twin] == k:
+            out[code] = (f"{code} and {twin} both keep {next(iter(k))}: the configuration at P "
+                         "cannot be assigned")
+    return out
+
+
+def extended(catalog, review: dict) -> list:
+    """Each catalogue fragment outside the curated set, with canonical partners."""
+    have = {c for job in curated() for c in job[:3]}
+    have |= set(ambiguous_backbones(catalog))
+    protected = set(review.get("protected", {}).get("codes", []))
+    out = []
+    for f in catalog.by_moiety("base"):
+        if f.code in have or f.code in protected:
+            continue
+        for bb, sugar in (("DPO", "DC2"), ("RPO", "RC3")):
+            out += [(bb, sugar, f.code, "int"), (bb, sugar, f.code, "3cap"),
+                    (CAP_5_OH, sugar, f.code, "5cap")]
+    for f in catalog.by_moiety("sugar"):
+        if f.code in have:
+            continue
+        north = f.pucker_domain == "North"
+        bb = "RPO" if north else "DPO"
+        bases = ["RAA", "RCC", "RGG", "RUU", "DTT"] if north else ["DAA", "DCC", "DGG", "DTT", "RUU"]
+        for base in bases:
+            out += [(bb, f.code, base, "int"), (bb, f.code, base, "3cap"),
+                    (CAP_5_OH, f.code, base, "5cap")]
+    for f in catalog.by_moiety("backbone"):
+        if f.code in have or f.code == CAP_5_OH:
+            continue
+        for sugar, bases in (("DC2", ["DAA", "DCC", "DGG", "DTT"]),
+                             ("RC3", ["RAA", "RCC", "RGG", "RUU"])):
+            for base in bases:
+                out += [(f.code, sugar, base, "int"), (f.code, sugar, base, "3cap")]
+    return out
+
+
+def validate_on_scaffold(job, text: str, catalog, families, fibers) -> Optional[str]:
+    """None if the residue can be transplanted onto a fiber scaffold, else why not."""
+    bb, sugar, base, cap = job
+    letter, chem, model = test_context((bb, sugar, base), catalog, families)
+    names, xyz, _ = fibers.models[model].nucleotide(3, "I", letter, chem, fibers.standard)
+    if cap == "5cap":
+        keep = [i for i, n in enumerate(names) if n not in ("P", "OP1", "OP2")]
+        names, xyz = [names[i] for i in keep], xyz[keep]
+    unit = parse_off(text)[UNIT]
+    unit.atom_names = [tleap_name(n) for n in unit.atom_names]
+    dup = duplicate_names(unit)
+    if dup:       # tleap matches PDB atoms to the unit by name
+        return f"duplicate atom names in the modXNA residue: {', '.join(dup)}"
+    try:
+        _, _, rep = transplant(unit, names, xyz)
+    except Exception as exc:          # atoms that cannot be reached from the scaffold
+        return f"transplant: {exc}"
+    bad = ([f"configuration at {', '.join(rep['stereo'])}"] if rep["stereo"] else []) + \
+        rep["distorted"][:2] + rep["contacts"][:2]
+    return f"does not fit a fiber scaffold (model #{model}): {'; '.join(bad)}" if bad else None
+
+
+def revalidate() -> int:
+    catalog = Catalog.from_json(os.path.join(ROOT, "data", "modxna_catalog.json"))
+    families = base_families()
+    fibers = load_library(os.path.join(ROOT, "data", "fiber_models.json"))
+    index_path = os.path.join(ROOT, "data", "residue_index.json")
+    with open(index_path, encoding="utf-8") as fh:
+        index = json.load(fh)
+    index.setdefault("unavailable", {})
+    out_dir = os.path.join(ROOT, "web", "lib", "residues")
+    dropped = 0
+    for key, r in sorted(index["residues"].items()):
+        path = os.path.join(out_dir, r["file"])
+        with open(path, encoding="utf-8") as fh:
+            reason = validate_on_scaffold(tuple(r["triplet"]) + (r["cap"],), fh.read(),
+                                          catalog, families, fibers)
+        if reason:
+            if tuple(key.split("-")) in set(curated()):
+                print(f"  CURATED FAILS {key}: {reason}")
+                return 1
+            index["unavailable"][key] = reason
+            del index["residues"][key]
+            os.remove(path)
+            dropped += 1
+    with open(index_path, "w", encoding="utf-8") as fh:
+        json.dump(index, fh, indent=1, sort_keys=True)
+    print(f"{dropped} dropped; {len(index['residues'])} residues, "
+          f"{len(index['unavailable'])} unavailable")
+    return 0
+
+
+def leap_reason(log: str) -> str:
+    """The first tleap/modxna.sh error worth showing (missing parameters, ...)."""
+    for pat in (r"Could not find (?:angle|bond|torsion) parameter[^\n]*", r"No torsion terms[^\n]*",
+                r"Error:[^\n]*"):
+        m = re.search(pat, log)
+        if m:
+            return "modxna.sh: " + " ".join(m.group(0).split())
+    return "modxna.sh failed"
+
+
 def build_one(job, modxna_sh: str, env: dict, scratch: str) -> dict:
     bb, sugar, base, cap = job
     key = residue_key(*job)
@@ -87,7 +218,10 @@ def build_one(job, modxna_sh: str, env: dict, scratch: str) -> dict:
     p = subprocess.run(cmd, cwd=work, env=env, capture_output=True, text=True, timeout=900)
     lib = os.path.join(work, f"{UNIT}.lib")
     if p.returncode != 0 or not os.path.exists(lib):
-        return {"key": key, "ok": False, "log": (p.stdout + p.stderr)[-3000:]}
+        leap = os.path.join(work, "leap.log")
+        log = open(leap, errors="replace").read() if os.path.exists(leap) else ""
+        return {"key": key, "ok": False, "log": (p.stdout + p.stderr)[-3000:],
+                "reason": leap_reason(log + p.stdout + p.stderr)}
     with open(lib, encoding="utf-8") as fh:
         text = fh.read()
     shutil.rmtree(work, ignore_errors=True)
@@ -108,6 +242,12 @@ def main(argv=None) -> int:
     ap.add_argument("--cpptraj", default=os.path.join(ROOT, "external", "cpptraj", "bin"))
     ap.add_argument("--amberhome", default=os.environ.get("AMBERHOME", "/opt/amber26"))
     ap.add_argument("--jobs", type=int, default=max(1, (os.cpu_count() or 2) - 1))
+    ap.add_argument("--set", choices=("curated", "extended"), default="extended",
+                    help="curated: what the sequence language writes; extended (default): "
+                         "plus every catalogue fragment with canonical partners and EXTRA")
+    ap.add_argument("--validate-only", action="store_true",
+                    help="re-run the scaffold check on the current library (after a change "
+                         "to the transplant) and move the residues that fail to 'unavailable'")
     ap.add_argument("--only", nargs="*",
                     help="build only these keys (BB-SUGAR-BASE-int|5cap|3cap); keys outside "
                          "the curated set are added to the library")
@@ -126,11 +266,22 @@ def main(argv=None) -> int:
     env["LANG"] = "C"
     version = subprocess.run([env["CPPTRAJ"], "--version"], capture_output=True, text=True,
                              env=env).stdout.strip()
+    if a.validate_only:
+        return revalidate()
 
     out_dir = os.path.join(ROOT, "web", "lib", "residues")
     os.makedirs(out_dir, exist_ok=True)
     scratch = tempfile.mkdtemp(prefix="modxna-", dir=os.path.join(ROOT, "build"))
+    catalog = Catalog.from_json(os.path.join(ROOT, "data", "modxna_catalog.json"))
+    with open(os.path.join(ROOT, "data", "modxna_catalog_review.json"), encoding="utf-8") as fh:
+        review = json.load(fh)
+    families = base_families()
+    fibers = load_library(os.path.join(ROOT, "data", "fiber_models.json"))
     jobs = curated()
+    skipped = {}
+    if a.set == "extended":
+        jobs += extended(catalog, review) + [j for j in EXTRA if j not in jobs]
+        skipped = ambiguous_backbones(catalog)
     if a.only:
         jobs = []
         for key in a.only:
@@ -141,10 +292,17 @@ def main(argv=None) -> int:
     print(f"{len(jobs)} residues, {a.jobs} parallel jobs, {version}")
 
     index_path = os.path.join(ROOT, "data", "residue_index.json")
-    index = {"residues": {}}
+    index = {"residues": {}, "unavailable": {}}
     if os.path.exists(index_path) and a.only:
         with open(index_path, encoding="utf-8") as fh:
             index = json.load(fh)
+        index.setdefault("unavailable", {})
+    else:
+        for f in os.listdir(out_dir):          # a full build replaces the library
+            if f.endswith(".lib"):
+                os.remove(os.path.join(out_dir, f))
+    for code, why in skipped.items():
+        index["unavailable"][f"{code}-*-*-*"] = why
     failures = []
     with cf.ThreadPoolExecutor(max_workers=a.jobs) as ex:
         futs = [ex.submit(build_one, j, modxna_sh, env, scratch) for j in jobs]
@@ -152,15 +310,23 @@ def main(argv=None) -> int:
             r = fut.result()
             if not r["ok"]:
                 failures.append(r)
-                print(f"  FAIL {r['key']}")
+                index["residues"].pop(r["key"], None)
+                index["unavailable"][r["key"]] = r["reason"]
                 continue
             unit = parse_off(r["text"])[UNIT]
             bb, sugar, base, cap = r["job"]
             q = round(unit.net_charge, 6)
+            reason = None
             if abs(q - CHARGE[cap]) > 1e-3:
-                failures.append({"key": r["key"], "log": f"net charge {q} != {CHARGE[cap]}"})
-                print(f"  FAIL {r['key']} charge {q}")
+                reason = f"net charge {q} instead of {CHARGE[cap]}"
+            else:
+                reason = validate_on_scaffold(r["job"], r["text"], catalog, families, fibers)
+            if reason:
+                failures.append({"key": r["key"], "log": reason, "reason": reason})
+                index["residues"].pop(r["key"], None)
+                index["unavailable"][r["key"]] = reason
                 continue
+            index["unavailable"].pop(r["key"], None)
             with open(os.path.join(out_dir, r["key"] + ".lib"), "w", encoding="utf-8") as fh:
                 fh.write(r["text"])
             index["residues"][r["key"]] = {
@@ -169,7 +335,7 @@ def main(argv=None) -> int:
                 "charge": q, "heavy": unit.heavy_atoms(), "unit": UNIT,
                 "head": unit.atom_names[unit.head] if unit.head is not None else None,
                 "tail": unit.atom_names[unit.tail] if unit.tail is not None else None}
-            if n % 20 == 0:
+            if n % 200 == 0:
                 print(f"  {n}/{len(jobs)}")
 
     frcmod_src = os.path.join(a.modxna, "dat", "frcmod.modxna")
@@ -187,11 +353,19 @@ def main(argv=None) -> int:
         "generator": "tools/build_residue_library.py"})
     with open(index_path, "w", encoding="utf-8") as fh:
         json.dump(index, fh, indent=1, sort_keys=True)
-    print(f"{len(index['residues'])} residues in {index_path}; {len(failures)} failures")
+    print(f"{len(index['residues'])} residues in {index_path}; "
+          f"{len(index['unavailable'])} unavailable ({len(failures)} in this run)")
+    reasons = {}
     for f in failures:
-        print(f"--- {f['key']}\n{f.get('log', '')[-800:]}")
+        k = re.sub(r"\d+\.\d+", "#", f["reason"].split(":")[0] + ":" +
+                   ":".join(f["reason"].split(":")[1:2]))
+        reasons[k] = reasons.get(k, 0) + 1
+    for k, v in sorted(reasons.items(), key=lambda kv: -kv[1]):
+        print(f"  {v:5d}  {k[:150]}")
     shutil.rmtree(scratch, ignore_errors=True)
-    return 1 if failures else 0
+    # fragments modxna.sh or the scaffold cannot take are expected in the extended
+    # set; the curated set must build completely
+    return 1 if any(tuple(f["key"].split("-")) in set(curated()) for f in failures) else 0
 
 
 def _modxna_version(path: str) -> str:

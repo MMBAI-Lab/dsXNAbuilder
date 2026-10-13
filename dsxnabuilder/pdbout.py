@@ -35,10 +35,26 @@ BACKBONE_NAMES = {"DPO": "phosphodiester", "RPO": "phosphodiester", "5PO": "5'-O
 CAP_NAMES = {"int": "internal", "5cap": "5'-terminal", "3cap": "3'-terminal"}
 
 
+_CATALOGUE_NAMES: Optional[Dict[str, str]] = None
+
+
+def catalogue_name(code: str) -> str:
+    """Name of a fragment in the modXNA catalogue (the code when it has none)."""
+    global _CATALOGUE_NAMES
+    if _CATALOGUE_NAMES is None:
+        try:
+            from .fragments import fragment_names
+            _CATALOGUE_NAMES = fragment_names()
+        except OSError:             # data/modxna_names.json not shipped
+            _CATALOGUE_NAMES = {}
+    return _CATALOGUE_NAMES.get(code, code)
+
+
 def describe(triplet, cap: str) -> str:
     bb, sugar, base = triplet
-    return (f"{BASE_NAMES.get(base, base)}, {SUGAR_NAMES.get(sugar, sugar)}, "
-            f"{BACKBONE_NAMES.get(bb, bb)}; {CAP_NAMES.get(cap, cap)}")
+    return (f"{BASE_NAMES.get(base) or catalogue_name(base)}, "
+            f"{SUGAR_NAMES.get(sugar) or catalogue_name(sugar)}, "
+            f"{BACKBONE_NAMES.get(bb) or catalogue_name(bb)}; {CAP_NAMES.get(cap, cap)}")
 
 
 def remarks(res: BuildResult, fiber_provenance: Optional[dict] = None,
@@ -72,6 +88,9 @@ def remarks(res: BuildResult, fiber_provenance: Optional[dict] = None,
         for name, r in sorted(mods.items()):
             out.append(f"  {name} = {'/'.join(r.spec.triplet())} {r.spec.cap}: "
                        f"{describe(r.spec.triplet(), r.spec.cap)}")
+        if res.custom_names:
+            out.append("residue names chosen by the user: " + ", ".join(
+                f"{v}={k}" for k, v in sorted(res.custom_names.items())))
         if residue_index:
             out.append(f"modXNA {residue_index.get('modxna_version', '?')} "
                        f"@{str(residue_index.get('modxna_commit', '?'))[:7]}")

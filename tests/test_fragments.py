@@ -37,8 +37,13 @@ def test_available_fragments_are_those_of_the_residue_library(table):
         used = {c for r in json.load(fh)["residues"].values() for c in r["triplet"]}
     avail = {c for c, (_, e) in by_code(table).items() if e["available"]}
     assert avail == used
-    for c in avail:
+    # fragments with a symbol in the language show it; the others are written as triplets
+    for c in ("DC2", "RC3", "OME", "AF2", "MOE", "LNA", "PS1", "PS2", "M5C", "DAA", "RUU"):
         assert by_code(table)[c][1]["write"], c
+    for c, (_, e) in by_code(table).items():
+        assert e["available"] or e["reason"], c
+    assert set(table["prebuilt"]) == set(json.load(open(os.path.join(
+        ROOT, "data", "residue_index.json")))["residues"])
 
 
 def test_notation_shown_is_accepted_by_the_parser(table, catalog, aliases):

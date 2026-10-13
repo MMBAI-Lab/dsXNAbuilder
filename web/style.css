@@ -280,3 +280,39 @@ details.advanced .btn { margin-top: 4px; }
 .flag { font-size: 12px; color: var(--muted); margin-top: 3px; }
 .flag.name, .flag.duplicate { color: var(--warn); }
 .flag.protected { color: var(--subtle); }
+
+/* residue composer (modXNA library tab): one row of clickable codes per moiety */
+.composer { margin: 14px 0 18px; }
+.composer .crow { display: grid; grid-template-columns: 84px minmax(0, 1fr); gap: 8px; align-items: start; }
+.composer .clabel { font: 600 12px var(--sans); text-transform: uppercase; letter-spacing: .06em;
+  color: var(--muted); padding-top: 4px; }
+.chips { display: flex; flex-wrap: wrap; gap: 4px; margin: 2px 0 2px; }
+.chip-btn { font: 600 12px var(--mono); padding: 2px 7px; border-radius: 4px; cursor: pointer;
+  border: 1px solid var(--border); background: transparent; color: var(--ink); }
+.chip-btn:hover { border-color: var(--accent); color: var(--accent); }
+.chip-btn[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
+.chip-btn.unavail { opacity: .45; }
+.seg.small button { padding: 3px 10px; font-size: 12px; }
+.seg.small button span { font-weight: 400; opacity: .7; }
+.seg button:disabled { opacity: .35; cursor: default; }
+#c-family { margin: 2px 0 6px; }
+.cinfo { font-size: 12px; color: var(--ink); margin: 2px 0 12px 92px; min-height: 1em; }
+.cinfo .muted, .cstatus .muted { color: var(--subtle); }
+.cresult { border-top: 1px solid var(--border); margin-top: 10px; padding-top: 10px; }
+#c-code { font: 600 17px var(--mono); color: var(--accent); }
+.cstatus { font-size: 13px; margin: 6px 0 2px; }
+.cstatus .pos { display: inline-block; min-width: 13em; color: var(--muted); }
+.cstatus .ok { color: var(--ok); }
+.cstatus .bad { color: var(--bad); }
+@media (max-width: 600px) {
+  .composer .crow { grid-template-columns: minmax(0, 1fr); gap: 2px; }
+  .cinfo { margin-left: 0; }
+  .cstatus .pos { min-width: 0; display: block; }
+}
+
+/* residue names after a build */
+.names { margin: 12px 0 4px; }
+.names h3 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 4px; }
+.names table td { white-space: normal; vertical-align: middle; }
+.names td.desc { color: var(--muted); }
+input.resname { width: 5.5em; font: 600 13px var(--mono); padding: 3px 6px; text-transform: uppercase; }

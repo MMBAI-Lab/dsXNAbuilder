@@ -121,7 +121,8 @@ class Session:
     def _build(self, request: dict, dry_run: bool = False) -> BuildResult:
         return build_duplex(request.get("top", ""), request.get("bottom", ""),
                             int(request.get("model", 4)), self.fibers, self.catalog,
-                            self.aliases, self.residue_library, dry_run=dry_run)
+                            self.aliases, self.residue_library, dry_run=dry_run,
+                            names=request.get("names"))
 
     def _needed(self, res: BuildResult) -> List[str]:
         if self.residue_library is None:
@@ -163,9 +164,27 @@ def summary(res: BuildResult) -> dict:
             "o3p": [round(min(d for *_, d in res.o3p), 3), round(max(d for *_, d in res.o3p), 3)]
             if res.o3p else None,
             "clashes": res.n_clashes, "name_map": res.name_map,
+            # the residues that carry a generated name, for the renaming table
+            "named": _named(res),
             # per residue, for the viewer's base and modification colouring:
             # [chain, resseq, pairing letter, canonical | modified | abasic]
             "residues": [[r.chain, r.resseq, "-" if r.flags.get("abasic") else r.spec.letter,
                           "abasic" if r.flags.get("abasic") else
                           "canonical" if r.spec.is_canonical else "modified"]
                          for r in res.residues]}
+
+
+def _named(res: BuildResult) -> List[dict]:
+    from .pdbout import describe
+    out, seen = [], set()
+    for r in res.residues:
+        key = r.spec.key()
+        if key not in res.name_map or key in seen:
+            continue
+        seen.add(key)
+        abasic = bool(r.flags.get("abasic"))
+        out.append({"key": key, "name": res.name_map[key], "triplet": list(r.spec.triplet()),
+                    "cap": r.spec.cap, "custom": key in res.custom_names,
+                    "description": "abasic site" if abasic
+                    else describe(r.spec.triplet(), r.spec.cap)})
+    return out

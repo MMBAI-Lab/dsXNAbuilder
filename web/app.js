@@ -17,6 +17,9 @@ const EXAMPLES = [
   { id: 'lna', label: 'LNA gapmer : RNA', top: 'r(GCAAUGUACUGAAUGC)', bottom: '+C*+G*+T*dT*dA*dC*dA*dT*dG*dA*dC*dT*dT*+A*+C*+G', model: 22 },
   { id: 'moe', label: 'MOE gapmer : RNA', top: 'r(GACUAGCUGA)', bottom: 'eC*eT*eG*dA*dT*dC*dG*eA*eC*eT', model: 22 },
   { id: 'mc', label: '5mC + PS on B-DNA', top: 'CGC^5mCGAA*2TTCGCG', bottom: 'GCGCTT*1AAGCGC', model: 4 },
+  // explicit modXNA triplet {BACKBONE/SUGAR/BASE:pairing letter}: phosphorothioate,
+  // 2'-amino-2'-deoxyribose and 5,6-dihydrocytosine, with an abasic site and overhangs
+  { id: 'modxna', label: 'modXNA code', top: 'CG{PS2/2AD/RYC:C}GAA*2TTC-CG--', bottom: 'GCGCTT*1AAGCGCAA', model: 4 },
 ];
 
 const STATUS = {
@@ -33,7 +36,7 @@ const GENERIC = '★';
 const state = {
   ready: false, models: [], byId: new Map(), last: null, stage: null, comp: null,
   repr: 'sticks', color: 'base', spinning: false, validateTimer: null, validSeq: 0,
-  residues: new Map(),
+  residues: new Map(), names: {},
 };
 
 // ------------------------------------------------------------------ worker
@@ -141,8 +144,11 @@ async function loadLibrary() {
   const t = state.fragments;
   $('#libsource').innerHTML = `${t.n_fragments} fragments of modXNA ${esc(t.modxna.version)} ` +
     `(@${esc((t.modxna.commit || '').slice(0, 7))}). Names and notes from the modXNA catalogue page, read on ` +
-    `${esc(t.names_source.read)}. Flagged entries: ${esc(t.review_source)}`;
+    `${esc(t.names_source.read)}. Flagged entries: ${esc(t.review_source)} ` +
+    `${t.prebuilt.length} residues prebuilt; unavailable ones are listed with the reason ` +
+    '(missing modXNA parameters, duplicate atom names, a sugar or base that a fiber scaffold cannot carry).';
   renderLibrary();
+  renderComposer();
 }
 function writeCell(w) {
   // "* or *1" -> code spans; descriptive values ("default linkage") stay text
@@ -183,10 +189,138 @@ function renderLibrary() {
   for (const b of $$('[data-libjump]')) b.onclick = () => $(`#libsec-${b.dataset.libjump}`).scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
+// ------------------------------------------------------------------ residue names
+// Modified residues get X01, X02, ... by default; the user may rename them. The names go
+// to Python with the request (validated there) and into the PDB, the package and the URL.
+const CAPS = { int: 'internal', '5cap': '5′ end', '3cap': '3′ end' };
+function renderNames(out) {
+  const named = (out.summary && out.summary.named) || [];
+  $('#names').classList.toggle('hidden', !named.length);
+  $('#nametable').innerHTML = '<thead><tr><th>name</th><th>modXNA residue</th><th>position</th><th>what it is</th></tr></thead><tbody>' +
+    named.map((n) => `<tr><td><input type="text" class="resname" maxlength="3" spellcheck="false"
+      data-key="${esc(n.key)}" data-auto="${n.custom ? '' : esc(n.name)}" value="${esc(n.name)}" aria-label="name of ${esc(n.key)}"></td>
+      <td><code>${esc(n.triplet.join('/'))}</code></td><td>${CAPS[n.cap] || esc(n.cap)}</td><td class="desc">${esc(n.description)}</td></tr>`).join('') +
+    '</tbody>';
+}
+function applyNames() {
+  const names = {};
+  for (const i of $$('#nametable input.resname')) {
+    const v = i.value.trim().toUpperCase();
+    // keep names the user typed or chose before; automatic ones stay automatic
+    if (v && v !== i.dataset.auto) names[i.dataset.key] = v;
+  }
+  state.names = names;
+  build();
+}
+
+// ------------------------------------------------------------------ residue composer
+// Click a backbone, a sugar and a base to write {BACKBONE/SUGAR/BASE:LETTER} into a strand.
+// Only prebuilt residues can be built here; the status line says, for each position in a
+// strand, whether this exact combination is prebuilt, unavailable (and why) or not built.
+const comp = { backbone: 'DPO', sugar: 'DC2', base: 'DAA', family: 'A', letter: 'A' };
+const caret = { top: null, bottom: null };      // last caret position in each strand
+const LETTERS = ['A', 'C', 'G', 'T', 'U'];
+const FAMILIES = ['A', 'C', 'G', 'T', 'U', 'other'];
+const CANONICAL_LETTER = { DAA: 'A', RAA: 'A', DCC: 'C', RCC: 'C', DGG: 'G', RGG: 'G', DTT: 'T', RUU: 'U', M5C: 'C' };
+function fragIndex() {
+  if (!state.fragIdx) {
+    const idx = new Map();
+    for (const s of state.fragments.sections) {
+      for (const e of s.entries) for (const c of e.codes) idx.set(c, { moiety: s.moiety, family: s.parent, e });
+    }
+    state.fragIdx = idx;
+    state.prebuilt = new Set(state.fragments.prebuilt);
+  }
+  return state.fragIdx;
+}
+function chip(code, moiety) {
+  const f = fragIndex().get(code);
+  const title = `${code} — ${f.e.name}` + (f.e.available ? '' : ` (not available here: ${f.e.reason})`);
+  return `<button type="button" class="chip-btn${f.e.available ? '' : ' unavail'}" data-${moiety}="${esc(code)}"
+    aria-pressed="${comp[moiety] === code}" title="${esc(title)}">${esc(code)}</button>`;
+}
+function fragInfo(code) {
+  const f = fragIndex().get(code);
+  if (!f) return '';
+  const flags = f.e.flags.map((x) => `<div class="flag ${esc(x.kind)}">${FLAG[x.kind] || ''}${esc(x.text)}</div>`).join('');
+  const notes = f.e.notes.length ? ` · <span class="muted">${f.e.notes.map(esc).join(' · ')}</span>` : '';
+  const why = f.e.available ? '' : `<div class="flag name">✗ not available here: ${esc(f.e.reason)}</div>`;
+  return `<b>${esc(code)}</b> ${esc(f.e.name)}${notes}${flags}${why}`;
+}
+function renderComposer() {
+  if (!state.fragments) return;
+  const idx = fragIndex();
+  const all = $('#c-all').checked;
+  const codes = (moiety, pred = () => true) => [...idx.entries()]
+    .filter(([c, f]) => f.moiety === moiety && c !== '5PO' && pred(f) && (all || f.e.available || comp[moiety] === c))
+    .map(([c]) => c);
+  $('#c-backbone').innerHTML = codes('backbone').map((c) => chip(c, 'backbone')).join('');
+  $('#c-sugar').innerHTML = codes('sugar').map((c) => chip(c, 'sugar')).join('');
+  $('#c-family').innerHTML = FAMILIES.map((f) => {
+    const n = codes('base', (x) => x.family === f).length;
+    return `<button type="button" data-family="${f}" aria-pressed="${comp.family === f}"${n ? '' : ' disabled'}>${f === 'other' ? 'other' : f + '*'} <span>${n}</span></button>`;
+  }).join('');
+  $('#c-base').innerHTML = codes('base', (x) => x.family === comp.family).map((c) => chip(c, 'base')).join('');
+  $('#c-letter').innerHTML = LETTERS.map((l) => `<button type="button" data-letter="${l}" aria-pressed="${comp.letter === l}">${l}</button>`).join('');
+  for (const m of ['backbone', 'sugar', 'base']) $(`#i-${m}`).innerHTML = fragInfo(comp[m]);
+  const fam = idx.get(comp.base) ? idx.get(comp.base).family : null;
+  $('#c-letterhint').textContent = CANONICAL_LETTER[comp.base] ? '' : fam === 'other'
+    ? 'choose how this base pairs: there is no canonical parent'
+    : `taken from its modXNA family (${fam}-based); change it if the base pairs otherwise`;
+  $('#c-code').textContent = composedCode();
+  $('#c-status').innerHTML = composedStatus();
+}
+function composedCode() {
+  return `{${comp.backbone}/${comp.sugar}/${comp.base}:${comp.letter}}`;
+}
+function composedStatus() {
+  const un = state.fragments.unavailable || {};
+  const canonical = ['DPO', 'RPO'].includes(comp.backbone) &&
+    ((comp.sugar === 'DC2' && ['DAA', 'DCC', 'DGG', 'DTT'].includes(comp.base)) ||
+     (comp.sugar === 'RC3' && ['RAA', 'RCC', 'RGG', 'RUU'].includes(comp.base)));
+  const pos = [['internal', `${comp.backbone}-${comp.sugar}-${comp.base}-int`],
+    ['3′ end', `${comp.backbone}-${comp.sugar}-${comp.base}-3cap`],
+    ['5′ end (5′-OH, no phosphate)', `5PO-${comp.sugar}-${comp.base}-5cap`]];
+  return pos.map(([label, key]) => {
+    let s;
+    if (canonical && label === 'internal') s = '<span class="ok">✓ canonical (Amber)</span>';
+    else if (state.prebuilt.has(key)) s = '<span class="ok">✓ prebuilt</span>';
+    else if (un[key] || un[`${comp.backbone}-*-*-*`]) s = `<span class="bad">✗ ${esc(un[key] || un[`${comp.backbone}-*-*-*`])}</span>`;
+    else s = `<span class="muted">– not prebuilt: this combination is not in the library (<code>tools/build_residue_library.py --only ${esc(key)}</code>)</span>`;
+    return `<div><span class="pos">${label}</span> ${s}</div>`;
+  }).join('');
+}
+function insertComposed(which) {
+  const input = $(which === 'top' ? '#top' : '#bottom');
+  const code = composedCode();
+  const at = caret[which] ?? input.value.length;
+  input.value = input.value.slice(0, at) + code + input.value.slice(at);
+  caret[which] = at + code.length;
+  selectTab('build');
+  input.focus();
+  input.setSelectionRange(caret[which], caret[which]);
+  validateSoon(0);
+}
+function composerClick(ev) {
+  const b = ev.target.closest('button');
+  if (!b) return;
+  if (b.dataset.backbone) comp.backbone = b.dataset.backbone;
+  else if (b.dataset.sugar) comp.sugar = b.dataset.sugar;
+  else if (b.dataset.family) comp.family = b.dataset.family;
+  else if (b.dataset.letter) comp.letter = b.dataset.letter;
+  else if (b.dataset.base) {
+    comp.base = b.dataset.base;
+    const fam = fragIndex().get(comp.base).family;
+    comp.letter = CANONICAL_LETTER[comp.base] || (LETTERS.includes(fam) ? fam : comp.letter);
+  } else return;
+  renderComposer();
+}
+
 // ------------------------------------------------------------------ request
 function request() {
   return {
     top: $('#top').value, bottom: $('#bottom').value, model: +$('#model').value || 4,
+    names: { ...state.names },
     amber: { dna_ff: $('#dnaff').value, water: $('#water').value, box: $('#box').value, buffer: +$('#buffer').value || 10 },
   };
 }
@@ -257,6 +391,7 @@ async function build() {
     if (!out.ok) return;
     state.last = out;
     renderSummary(out);
+    renderNames(out);
     // wall time from click to result (validation, library fetch, build); read by
     // scripts/bench_browser.py and handy when reporting performance
     document.body.dataset.buildMs = String(Math.round(performance.now() - t0));
@@ -405,6 +540,8 @@ function b64bytes(b64) {
 function writeURL(req) {
   const p = new URLSearchParams({ top: req.top, bottom: req.bottom, model: req.model,
     ff: req.amber.dna_ff, water: req.amber.water, box: req.amber.box, buffer: req.amber.buffer });
+  const names = Object.entries(req.names || {});
+  if (names.length) p.set('names', names.map(([k, v]) => `${k}=${v}`).join(';'));
   history.replaceState(null, '', '?' + p.toString());
 }
 function applyURL() {
@@ -413,6 +550,8 @@ function applyURL() {
   const set = (id, k) => { if (p.get(k) !== null) $(id).value = p.get(k); };
   set('#top', 'top'); set('#bottom', 'bottom'); set('#model', 'model'); set('#dnaff', 'ff');
   set('#water', 'water'); set('#box', 'box'); set('#buffer', 'buffer');
+  state.names = Object.fromEntries((p.get('names') || '').split(';').filter((x) => x.includes('='))
+    .map((x) => [x.slice(0, x.lastIndexOf('=')), x.slice(x.lastIndexOf('=') + 1)]));
   showModelInfo();
   if (p.get('top') && p.get('bottom')) build(); else validateSoon(0);
 }
@@ -431,6 +570,7 @@ function renderExamples() {
   for (const b of $$('[data-ex]')) b.onclick = () => {
     const e = EXAMPLES.find((x) => x.id === b.dataset.ex);
     $('#top').value = e.top; $('#bottom').value = e.bottom; $('#model').value = e.model;
+    state.names = {};
     showModelInfo(); build();
   };
 }
@@ -438,6 +578,19 @@ function renderExamples() {
 // ------------------------------------------------------------------ wiring
 for (const tab of ['build', 'models', 'library', 'docs']) $(`#tab-${tab}`).onclick = () => selectTab(tab);
 $('#libfilter').addEventListener('input', renderLibrary);
+$('#composer').addEventListener('click', composerClick);
+$('#c-all').addEventListener('change', renderComposer);
+$('#c-top').onclick = () => insertComposed('top');
+$('#c-bottom').onclick = () => insertComposed('bottom');
+$('#c-copy').onclick = async () => { try { await navigator.clipboard.writeText(composedCode()); } catch (e) { prompt('Code', composedCode()); } };
+$('#gocompose').onclick = () => selectTab('library');
+$('#applynames').onclick = applyNames;
+$('#resetnames').onclick = () => { state.names = {}; build(); };
+for (const which of ['top', 'bottom']) {
+  const el = $(`#${which}`);
+  const keep = () => { caret[which] = el.selectionStart; };
+  for (const ev of ['keyup', 'click', 'select', 'input']) el.addEventListener(ev, keep);
+}
 $('#libavail').addEventListener('change', renderLibrary);
 for (const id of ['#top', '#bottom']) $(id).addEventListener('input', () => validateSoon());
 for (const id of ['#model', '#water', '#dnaff', '#box', '#buffer']) $(id).addEventListener('change', () => { showModelInfo(); validateSoon(0); });

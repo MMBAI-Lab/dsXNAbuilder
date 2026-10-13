@@ -27,14 +27,22 @@ The same Python package also works from the command line.
   - sequence-specific models (Z-DNA, D-DNA, poly(dA)·poly(dT) forms, …) keep their
     backbone, and bases are swapped in the standard reference frame. Warnings report when a
     sequence breaks the model's purine/pyrimidine or syn/anti pattern.
-- **Modified nucleotides.** 244 modXNA residues are prebuilt with `modxna.sh`:
+- **Modified nucleotides.** 1151 modXNA residues are prebuilt with `modxna.sh`. The
+  sequence language writes the core set directly:
   - sugars: 2′-deoxyribose, ribose, 2′-OMe, 2′-F, 2′-MOE and LNA;
   - bases: A, C, G, T, U and 5mC on each sugar;
   - linkages: phosphodiester and the two phosphorothioates;
   - internal, 5′-terminal and 3′-terminal versions of each.
 
-  The web app's **modXNA library** tab lists all 298 fragments of modXNA 1.9.3 by section,
-  with the names of the modXNA catalogue, and marks the prebuilt ones with their notation.
+  The rest of the library combines every other usable modXNA fragment with canonical
+  partners (in all, 142 of the 228 bases, 17 of the 39 sugars and 8 of the 31 backbones of
+  modXNA), written as explicit triplets
+  `{BACKBONE/SUGAR/BASE:LETTER}`. The web app's **modXNA library** tab composes them by
+  clicking, says for each position in a strand whether a combination is prebuilt, and lists
+  all 298 fragments of modXNA 1.9.3 with the names of the modXNA catalogue and, for those
+  left out, the reason (missing modXNA parameters, duplicate atom names, or a sugar or base a
+  fiber scaffold cannot carry). Modified residues are named X01, X02, … unless the user names
+  them (`--name KEY=NAME` on the command line).
 
   They are *transplanted* onto the fiber scaffold. Shared atoms keep the fiber coordinates,
   so the helix and the backbone stay exact; only the modification atoms are placed from
