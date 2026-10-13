@@ -20,13 +20,14 @@ with zipfile.ZipFile("web/dsxnabuilder.zip", "w", zipfile.ZIP_DEFLATED) as z:
     for name in DATA:
         z.write(pathlib.Path("data") / name)
 PY
+# VERSION names the build: package version + source commit (+ ".dirty<time>" for an
+# uncommitted tree), so that every deployment has a new version and browsers do not keep
+# serving cached assets under the old one. scripts/deploy_danslab.sh stamps it into the
+# deployed copy (asset ?v= and PAGE_VERSION); the sources keep "dev".
 VER=$("$PY" -c "import dsxnabuilder; print(dsxnabuilder.__version__)")
+VER="$VER.g$(git rev-parse --short HEAD)"
+[ -z "$(git status --porcelain --untracked-files=no)" ] || VER="$VER.dirty$(date +%s)"
 echo "$VER" > web/VERSION
-
-# Version-stamp the assets the page loads (GitHub Pages caches for 10 min
-# under unchanging names). Idempotent.
-sed -i -E "s@(href=\"style\.css)(\?v=[^\"]*)?\"@\1?v=$VER\"@g" web/index.html
-sed -i -E "s@(src=\"app\.js)(\?v=[^\"]*)?\"@\1?v=$VER\"@g" web/index.html
-sed -i -E "s@(new URL\('worker\.js)(\?v=[^']*)?'@\1?v=$VER'@g" web/app.js
+echo "version $VER"
 
 du -sh web/pyodide web/vendor web/dsxnabuilder.zip

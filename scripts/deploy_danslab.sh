@@ -14,6 +14,16 @@ SITE=${1:?usage: scripts/deploy_danslab.sh /path/to/web-danslab}
 mkdir -p "$SITE/public/dsxnabuilder"
 rsync -a --delete --exclude '.version' --exclude '.ngl-version' web/ "$SITE/public/dsxnabuilder/"
 
+# Stamp the deployed copy with this build's version (written by build_web.sh): new asset
+# URLs for every deployment, and PAGE_VERSION for app.js to detect a stale cached page.
+VER=$(cat web/VERSION)
+D="$SITE/public/dsxnabuilder"
+sed -i -E "s@(href=\"style\.css)\?v=[^\"]*\"@\1?v=$VER\"@g; s@(src=\"app\.js)\?v=[^\"]*\"@\1?v=$VER\"@g" "$D/index.html"
+sed -i -E "s@(new URL\('worker\.js)\?v=[^']*'@\1?v=$VER'@g; s@^const PAGE_VERSION = '[^']*';@const PAGE_VERSION = '$VER';@" "$D/app.js"
+grep -q "PAGE_VERSION = '$VER'" "$D/app.js" && grep -q "app.js?v=$VER" "$D/index.html" \
+  || { echo "version stamp failed" >&2; exit 1; }
+echo "stamped $VER"
+
 python3 - "$SITE" <<'PY'
 import json, sys
 site = sys.argv[1]

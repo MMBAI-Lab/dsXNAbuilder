@@ -40,7 +40,10 @@ const state = {
 };
 
 // ------------------------------------------------------------------ worker
-const worker = new Worker(new URL('worker.js?v=0.2.0-dev', import.meta.url), { type: 'module' });
+// The deployment stamps PAGE_VERSION and the ?v= of every asset with the version it
+// ships (scripts/deploy_danslab.sh); locally they stay "dev".
+const PAGE_VERSION = 'dev';
+const worker = new Worker(new URL('worker.js?v=dev', import.meta.url), { type: 'module' });
 let seq = 0;
 const pending = new Map();
 worker.onmessage = (ev) => {
@@ -59,9 +62,20 @@ const call = (name, payload = {}) => new Promise((resolve, reject) => {
 
 function onStatus(d) {
   if (d.status === 'ready') {
+    // GitHub Pages lets browsers keep a page for 10 minutes; right after a deployment a
+    // cached page can meet the new Python package (the worker reads VERSION afresh). Reload
+    // once to get the matching page rather than run the two together.
+    const stale = PAGE_VERSION !== 'dev' && d.version !== PAGE_VERSION;
+    if (stale) {
+      let tried = false;
+      try { tried = sessionStorage.getItem('dsxna-reloaded') === d.version; sessionStorage.setItem('dsxna-reloaded', d.version); } catch (e) {}
+      if (!tried) { location.reload(); return; }
+    }
     state.ready = true;
     $('#ver').textContent = 'v' + d.version;
-    $('#status').textContent = '';
+    $('#status').innerHTML = stale
+      ? `<span class="error">A new version (${esc(d.version)}) was published: reload the page (Ctrl+Shift+R).</span>`
+      : '';
     call('models').then((info) => { setModels(info); applyURL(); });
     if (!$('#view-library').classList.contains('hidden')) loadLibrary();
   } else if (d.status === 'error') {
