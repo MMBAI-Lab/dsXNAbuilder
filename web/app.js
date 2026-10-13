@@ -36,7 +36,7 @@ const GENERIC = '★';
 const state = {
   ready: false, models: [], byId: new Map(), last: null, stage: null, comp: null,
   repr: 'sticks', color: 'base', spinning: false, validateTimer: null, validSeq: 0,
-  residues: new Map(), names: {},
+  residues: new Map(), names: {}, buildSeq: 0,
 };
 
 // ------------------------------------------------------------------ worker
@@ -376,17 +376,20 @@ function renderIssues(list) {
 // ------------------------------------------------------------------ build
 async function build() {
   if (!state.ready) return;
+  const mine = ++state.buildSeq;      // a reset meanwhile discards this build
   const req = request();
   const t0 = performance.now();
   $('#build').disabled = true;
   $('#status').innerHTML = '<span class="spinner"></span>Building…';
   try {
     const v = await call('validate', req);
+    if (mine !== state.buildSeq) return;
     renderValidation(v);
     if (!v.ok) return;
     req.libs = await fetchLibs(v.needed_libs || []);
     if ((v.needed_libs || []).length) req.frcmod = await fetchText('lib/frcmod.modxna');
     const out = await call('build', req);
+    if (mine !== state.buildSeq) return;
     renderIssues(out.issues || []);
     if (!out.ok) return;
     state.last = out;
@@ -452,6 +455,7 @@ const SCHEMES = {};
 const theme = () => (document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark');
 const residueOf = (atom) => state.residues.get(`${atom.chainname}:${atom.resno}`);
 function registerSchemes() {
+  if (SCHEMES.base) return;         // once per page: the viewer may be rebuilt after a reset
   const reg = (label, color) => NGL.ColormakerRegistry.addScheme(function () { this.atomColor = color; }, label);
   SCHEMES.base = reg('dsxna-base', (atom) => {
     const r = residueOf(atom);
@@ -500,7 +504,7 @@ async function showStructure(pdb, summary) {
     $('#viewer').innerHTML = '';
     registerSchemes();
     state.stage = new NGL.Stage('viewer', { backgroundColor: bg(), tooltip: true });
-    window.addEventListener('resize', () => state.stage.handleResize());
+    window.addEventListener('resize', () => state.stage && state.stage.handleResize());
   }
   state.residues = new Map((summary.residues || []).map(([chain, resseq, letter, kind]) => [`${chain}:${resseq}`, { letter, kind }]));
   state.stage.removeAllComponents();
@@ -575,6 +579,57 @@ function renderExamples() {
   };
 }
 
+// ------------------------------------------------------------------ reset
+// Back to the starting state, as on first load: empty strands, B-DNA #4, default Amber
+// options and viewer settings, no structure, no names, a clean URL.
+function resetAll() {
+  clearTimeout(state.validateTimer);
+  state.validSeq++;                 // results still on their way are dropped
+  state.buildSeq++;
+  $('#top').value = '';
+  $('#bottom').value = '';
+  $('#model').value = 4;
+  showModelInfo();
+  $('#dnaff').value = 'OL15';
+  $('#water').value = 'none';
+  $('#box').value = 'octahedral';
+  $('#buffer').value = 10;
+  $('#advanced').open = false;
+  state.names = {};
+  state.last = state.lastReq = state.comp = null;
+  state.residues = new Map();
+  state.spinning = false;
+  if (state.stage) {
+    state.stage.dispose();
+    state.stage = null;
+  }
+  $('#viewer').innerHTML = '<div class="empty">The built duplex appears here.</div>';
+  $('#legend').innerHTML = '';
+  $('#summary').classList.add('hidden');
+  $('#summary').innerHTML = '';
+  $('#names').classList.add('hidden');
+  $('#nametable').innerHTML = '';
+  $('#issues').innerHTML = '';
+  $('#status').textContent = '';
+  for (const id of ['#dlzip', '#dlpdb', '#link']) $(id).disabled = true;
+  state.repr = 'sticks';
+  state.color = 'base';
+  for (const b of $$('#repr button, #color button')) {
+    b.setAttribute('aria-pressed', String(b.dataset.v === state[b.parentElement.id]));
+  }
+  Object.assign(comp, { backbone: 'DPO', sugar: 'DC2', base: 'DAA', family: 'A', letter: 'A' });
+  caret.top = caret.bottom = null;
+  $('#c-all').checked = false;
+  $('#libfilter').value = '';
+  $('#libavail').checked = false;
+  $('#libdetails').open = false;
+  renderComposer();
+  renderLibrary();
+  history.replaceState(null, '', location.pathname);
+  selectTab('build');
+  validateSoon(0);
+}
+
 // ------------------------------------------------------------------ wiring
 for (const tab of ['build', 'models', 'library', 'docs']) $(`#tab-${tab}`).onclick = () => selectTab(tab);
 $('#libfilter').addEventListener('input', renderLibrary);
@@ -595,6 +650,7 @@ $('#libavail').addEventListener('change', renderLibrary);
 for (const id of ['#top', '#bottom']) $(id).addEventListener('input', () => validateSoon());
 for (const id of ['#model', '#water', '#dnaff', '#box', '#buffer']) $(id).addEventListener('change', () => { showModelInfo(); validateSoon(0); });
 $('#build').onclick = build;
+$('#reset').onclick = resetAll;
 $('#complement').onclick = async () => {
   try {
     const r = await call('complement', { top: $('#top').value, model: +$('#model').value });

@@ -206,6 +206,22 @@ def main() -> int:
         check(len(atoms) == 758 and n_h == 272 and "REMARK 999 strand 1" in text,
               "PDB downloaded: 758 atoms with 272 hydrogens and self-describing header")
 
+        # Reset (top right): back to the starting state
+        drv.find_element(By.ID, "model").send_keys("#20")
+        drv.find_element(By.ID, "reset").click()
+        time.sleep(0.5)
+        check(drv.find_element(By.ID, "top").get_attribute("value") == ""
+              and drv.find_element(By.ID, "bottom").get_attribute("value") == ""
+              and drv.find_element(By.ID, "model").get_attribute("value") == "4"
+              and not drv.find_element(By.ID, "summary").is_displayed()
+              and not drv.find_element(By.ID, "names").is_displayed()
+              and drv.find_element(By.ID, "dlpdb").get_attribute("disabled") is not None
+              and "?" not in drv.current_url
+              and "appears here" in drv.find_element(By.ID, "viewer").text,
+              "Reset: empty strands, model #4, no structure, clean URL")
+        run_example("dickerson", 12)
+        check("758" in drv.find_element(By.ID, "summary").text, "builds again after Reset")
+
         # models tab
         drv.find_element(By.ID, "tab-models").click()
         rows = drv.find_elements(By.CSS_SELECTOR, "#modeltable tbody tr")
