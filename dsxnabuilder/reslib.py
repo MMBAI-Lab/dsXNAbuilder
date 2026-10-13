@@ -28,8 +28,9 @@ the sulfur takes the place of the oxygen that the fragment does *not* keep:
 PS1 puts S on the scaffold's OP1, PS2 on its OP2, with OP1/OP2 in the Amber
 convention (the scaffold is relabelled by chirality in
 tools/derive_fiber_models.py). The absolute Rp/Sp labels are not asserted.
-The same rule places every backbone modified at phosphorus that keeps one of
-the two oxygens (methylphosphonate, phosphoryl guanidine, ...).
+Every other backbone modified at phosphorus (methylphosphonate, phosphoryl
+guanidine, ...) keeps the handedness its new group has in the modXNA residue
+(see _phosphorus_rule): unlike PS1/PS2, those pairs are mirror images at P.
 
 Checks
 ------
@@ -220,7 +221,8 @@ def transplant(unit: OffUnit, names: List[str], xyz: np.ndarray
     unb = unit.neighbours()
     nb = {a: [b for b in unb[a] if b in hset] for a in heavy}
     placed: Dict[str, np.ndarray] = {}
-    special = _phosphorus_rule(nb, hset, sc)
+    elements = dict(zip(unit.atom_names, unit.elements))
+    special = _phosphorus_rule(nb, hset, sc, lib, elements)
     for a in heavy:
         if a in sc and a not in special:
             placed[a] = np.array(sc[a], float)
@@ -281,27 +283,41 @@ def transplant(unit: OffUnit, names: List[str], xyz: np.ndarray
                                 "contacts": _close_contacts(out_names, out_xyz, nb)}
 
 
-def _phosphorus_rule(nb: Dict[str, List[str]], hset: set, sc: Dict[str, np.ndarray]
-                     ) -> Dict[str, str]:
-    """New atom on P -> scaffold oxygen whose position it takes.
+def _phosphorus_rule(nb: Dict[str, List[str]], hset: set, sc: Dict[str, np.ndarray],
+                     lib: Dict[str, np.ndarray], elements: Dict[str, int]) -> Dict[str, str]:
+    """Atoms on P -> scaffold oxygen whose position each one takes.
 
-    modXNA backbones modified at phosphorus keep one of the two non-bridging
-    oxygens by name (PS1 keeps OP2, MP1 keeps OP1, ...) and put the new group
-    on the other; the new atom takes the place of the scaffold oxygen the
-    fragment does not keep (Amber OP1/OP2, by chirality). PSS carries two
-    sulfurs, S1 on OP1 and S2 on OP2. Fragments that follow neither pattern
-    keep the geometry of the residue.
+    The scaffold's non-bridging oxygens follow the Amber convention,
+    V(OP1, OP2, O5') < 0 about P. A backbone modified at phosphorus keeps one
+    of them and puts a new group X on the other position; X takes the scaffold
+    position with the handedness it has in the modXNA residue (OP1 when
+    V(X, kept O, O5') < 0, otherwise OP2) and the kept oxygen the other one.
+    The oxygen names of the fragments cannot be used for this: most pairs (MP,
+    PR, IB, MO, PC, PN, WX, ZV) name them opposite to the Amber convention.
+
+    Phosphorothioates are the exception. modXNA's PS1 and PS2 have the same
+    geometry at P, so their names decide: PS1 keeps OP2 and gets S on OP1, PS2
+    the reverse (the absolute Rp/Sp is not asserted). PSS: S1 on OP1, S2 on OP2.
+    Other patterns keep the geometry of the residue.
     """
     if "P" not in sc or "P" not in hset:
         return {}
     missing = [o for o in ("OP1", "OP2") if o not in hset and o in sc]
     # bridging atoms (bonded to the sugar, e.g. N5' of a phosphoramidate) stay put
     new = sorted(b for b in nb["P"] if b not in sc and "C5'" not in nb[b])
-    if len(missing) == 1 and len(new) == 1:
-        return {new[0]: missing[0]}
     if missing == ["OP1", "OP2"] and new == ["S1", "S2"]:
         return {"S1": "OP1", "S2": "OP2"}
-    return {}
+    if len(missing) != 1 or len(new) != 1:
+        return {}
+    x, kept = new[0], "OP2" if missing[0] == "OP1" else "OP1"
+    if elements.get(x) == 16 or "O5'" not in lib:
+        return {x: missing[0]}
+    p = lib["P"]
+    v = float(np.dot(lib[x] - p, np.cross(lib[kept] - p, lib["O5'"] - p)))
+    slot = "OP1" if v < 0 else "OP2"
+    if slot == missing[0]:
+        return {x: slot}
+    return {x: slot, kept: missing[0]}
 
 
 def _place(atoms: List[str], placed: Dict[str, np.ndarray], lib: Dict[str, np.ndarray],

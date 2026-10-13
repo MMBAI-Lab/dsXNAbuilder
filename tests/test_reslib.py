@@ -251,3 +251,25 @@ def test_modxna_code_example(msession):
     assert {"ABASIC", "OVERHANG", "PUCKER_FORCED"} <= codes and "CLASHES" not in codes
     assert out["summary"]["named"][0]["key"] == "PS2/2AD/RYC/int"
     assert "dihydrocytidylic" in out["summary"]["named"][0]["description"]
+
+
+def test_phosphorus_follows_the_modxna_geometry(rl, lib):
+    """A group on P keeps the handedness it has in the modXNA residue (WX2 came out
+    inverted when placed by oxygen name: its OP1/OP2 are named opposite to Amber's);
+    phosphorothioates follow their names, since modXNA's PS1 and PS2 coincide."""
+    from dsxnabuilder.reslib import transplant
+
+    def hand(c, x, kept):
+        p = c["P"]
+        return np.sign(np.dot(c[x] - p, np.cross(c[kept] - p, c["O5'"] - p)))
+    names, xyz = scaffold(lib, 4, "C", "DNA")
+    u = rl.unit("WX2-DC2-DCC-int")
+    out_names, out_xyz, _ = transplant(u, names, xyz)
+    built = dict(zip(out_names, out_xyz))
+    assert hand(built, "N2", "OP2") == hand(u.coords(), "N2", "OP2")
+    for key, s in (("PS1-DC2-DCC-int", "S1"), ("PS2-DC2-DCC-int", "S2")):
+        out_names, out_xyz, _ = transplant(rl.unit(key), names, xyz)
+        built = dict(zip(out_names, out_xyz))
+        target = "OP1" if s == "S1" else "OP2"       # by name, on the Amber scaffold
+        assert np.linalg.norm(built[s] - built["P"] - 2.02 * (dict(zip(names, xyz))[target] - built["P"])
+                              / np.linalg.norm(dict(zip(names, xyz))[target] - built["P"])) < 0.05

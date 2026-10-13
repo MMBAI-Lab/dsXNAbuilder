@@ -70,6 +70,7 @@ from dsxnabuilder.offlib import parse_off  # noqa: E402
 from dsxnabuilder.reslib import duplicate_names, tleap_name, transplant  # noqa: E402
 
 UNIT = "MXR"
+MODXNA = os.path.join(ROOT, "external", "modxna")
 EXTRA = [("PS2", "2AD", "RYC", "int")]       # example "modXNA code" of the web app
 SUGARS = {"DC2": "DNA", "RC3": "RNA", "OME": "RNA", "AF2": "RNA", "MOE": "RNA", "LNA": "RNA"}
 BASES = {"DNA": ["DAA", "DCC", "DGG", "DTT", "RUU", "M5C"],
@@ -96,25 +97,58 @@ def curated() -> list:
     return out
 
 
-def ambiguous_backbones(catalog) -> dict:
-    """Stereo pairs XX1/XX2 that keep the same non-bridging oxygen: the configuration
-    at P follows the oxygen kept (reslib._phosphorus_rule), so the two would come out
-    as the same diastereomer and at least one file contradicts its name."""
-    kept = {f.code: {o for o in ("OP1", "OP2") if o in f.atom_names}
-            for f in catalog.by_moiety("backbone")}
+def p_handedness(mol2_path: str) -> Optional[int]:
+    """Sign of V(X, kept O, O5') about P in a backbone fragment that keeps one
+    non-bridging oxygen and carries a new group X on P (None otherwise)."""
+    import numpy as np
+    atoms, bonds, sec = {}, [], None
+    for line in open(mol2_path, errors="replace"):
+        if line.startswith("@<TRIPOS>"):
+            sec = line[9:].strip()
+            continue
+        f = line.split()
+        if sec == "ATOM" and len(f) >= 6:
+            atoms[f[0]] = (f[1], np.array([float(x) for x in f[2:5]]))
+        elif sec == "BOND" and len(f) >= 3:
+            bonds.append((f[1], f[2]))
+    pid = [i for i, (n, _) in atoms.items() if n == "P"]
+    if not pid:
+        return None
+    nb = [atoms[b if a == pid[0] else a][0] for a, b in bonds if pid[0] in (a, b)]
+    kept = [o for o in ("OP1", "OP2") if o in nb]
+    new = [n for n in nb if n not in ("O3'", "O5'", "OP1", "OP2")]
+    if "O5'" not in nb or len(kept) != 1 or len(new) != 1:
+        return None
+    pos = {n: x for n, x in atoms.values()}
+    p = pos["P"]
+    return int(np.sign(np.dot(pos[new[0]] - p, np.cross(pos[kept[0]] - p, pos["O5'"] - p))))
+
+
+def ambiguous_backbones(catalog, modxna_dir: str) -> dict:
+    """Stereo pairs XX1/XX2 whose fragments have the same configuration at P.
+    reslib._phosphorus_rule follows the geometry of the fragment, so the two
+    would build the same diastereomer and at least one contradicts its name.
+    (Phosphorothioates follow their names instead; see reslib.)"""
+    hand = {}
+    for f in catalog.by_moiety("backbone"):
+        if f.code.startswith("PS"):
+            continue
+        path = os.path.join(modxna_dir, "dat", "lib_backbone", f.code + ".mol2")
+        if os.path.exists(path):
+            hand[f.code] = p_handedness(path)
     out = {}
-    for code, k in kept.items():
+    for code, h in hand.items():
         twin = code[:-1] + {"1": "2", "2": "1"}.get(code[-1], "")
-        if code[-1] in "12" and twin in kept and len(k) == 1 and kept[twin] == k:
-            out[code] = (f"{code} and {twin} both keep {next(iter(k))}: the configuration at P "
-                         "cannot be assigned")
+        if code[-1] in "12" and h is not None and hand.get(twin) == h:
+            out[code] = (f"{code} and {twin} have the same configuration at P in modXNA: "
+                         "the diastereomer cannot be assigned")
     return out
 
 
 def extended(catalog, review: dict) -> list:
     """Each catalogue fragment outside the curated set, with canonical partners."""
     have = {c for job in curated() for c in job[:3]}
-    have |= set(ambiguous_backbones(catalog))
+    have |= set(ambiguous_backbones(catalog, MODXNA))
     protected = set(review.get("protected", {}).get("codes", []))
     out = []
     for f in catalog.by_moiety("base"):
@@ -281,7 +315,7 @@ def main(argv=None) -> int:
     skipped = {}
     if a.set == "extended":
         jobs += extended(catalog, review) + [j for j in EXTRA if j not in jobs]
-        skipped = ambiguous_backbones(catalog)
+        skipped = ambiguous_backbones(catalog, a.modxna)
     if a.only:
         jobs = []
         for key in a.only:
