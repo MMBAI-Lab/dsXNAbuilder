@@ -25,6 +25,9 @@ const EXAMPLES = [
 const STATUS = {
   loading_python: 'Loading Python runtime…', loading_numpy: 'Loading numpy…', loading_app: 'Loading dsXNAbuilder…',
 };
+// the loading animation (a turning double helix), as in index.html
+const HELIX = '<div class="helix" aria-hidden="true">' +
+  Array.from({ length: 10 }, (_, i) => `<span style="--i:${i}"><b></b></span>`).join('') + '</div>';
 const POLICY = {
   any: () => 'generic: any sequence',
   swap: (m) => `derived for ${m.native[0]}; other bases are swapped onto its backbone`,
@@ -76,13 +79,24 @@ function onStatus(d) {
     $('#status').innerHTML = stale
       ? `<span class="error">A new version (${esc(d.version)}) was published: reload the page (Ctrl+Shift+R).</span>`
       : '';
-    call('models').then((info) => { setModels(info); applyURL(); });
+    call('models').then((info) => { setModels(info); applyURL(); bootDone(); }).catch((e) => {
+      $('#bootmsg').textContent = `Could not start the engine: ${e.message}`;
+      $('#boot').classList.add('failed');
+    });
     if (!$('#view-library').classList.contains('hidden')) loadLibrary();
+    if ($('#batchtext').value.trim()) batchValidateSoon(0);
   } else if (d.status === 'error') {
+    $('#bootmsg').textContent = `Could not start the engine: ${d.error}`;
+    $('#boot').classList.add('failed');
     $('#status').innerHTML = `<span class="error">Could not start the engine: ${esc(d.error)}</span>`;
   } else {
-    $('#status').innerHTML = `<span class="spinner"></span>${esc(STATUS[d.status] || d.status)}`;
+    $('#bootmsg').textContent = STATUS[d.status] || d.status;
   }
+}
+function bootDone() {
+  const boot = $('#boot');
+  boot.classList.add('done');
+  setTimeout(() => boot.classList.add('hidden'), 400);
 }
 
 // ------------------------------------------------------------------ models
@@ -298,7 +312,9 @@ async function build() {
   const req = request();
   const t0 = performance.now();
   $('#build').disabled = true;
-  $('#status').innerHTML = '<span class="spinner"></span>Building…';
+  $('#build').textContent = 'Building…';
+  $('#status').textContent = '';
+  setBusy(true);
   try {
     const v = await call('validate', req);
     if (mine !== state.buildSeq) return;
@@ -328,17 +344,33 @@ async function build() {
   } catch (e) {
     $('#issues').innerHTML = `<li class="error">${esc(e.message)}</li>`;
   } finally {
-    $('#status').textContent = '';
+    setBusy(false);
+    $('#build').textContent = 'Build duplex';
     $('#build').disabled = false;
   }
+}
+// the helix over the viewer while a build runs (it fades in late, so quick builds do not flash)
+function setBusy(on) {
+  const old = $('#viewer > .busy');
+  if (old) old.remove();
+  $('#viewer').classList.toggle('is-busy', on);
+  if (on) $('#viewer').insertAdjacentHTML('beforeend', `<div class="busy">${HELIX}<div class="msg">Building…</div></div>`);
 }
 async function fetchText(path) {
   const r = await fetch(path);
   if (!r.ok) throw new Error(`${path}: HTTP ${r.status}`);
   return r.text();
 }
+const libCache = new Map();         // residue key -> promise of its OFF text
 async function fetchLibs(keys) {
-  const texts = await Promise.all(keys.map((k) => fetchText(`lib/residues/${encodeURIComponent(k)}.lib`)));
+  for (const k of keys) {
+    if (!libCache.has(k)) {
+      const p = fetchText(`lib/residues/${encodeURIComponent(k)}.lib`);
+      p.catch(() => libCache.delete(k));
+      libCache.set(k, p);
+    }
+  }
+  const texts = await Promise.all(keys.map((k) => libCache.get(k)));
   return Object.fromEntries(keys.map((k, i) => [k, texts[i]]));
 }
 function renderSummary(out) {
@@ -479,12 +511,16 @@ function applyURL() {
 }
 
 // ------------------------------------------------------------------ tabs, examples
+const TABS = ['build', 'batch', 'models', 'library', 'docs'];
 function selectTab(name) {
+  if (!TABS.includes(name)) return;
   if (name === 'library') loadLibrary();
-  for (const tab of ['build', 'models', 'library', 'docs']) {
+  for (const tab of TABS) {
     $(`#tab-${tab}`).setAttribute('aria-selected', String(tab === name));
     $(`#view-${tab}`).classList.toggle('hidden', tab !== name);
   }
+  // the help needs no engine: readable while it loads
+  $('#boot').classList.toggle('aside', name === 'docs');
   if (name === 'build' && state.stage) setTimeout(() => state.stage.handleResize(), 0);
 }
 function renderExamples() {
@@ -495,6 +531,198 @@ function renderExamples() {
     state.names = {};
     showModelInfo(); build();
   };
+}
+
+// ------------------------------------------------------------------ high-throughput
+// Many duplexes from a FASTA-like text (dsxnabuilder/batch.py). Python checks the text and
+// every record; the page then builds the records one by one, so that it can show progress
+// and stop, and Python packs the PDB files, a report and the input into one zip.
+const BATCH_EXAMPLE = `# dsXNAbuilder high-throughput input: one record per duplex
+>name=sequence1; model=20
+mG*mA*fC*mU*fA*mG*fC*mU*mG*mAdGdG
+C*U*GAUCGAC*U--
+
+>name=sequence2; model=4
+mG*mA*fC*mU*fA*mG*fC*mU*mG*mA
+C*U*GAUCGAC*U
+
+>dickerson
+CGCGAATTCGCG
+GCGCTTAAGCGC
+
+>name=lna_gapmer; model=22
+r(GCAAUGUACUGAAUGC)
++C*+G*+T*dT*dA*dC*dA*dT*dG*dA*dC*dT*dT*+A*+C*+G
+`;
+const MAX_FILE = 2e6;               // bytes; 50 duplexes take a few kB
+const batch = { timer: null, seq: 0, running: false, stop: false, rows: [], results: {}, zip: null };
+
+function batchValidateSoon(delay = 400) {
+  clearTimeout(batch.timer);
+  batch.timer = setTimeout(batchValidate, delay);
+}
+async function batchValidate() {
+  if (!state.ready || batch.running) return;
+  const text = $('#batchtext').value;
+  batch.results = {};
+  batch.zip = null;
+  $('#batchzip').disabled = true;
+  $('#batchstatus').textContent = '';
+  if (!text.trim()) {
+    batch.rows = [];
+    renderBatch({ ok: false, issues: [], records: [] });
+    return;
+  }
+  const mine = ++batch.seq;
+  try {
+    const v = await call('batch_validate', { text });
+    if (mine !== batch.seq) return;
+    batch.rows = v.records;
+    renderBatch(v);
+  } catch (e) {
+    $('#batchissues').innerHTML = `<li class="error">${esc(e.message)}</li>`;
+  }
+}
+function renderBatch(v) {
+  $('#batchbuild').disabled = !v.ok;
+  const order = { error: 0, warning: 1, info: 2 };
+  $('#batchissues').innerHTML = [...v.issues].sort((a, b) => order[a.level] - order[b.level]).map((i) =>
+    `<li class="${i.level}">${esc(i.message)}<span class="code">${esc(i.code)}</span></li>`).join('');
+  const n = v.records.length;
+  const bad = v.records.filter((r) => !r.ok).length;
+  $('#batchcount').textContent = n
+    ? `${n} duplex${n === 1 ? '' : 'es'}${bad ? `, ${bad} with errors (reported, not built)` : ''}` : '';
+  renderBatchTable();
+}
+function batchStatus(r) {
+  const out = batch.results[r.name];
+  if (out) return out.ok ? 'built' : 'failed';
+  if (batch.running && batch.current === r.name) return 'building';
+  return r.ok ? 'ready' : 'error';
+}
+function renderBatchTable() {
+  if (!batch.rows.length) {
+    $('#batchtable').innerHTML = '<caption class="hint">Paste or open the duplexes to see them listed here.</caption>';
+    return;
+  }
+  const rows = batch.rows.map((r, i) => {
+    const out = batch.results[r.name];
+    const st = batchStatus(r);
+    const issues = (out ? out.issues : r.issues) || [];
+    const err = issues.find((x) => x.level === 'error');
+    const codes = [...new Set(issues.filter((x) => x.level === 'warning').map((x) => x.code))];
+    const size = out && out.ok ? `${out.summary.n_atoms} atoms · ` : '';
+    const notes = err ? esc(err.message) : size + codes.map((c) => `<span class="code">${esc(c)}</span>`).join('');
+    return `<tr><td class="num">${i + 1}</td><td class="name">${esc(r.name)}</td><td class="num">#${r.model}</td>
+      <td class="num">${r.n_bp ?? ''}</td><td><span class="st ${st}">${st}</span></td><td class="desc">${notes}</td>
+      <td><button class="btn ghost small" type="button" data-view="${i}"${r.ok ? '' : ' disabled'} title="open in the Build tab">view</button></td></tr>`;
+  }).join('');
+  $('#batchtable').innerHTML = '<thead><tr><th>#</th><th>name</th><th>model</th><th>bp</th><th>status</th><th>notes</th><th></th></tr></thead>' +
+    `<tbody>${rows}</tbody>`;
+}
+function batchProgress(done, total, what) {
+  $('#batchbar').style.width = `${total ? Math.round((100 * done) / total) : 0}%`;
+  $('#batchmsg').textContent = what;
+}
+function batchBusy(on) {
+  batch.running = on;
+  $('#batchbuild').disabled = on;
+  $('#batchstop').hidden = !on;
+  $('#batchtext').readOnly = on;
+  for (const id of ['#batchexample', '#batchopen', '#batchclear']) $(id).disabled = on;
+  $('#batchprogress').classList.toggle('hidden', !on);
+}
+async function batchBuild() {
+  if (!state.ready || batch.running) return;
+  const text = $('#batchtext').value;
+  const mine = ++batch.seq;          // a reset or a new validation meanwhile discards this run
+  const t0 = performance.now();
+  batch.stop = false;
+  batch.results = {};
+  batch.zip = null;
+  $('#batchzip').disabled = true;
+  $('#batchstatus').textContent = '';
+  batchBusy(true);
+  try {
+    batchProgress(0, 1, 'Checking…');
+    const v = await call('batch_validate', { text });
+    if (mine !== batch.seq) return;
+    batch.rows = v.records;
+    renderBatch(v);
+    if (!v.ok) return;
+    const n = v.records.length;
+    for (const [i, r] of v.records.entries()) {
+      if (batch.stop) break;
+      batch.current = r.name;
+      batchProgress(i, n, `Building ${i + 1} of ${n} · ${r.name}`);
+      renderBatchTable();
+      let out;
+      if (!r.ok) {
+        out = { ok: false, issues: r.issues };
+      } else {
+        try {
+          out = await call('build', { top: r.top, bottom: r.bottom, model: r.model, libs: await fetchLibs(r.needed_libs) });
+        } catch (e) {
+          out = { ok: false, issues: [{ level: 'error', code: 'ENGINE', message: e.message }] };
+        }
+      }
+      if (mine !== batch.seq) return;
+      batch.results[r.name] = out;
+    }
+    batch.current = null;
+    renderBatchTable();
+    batchProgress(n, n, 'Packing the zip…');
+    const z = await call('batch_zip', { text, results: batch.results });
+    if (mine !== batch.seq) return;
+    batch.zip = b64bytes(z.zip_b64);
+    $('#batchzip').disabled = false;
+    const secs = ((performance.now() - t0) / 1000).toFixed(1);
+    $('#batchstatus').textContent = `${z.built} of ${n} built${z.failed ? `, ${z.failed} not built` : ''}` +
+      `${batch.stop ? ' (stopped)' : ''} in ${secs} s`;
+    download('dsxnabuilder_batch.zip', batch.zip, 'application/zip');
+  } catch (e) {
+    $('#batchissues').innerHTML = `<li class="error">${esc(e.message)}</li>`;
+  } finally {
+    batch.current = null;
+    if (mine === batch.seq) batchBusy(false);
+  }
+}
+function viewRecord(i) {
+  const r = batch.rows[i];
+  if (!r) return;
+  $('#top').value = r.top;
+  $('#bottom').value = r.bottom;
+  $('#model').value = r.model;
+  state.names = {};
+  showModelInfo();
+  selectTab('build');
+  build();
+}
+async function openBatchFile(file) {
+  if (!file) return;
+  if (file.size > MAX_FILE) {
+    $('#batchissues').innerHTML = `<li class="error">${esc(file.name)} is too large (${(file.size / 1e6).toFixed(1)} MB) for a list of duplexes</li>`;
+    return;
+  }
+  $('#batchtext').value = await file.text();
+  batchValidateSoon(0);
+}
+function resetBatch() {
+  clearTimeout(batch.timer);
+  batch.seq++;
+  batch.stop = true;
+  batchBusy(false);
+  batch.rows = [];
+  batch.results = {};
+  batch.zip = null;
+  $('#batchtext').value = '';
+  $('#batchfile').value = '';
+  $('#batchissues').innerHTML = '';
+  $('#batchcount').textContent = '';
+  $('#batchstatus').textContent = '';
+  $('#batchzip').disabled = true;
+  $('#batchbuild').disabled = true;
+  renderBatchTable();
 }
 
 // ------------------------------------------------------------------ reset
@@ -538,13 +766,14 @@ function resetAll() {
   Object.assign(comp, { sugar: 0, base: 0, link: 0 });
   caret.top = caret.bottom = null;
   renderComposer();
+  resetBatch();
   history.replaceState(null, '', location.pathname);
   selectTab('build');
   validateSoon(0);
 }
 
 // ------------------------------------------------------------------ wiring
-for (const tab of ['build', 'models', 'library', 'docs']) $(`#tab-${tab}`).onclick = () => selectTab(tab);
+for (const tab of TABS) $(`#tab-${tab}`).onclick = () => selectTab(tab);
 $('#composer').addEventListener('click', composerClick);
 $('#c-top').onclick = () => insertComposed('top');
 $('#c-bottom').onclick = () => insertComposed('bottom');
@@ -560,6 +789,23 @@ for (const id of ['#top', '#bottom']) $(id).addEventListener('input', () => vali
 for (const id of ['#model', '#water', '#dnaff', '#box', '#buffer']) $(id).addEventListener('change', () => { showModelInfo(); validateSoon(0); });
 $('#build').onclick = build;
 $('#reset').onclick = resetAll;
+$('#batchtext').addEventListener('input', () => batchValidateSoon());
+$('#batchexample').onclick = () => { $('#batchtext').value = BATCH_EXAMPLE; batchValidateSoon(0); };
+$('#batchclear').onclick = () => { $('#batchtext').value = ''; batchValidateSoon(0); };
+$('#batchopen').onclick = () => $('#batchfile').click();
+$('#batchfile').onchange = (ev) => openBatchFile(ev.target.files[0]);
+$('#batchbuild').onclick = batchBuild;
+$('#batchstop').onclick = () => { batch.stop = true; $('#batchmsg').textContent = 'Stopping after this duplex…'; };
+$('#batchzip').onclick = () => batch.zip && download('dsxnabuilder_batch.zip', batch.zip, 'application/zip');
+$('#batchtable').addEventListener('click', (ev) => {
+  const b = ev.target.closest('[data-view]');
+  if (b) viewRecord(+b.dataset.view);
+});
+$('#batchhelp').onclick = (ev) => {
+  ev.preventDefault();
+  selectTab('docs');
+  $('#batch-format').scrollIntoView({ behavior: 'smooth', block: 'start' });
+};
 $('#complement').onclick = async () => {
   try {
     const r = await call('complement', { top: $('#top').value, model: +$('#model').value });

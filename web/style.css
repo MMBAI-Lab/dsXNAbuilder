@@ -54,8 +54,9 @@ header.top .wrap { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4
   box-shadow: inset 0 1px 0 var(--bevel-hi); padding: 2px 8px; cursor: pointer; font: inherit; }
 .iconbtn:hover { color: var(--accent); border-color: var(--accent); }
 
-nav.tabs { display: flex; gap: 4px; margin: 18px 0 0; border-bottom: 1px solid var(--border); }
-nav.tabs button { background: none; border: 0; border-bottom: 2px solid transparent; color: var(--muted); padding: 8px 14px; font: 600 14px var(--sans); cursor: pointer; }
+nav.tabs { display: flex; gap: 4px; margin: 18px 0 0; border-bottom: 1px solid var(--border);
+  overflow-x: auto; scrollbar-width: none; }
+nav.tabs button { background: none; border: 0; border-bottom: 2px solid transparent; color: var(--muted); padding: 8px 14px; font: 600 14px var(--sans); cursor: pointer; flex: none; white-space: nowrap; }
 nav.tabs button[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--accent); }
 
 .layout { display: grid; grid-template-columns: minmax(300px, 380px) minmax(0, 1fr); gap: 24px; padding: 20px 0 40px; }
@@ -286,3 +287,66 @@ details.advanced .btn { margin-top: 4px; }
 .names table td { white-space: normal; vertical-align: middle; }
 .names td.desc { color: var(--muted); }
 input.resname { width: 5.5em; font: 600 13px var(--mono); padding: 3px 6px; text-transform: uppercase; }
+
+/* loading: a turning double helix. Each column is a base pair: two dots (the strands) that
+   swap height and size half a turn apart, joined by a rung that shortens as they cross. */
+.helix { --h: 44px; --d: 9px; --turn: 1.8s; display: flex; gap: 7px; height: var(--h); }
+.helix.small { --h: 22px; --d: 6px; gap: 4px; }
+.helix span { position: relative; width: var(--d); }
+.helix span::before, .helix span::after { content: ""; position: absolute; left: 0; top: 0;
+  width: var(--d); height: var(--d); border-radius: 50%;
+  animation: helix-a var(--turn) ease-in-out infinite; animation-delay: calc(var(--i) * var(--turn) / -12); }
+.helix span::before { background: var(--accent); }
+.helix span::after { background: var(--muted); transform: translateY(calc(var(--h) - var(--d)));
+  animation-name: helix-b; }
+.helix b { position: absolute; left: calc(var(--d) / 2 - 1px); top: calc(var(--d) / 2);
+  bottom: calc(var(--d) / 2); width: 2px; background: var(--border);
+  animation: helix-rung var(--turn) ease-in-out infinite; animation-delay: calc(var(--i) * var(--turn) / -12); }
+@keyframes helix-a { 0%, 100% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(calc(var(--h) - var(--d))) scale(.55); opacity: .5; } }
+@keyframes helix-b { 0%, 100% { transform: translateY(calc(var(--h) - var(--d))) scale(.55); opacity: .5; }
+  50% { transform: translateY(0) scale(1); opacity: 1; } }
+@keyframes helix-rung { 0%, 50%, 100% { transform: scaleY(1); } 25%, 75% { transform: scaleY(0); } }
+@media (prefers-reduced-motion: reduce) {
+  .helix span::before, .helix span::after, .helix b { animation: none; }
+}
+
+/* startup: over the tabs' content until the engine is ready (the help stays readable) */
+.views { position: relative; }
+.boot { position: absolute; inset: 0; z-index: 20; display: flex; flex-direction: column;
+  align-items: center; gap: 16px; padding-top: 120px;
+  background: color-mix(in srgb, var(--bg) 88%, transparent); backdrop-filter: blur(2px);
+  transition: opacity .35s ease; }
+.boot .msg { font: 600 14px var(--sans); color: var(--muted); text-align: center; max-width: 60ch; padding: 0 16px; }
+.boot.done { opacity: 0; pointer-events: none; }
+.boot.aside { display: none; }
+.boot.failed .msg { color: var(--bad); }
+.boot.failed .helix b, .boot.failed .helix span::before, .boot.failed .helix span::after { animation-play-state: paused; }
+
+/* building: over the viewer, after a short delay so that quick builds do not flash */
+.viewer .busy { position: absolute; inset: 0; z-index: 3; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 12px;
+  background: color-mix(in srgb, var(--bg) 70%, transparent); animation: busy-in .2s ease .15s both; }
+.viewer .busy .msg { font: 600 13px var(--sans); color: var(--muted); }
+@keyframes busy-in { from { opacity: 0; } to { opacity: 1; } }
+.viewer.is-busy > .empty { animation: busy-in .2s ease .15s reverse both; }
+
+/* high-throughput tab */
+.batch { padding: 20px 0 40px; }
+#batchtext { min-height: 300px; line-height: 1.5; white-space: pre; overflow-wrap: normal; overflow-x: auto; }
+#batchcount { margin: 0 0 0 4px; align-self: center; }
+.progress { display: flex; align-items: center; gap: 14px; margin-top: 12px; }
+.progress .bar { flex: 1; height: 8px; border-radius: 4px; overflow: hidden; background: var(--recess-bg);
+  border: 1px solid var(--recess-edge); box-shadow: var(--recess); }
+.progress .bar i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .2s ease; }
+.progress .msg { font-size: 12px; color: var(--muted); min-width: 14em; }
+#batchtable td { vertical-align: top; }
+#batchtable td.desc { white-space: normal; color: var(--muted); }
+#batchtable td.name { font-family: var(--mono); }
+#batchtable caption { caption-side: bottom; text-align: left; padding: 8px 2px; }
+#batchtable .code { font: 11px var(--mono); color: var(--subtle); margin-right: 6px; }
+.st { display: inline-block; font: 600 11px/1.5 var(--sans); padding: 0 6px; border-radius: 3px;
+  border: 1px solid var(--border); color: var(--muted); }
+.st.built { color: var(--ok); border-color: var(--ok); }
+.st.failed, .st.error { color: var(--bad); border-color: var(--bad); }
+.st.building { color: var(--accent); border-color: var(--accent); }

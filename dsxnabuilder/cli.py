@@ -3,6 +3,7 @@
     dsxnabuilder models
     dsxnabuilder build --top "5'-CGCGAATTCGCG-3'" --bottom "3'-GCGCTTAAGCGC-5'" \\
                        --model 4 -o duplex.pdb [--amber package.zip --water opc]
+    dsxnabuilder build --high-throughput duplexes.txt -o structures.zip
 """
 
 from __future__ import annotations
@@ -12,6 +13,8 @@ import json
 import sys
 
 from .amberio import BOXES, BUFFER_RANGE, DNA_FF, RNA_FF, WATER, AmberOptions
+from .batch import (CLI_LIMIT, DEFAULT_MODEL, Record, batch_files, build_records,
+                    parse_batch, write_directory, zip_bytes)
 from .reslib import ResidueLibrary
 from .service import Session
 
@@ -22,14 +25,32 @@ def main(argv=None) -> int:
     """Run ``dsxnabuilder models`` or ``dsxnabuilder build``; returns the exit status."""
     ap = _parser()
     a = ap.parse_args(argv)
+    if a.cmd == "build":
+        _check_build_args(ap, a)
     s = Session(residue_library=ResidueLibrary.load_default())
     if a.cmd == "models":
         _print_models(s)
         return 0
+    if a.high_throughput:
+        return _build_batch(s, a)
+    return _build(s, a)
+
+
+def _check_build_args(ap: argparse.ArgumentParser, a: argparse.Namespace) -> None:
+    """Options that cannot go together end in a usage error (exit status 2)."""
+    if a.high_throughput:
+        given = [f for f, v in (("--top", a.top), ("--bottom", a.bottom), ("--amber", a.amber),
+                                ("--name", a.name)) if v]
+        if given:
+            ap.error(f"--high-throughput builds PDB files only; drop {', '.join(given)}")
+        if a.out and a.out.lower().endswith(".pdb"):
+            ap.error("with --high-throughput, -o is a .zip file or a directory")
+        return
+    if not a.top or not a.bottom:
+        ap.error("build needs --top and --bottom, or --high-throughput FILE")
     bad = [n for n in a.name if "=" not in n]
     if bad:
         ap.error(f"--name expects KEY=NAME, got {', '.join(bad)}")
-    return _build(s, a)
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -37,10 +58,18 @@ def _parser() -> argparse.ArgumentParser:
     sub = ap.add_subparsers(dest="cmd", required=True)
     sub.add_parser("models", help="list the buildable fiber models")
     b = sub.add_parser("build", help="build a duplex and write its PDB")
-    b.add_argument("--top", required=True, help="strand 1, 5'->3'")
-    b.add_argument("--bottom", required=True, help="strand 2, 3'->5', aligned under strand 1")
-    b.add_argument("--model", type=int, default=4, help="3DNA fiber model id (default 4, B-DNA)")
-    b.add_argument("-o", "--out", default="dsxnabuilder.pdb", help="output PDB (default %(default)s)")
+    b.add_argument("--top", help="strand 1, 5'->3'")
+    b.add_argument("--bottom", help="strand 2, 3'->5', aligned under strand 1")
+    b.add_argument("--high-throughput", metavar="FILE",
+                   help=f"build every duplex of a FASTA-like file, up to {CLI_LIMIT} ('-' reads "
+                        "standard input): one '>name=...; model=...' header line, then strand "
+                        "1 and strand 2, per duplex")
+    b.add_argument("--model", type=int, default=DEFAULT_MODEL,
+                   help="3DNA fiber model id (default 4, B-DNA); with --high-throughput, the "
+                        "model of the duplexes whose header has no model=")
+    b.add_argument("-o", "--out",
+                   help="output PDB (default dsxnabuilder.pdb); with --high-throughput a .zip "
+                        "file or a directory (default dsxnabuilder_batch.zip)")
     b.add_argument("--name", action="append", default=[], metavar="KEY=NAME",
                    help="residue name for a modXNA residue, e.g. PS1/OME/RAA/int=OMA "
                         "(repeatable; the others are named X01, X02, ...)")
@@ -85,6 +114,7 @@ def _build(s: Session, a: argparse.Namespace) -> int:
             print(f"[{i['level']}] {i['code']}: {i['message']}", file=sys.stderr)
     if not out["ok"]:
         return 1
+    a.out = a.out or "dsxnabuilder.pdb"
     with open(a.out, "w", encoding="utf-8") as fh:
         fh.write(out["pdb"])
     if a.amber:
@@ -99,6 +129,51 @@ def _build(s: Session, a: argparse.Namespace) -> int:
           f"clashes {sm['clashes']} -> {a.out}"
           + (f" + {a.amber}" if a.amber else ""))
     return 0
+
+
+def _build_batch(s: Session, a: argparse.Namespace) -> int:
+    """--high-throughput: every duplex of the file, PDB files into a zip or a directory."""
+    try:
+        if a.high_throughput == "-":
+            text = sys.stdin.read()
+        else:
+            with open(a.high_throughput, encoding="utf-8") as fh:
+                text = fh.read()
+    except OSError as exc:
+        print(f"cannot read {a.high_throughput}: {exc.strerror}", file=sys.stderr)
+        return 1
+    records, issues = parse_batch(text, CLI_LIMIT, a.model)
+    if issues:
+        for i in issues:
+            print(f"[error] {i.code}: {i.message}", file=sys.stderr)
+        return 1
+    width = len(str(len(records)))
+
+    def report(i: int, r: Record, out: dict) -> None:
+        if out["ok"]:
+            sm = out["summary"]
+            line = f"built, {sm['n_bp']} bp on model #{sm['model']}, {sm['n_atoms']} atoms"
+        else:
+            err = next(x for x in out["issues"] if x["level"] == "error")
+            line = f"failed: {err['code']}: {err['message']}"
+        print(f"[{i + 1:>{width}}/{len(records)}] {r.name}: {line}", file=sys.stderr)
+
+    outcomes = build_records(s, records, report)
+    files = batch_files(records, outcomes, text, a.model)
+    out_path = a.out or "dsxnabuilder_batch.zip"
+    if out_path.lower().endswith(".zip"):
+        with open(out_path, "wb") as fh:
+            fh.write(zip_bytes(files))
+    else:
+        write_directory(files, out_path)
+    if a.json:
+        print(json.dumps([{"name": r.name, "model": r.model, "ok": o["ok"],
+                           "issues": o["issues"]} for r, o in zip(records, outcomes)], indent=1))
+    failed = sum(1 for o in outcomes if not o["ok"])
+    print(f"{len(records) - failed} of {len(records)} duplexes built -> {out_path}"
+          + (f"; {failed} failed (see report.tsv)" if failed else ""),
+          file=sys.stderr if a.json else sys.stdout)
+    return 1 if failed else 0
 
 
 if __name__ == "__main__":

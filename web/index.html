@@ -26,10 +26,18 @@
 <main class="wrap">
   <nav class="tabs" role="tablist">
     <button role="tab" id="tab-build" aria-selected="true" aria-controls="view-build">Build</button>
+    <button role="tab" id="tab-batch" aria-selected="false" aria-controls="view-batch">High-throughput</button>
     <button role="tab" id="tab-models" aria-selected="false" aria-controls="view-models">Helix models</button>
     <button role="tab" id="tab-library" aria-selected="false" aria-controls="view-library">modXNA library</button>
     <button role="tab" id="tab-docs" aria-selected="false" aria-controls="view-docs">Documentation</button>
   </nav>
+
+  <div class="views">
+  <!-- shown while the engine (Python in WebAssembly) loads; app.js updates and hides it -->
+  <div id="boot" class="boot" role="status" aria-live="polite">
+    <div class="helix" aria-hidden="true"><span style="--i:0"><b></b></span><span style="--i:1"><b></b></span><span style="--i:2"><b></b></span><span style="--i:3"><b></b></span><span style="--i:4"><b></b></span><span style="--i:5"><b></b></span><span style="--i:6"><b></b></span><span style="--i:7"><b></b></span><span style="--i:8"><b></b></span><span style="--i:9"><b></b></span></div>
+    <div class="msg" id="bootmsg">Loading…</div>
+  </div>
 
   <!-- ============================================================ BUILD -->
   <section id="view-build" class="layout">
@@ -160,6 +168,46 @@
     </div>
   </section>
 
+  <!-- ============================================================ HIGH-THROUGHPUT -->
+  <section id="view-batch" class="hidden">
+    <div class="batch">
+      <div class="panel">
+        <h2>Duplexes</h2>
+        <p class="hint">One record per duplex: a <code>&gt;</code> header line with
+        <code>name=</code> and <code>model=</code>, then strand 1 (5′→3′) and strand 2 (3′→5′),
+        written as on the Build tab. Up to 50 duplexes at a time; the PDB files come in one zip.
+        <a href="?tab=docs" id="batchhelp">How to write it</a>.</p>
+        <textarea id="batchtext" spellcheck="false" autocomplete="off" wrap="off" aria-label="Duplexes, one record each"
+          placeholder=">name=sirna_1; model=20&#10;mG*mA*fC*mU*fA*mG*fC*mU*mG*mA&#10;C*U*GAUCGAC*U&#10;&#10;>name=dickerson; model=4&#10;CGCGAATTCGCG&#10;GCGCTTAAGCGC"></textarea>
+        <div class="actions tight">
+          <button class="btn ghost small" id="batchexample" type="button">Example</button>
+          <button class="btn ghost small" id="batchopen" type="button">Open file…</button>
+          <input type="file" id="batchfile" accept=".txt,.fa,.fasta,.fas,text/plain" hidden>
+          <button class="btn ghost small" id="batchclear" type="button">Clear</button>
+          <span class="hint" id="batchcount"></span>
+        </div>
+        <ul id="batchissues" class="issues"></ul>
+        <div class="buildbar">
+          <button class="btn" id="batchbuild" type="button" disabled>Build all and download (.zip)</button>
+          <button class="btn ghost" id="batchstop" type="button" hidden>Stop</button>
+          <span class="status" id="batchstatus"></span>
+        </div>
+        <div class="progress hidden" id="batchprogress">
+          <div class="helix small" aria-hidden="true"><span style="--i:0"><b></b></span><span style="--i:1"><b></b></span><span style="--i:2"><b></b></span><span style="--i:3"><b></b></span><span style="--i:4"><b></b></span><span style="--i:5"><b></b></span><span style="--i:6"><b></b></span><span style="--i:7"><b></b></span><span style="--i:8"><b></b></span><span style="--i:9"><b></b></span></div>
+          <div class="bar"><i id="batchbar"></i></div>
+          <div class="msg" id="batchmsg"></div>
+        </div>
+      </div>
+      <div class="panel">
+        <h2>Records</h2>
+        <div class="flowtable"><table id="batchtable"><caption class="hint">Paste or open the duplexes to see them listed here.</caption></table></div>
+        <div class="actions">
+          <button class="btn ghost" id="batchzip" type="button" disabled>Download .zip again</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
   <!-- ============================================================ MODELS -->
   <section id="view-models" class="hidden">
     <div class="doc wide">
@@ -210,6 +258,8 @@
       <a href="https://modxna.chpc.utah.edu/">modXNA</a> sugar, backbone and base modifications on
       either strand, and returns the structure as a PDB file ready for modeling and simulation;
       Amber users can also get the topology package with the modXNA parameters.</p>
+      <p>The <b>High-throughput</b> tab builds up to 50 duplexes at once from a FASTA-like list
+      (<a href="#batch-format">format below</a>).</p>
       <p>Everything runs in your browser (Python compiled to WebAssembly). Nothing you enter is sent
       anywhere; there is no login, no cookie and no tracking, and nothing is stored in your
       browser.</p>
@@ -364,7 +414,62 @@
         </tbody>
       </table>
       <p>The command-line tool gives the same results (<code>dsxnabuilder build --top … --bottom …
-      --model 4 -o duplex.pdb</code>, with <code>--amber package.zip</code> for the package).</p>
+      --model 4 -o duplex.pdb</code>, with <code>--amber package.zip</code> for the package; see
+      below for many duplexes at once).</p>
+
+      <h2 id="batch-format">High-throughput: many duplexes at once</h2>
+      <p>The <b>High-throughput</b> tab builds up to 50 duplexes in one go and downloads their PDB
+      files in a zip. Paste them, or open a text file, in this FASTA-like format: one record per
+      duplex, made of a header line and the two strands.</p>
+      <pre>&gt;name=sirna_1; model=20
+mG*mA*fC*mU*fA*mG*fC*mU*mG*mAdGdG
+C*U*GAUCGAC*U--
+
+&gt;name=sirna_1_bdna; model=4
+mG*mA*fC*mU*fA*mG*fC*mU*mG*mA
+C*U*GAUCGAC*U
+
+# a comment
+&gt;dickerson
+CGCGAATTCGCG
+GCGCTTAAGCGC</pre>
+      <table>
+        <thead><tr><th>line</th><th>rule</th></tr></thead>
+        <tbody>
+          <tr><td><code>&gt;name=…; model=…</code></td><td>starts a record. <code>name</code> names the PDB
+            file: letters, digits, <code>.</code>, <code>_</code> and <code>-</code>, up to 64 characters,
+            each name once. <code>model</code> is the 3DNA fiber model number (see Helix models);
+            without it the duplex is built on B-DNA #4. A field without <code>=</code> is taken as the
+            name, so <code>&gt;dickerson</code> and <code>&gt;dickerson; model=4</code> also work.
+            Without a name the duplex is called <code>duplex_001</code>, <code>duplex_002</code>, …</td></tr>
+          <tr><td>first line after it</td><td>strand 1, 5′→3′</td></tr>
+          <tr><td>second line</td><td>strand 2, 3′→5′, aligned under strand 1: the same notation as
+            on the Build tab (modXNA prefixes, <code>*</code> linkages, <code>-</code> for overhangs
+            and abasic sites, <code>d(…)</code>/<code>r(…)</code> groups, explicit triplets)</td></tr>
+          <tr><td>empty lines, lines starting with <code>#</code></td><td>ignored</td></tr>
+        </tbody>
+      </table>
+      <p>The records are checked as you type. A mistake in the format (a header field other than
+      <code>name</code> and <code>model</code>, a record without exactly two strands, a repeated
+      name) must be fixed before building. A duplex that cannot be built (for example LNA on a
+      B-DNA model) is marked as failed and the others are still built.</p>
+      <p>Each duplex is built exactly as on the Build tab, so its PDB is the same file; the
+      <b>view</b> button of a record opens it there. The zip holds:</p>
+      <table>
+        <tbody>
+          <tr><td><code>pdb/&lt;name&gt;.pdb</code></td><td>one PDB per duplex built, with its strands, model and data versions in the header</td></tr>
+          <tr><td><code>report.tsv</code></td><td>per duplex: model, size, O3′–P range, contacts, warning codes, and the errors of those that failed</td></tr>
+          <tr><td><code>input.txt</code></td><td>the input, as given</td></tr>
+          <tr><td><code>README.txt</code></td><td>what the files are and the command that rebuilds them</td></tr>
+        </tbody>
+      </table>
+      <p><b>Command line.</b> The same input builds with the command-line tool, up to 500 duplexes
+      at a time on your own computer:</p>
+      <pre>dsxnabuilder build --high-throughput duplexes.txt -o structures.zip</pre>
+      <p>With <code>-o</code> naming a directory instead of a <code>.zip</code>, the files are
+      written there; <code>--model N</code> sets the model of the records without
+      <code>model=</code>; <code>-</code> as the file name reads standard input. Progress and errors
+      go to standard error, and the exit status is 1 when any duplex failed.</p>
 
       <h2>Warnings</h2>
       <p>Warnings never block a build; errors do. Mismatches, wobble pairs, overhangs, base swaps on
@@ -383,6 +488,7 @@
     </article>
 
   </section>
+  </div>
 </main>
 
 <footer>

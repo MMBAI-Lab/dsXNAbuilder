@@ -46,6 +46,10 @@ The same Python package also works from the command line.
   the residue template tleap will match (Amber DNA.OL15/RNA.lib units for canonical
   nucleotides, the modXNA residue for modified ones), placed on the built heavy atoms under
   the names tleap expects.
+- **Many duplexes at once.** The **High-throughput** tab takes up to 50 duplexes in a
+  FASTA-like text (a `>name=…; model=…` header, then strand 1 and strand 2) and downloads
+  their PDB files in one zip, with a report. The command line takes up to 500
+  (`--high-throughput FILE`).
 - **Advanced: Amber/modXNA topology package.** It contains `structure.pdb`, `leap.in`
   (force field, modXNA libraries, optional water box), `libs/`, `frcmod.modxna`, `run.sh`
   (tleap only) and `manifest.json`. dsXNAbuilder is a builder: minimization and simulation
@@ -86,6 +90,33 @@ unzip dickerson.zip && cd dsxnabuilder && ./run.sh     # tleap -> system.parm7/r
 
 `dsxnabuilder build -h` lists the package options (force fields, water model, box, buffer,
 counterions). The package's `manifest.json` holds the `reproduce` command that rebuilds it.
+
+### Many duplexes at once
+
+One record per duplex: a header line, then strand 1 (5′→3′) and strand 2 (3′→5′), written as
+in the web app. `name` (letters, digits, `.`, `_`, `-`) names the PDB file; `model` is the
+3DNA fiber model (B-DNA #4 when absent). A header field without `=` is the name. Blank lines
+and lines starting with `#` are ignored.
+
+```
+>name=sirna_1; model=20
+mG*mA*fC*mU*fA*mG*fC*mU*mG*mAdGdG
+C*U*GAUCGAC*U--
+
+>dickerson
+CGCGAATTCGCG
+GCGCTTAAGCGC
+```
+
+```bash
+.venv/bin/dsxnabuilder build --high-throughput duplexes.txt -o structures.zip
+```
+
+Up to 500 duplexes per run (50 in the web app). The zip, or the directory given by `-o DIR`,
+holds `pdb/<name>.pdb` (the same file a single build gives), `report.tsv`, `input.txt` and
+`README.txt`. `--model N` sets the model of records without `model=`, and `-` reads the input
+from standard input. A mistake in the format stops the run. A duplex that cannot be built is
+reported in `report.tsv` while the others are still built, and the exit status is then 1.
 
 ## Repository
 

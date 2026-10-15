@@ -5,8 +5,8 @@
 
 Serves web/ locally (scripts/serve.py), loads the page, waits for Pyodide,
 runs the one-click examples and checks the summary, the issues, the viewer
-controls, the highlighted generic models and the downloads. Needs selenium and
-geckodriver.
+controls, the highlighted generic models, the high-throughput tab and the
+downloads. Needs selenium and geckodriver.
 """
 
 from __future__ import annotations
@@ -99,9 +99,14 @@ def main() -> int:
     try:
         t0 = time.time()
         drv.get(url)
+        boot = drv.find_element(By.ID, "boot")
+        check(boot.is_displayed() and boot.find_elements(By.CSS_SELECTOR, ".helix span"),
+              f"loading animation while the engine starts ({boot.text!r})")
         WebDriverWait(drv, 180).until(
             lambda d: d.find_element(By.ID, "model").find_elements(By.TAG_NAME, "option"))
         check(True, f"engine ready in {time.time() - t0:.1f} s")
+        WebDriverWait(drv, 10).until(lambda d: not d.find_element(By.ID, "boot").is_displayed())
+        check(True, "loading animation gone once the engine is ready")
         n_opt = len(drv.find_element(By.ID, "model").find_elements(By.TAG_NAME, "option"))
         check(n_opt == 40, f"{n_opt} models in the selector")
         generic = drv.find_elements(By.CSS_SELECTOR, "#model option.generic")
@@ -122,6 +127,9 @@ def main() -> int:
         s, iss = run_example("dickerson", 12)
         check("758" in s and "486 heavy" in s and "1.60" in s,
               "Dickerson: 758 atoms (486 heavy), O3'-P 1.60")
+        check(not drv.find_elements(By.CSS_SELECTOR, "#viewer .busy")
+              and drv.find_element(By.ID, "build").text == "Build duplex",
+              "build animation removed after the build")
         pressed = [b.get_attribute("data-v") for b in
                    drv.find_elements(By.CSS_SELECTOR, '#repr button[aria-pressed="true"], '
                                      '#color button[aria-pressed="true"]')]
@@ -222,6 +230,43 @@ def main() -> int:
         run_example("dickerson", 12)
         check("758" in drv.find_element(By.ID, "summary").text, "builds again after Reset")
 
+        # high-throughput tab: the example, its zip, a record opened in the Build tab
+        drv.find_element(By.ID, "tab-batch").click()
+        drv.find_element(By.ID, "batchexample").click()
+        WebDriverWait(drv, 30).until(
+            lambda d: len(d.find_elements(By.CSS_SELECTOR, "#batchtable tbody tr")) == 4
+            and not d.find_element(By.ID, "batchbuild").get_attribute("disabled"))
+        check(True, "high-throughput: example checked, 4 duplexes listed")
+        drv.find_element(By.ID, "batchbuild").click()
+        path = wait_file(os.path.join(dl, "dsxnabuilder_batch.zip"), tries=300)
+        names = zipfile.ZipFile(path).namelist() if path else []
+        pdbs = sorted(n.split("/")[-1] for n in names if n.endswith(".pdb"))
+        check(pdbs == ["dickerson.pdb", "lna_gapmer.pdb", "sequence1.pdb", "sequence2.pdb"]
+              and "dsxnabuilder_batch/report.tsv" in names,
+              f"high-throughput: zip with {len(pdbs)} PDB files and the report")
+        WebDriverWait(drv, 10).until(
+            lambda d: not d.find_element(By.ID, "batchprogress").is_displayed())
+        sts = [e.text for e in drv.find_elements(By.CSS_SELECTOR, "#batchtable .st")]
+        status = drv.find_element(By.ID, "batchstatus").text
+        check(sts == ["built"] * 4 and status.startswith("4 of 4 built")
+              and not drv.find_element(By.ID, "batchzip").get_attribute("disabled"),
+              f"high-throughput: {status}")
+        shot("batch")
+        if path:
+            os.remove(path)
+        drv.find_element(By.CSS_SELECTOR, '#batchtable [data-view="2"]').click()     # dickerson
+        WebDriverWait(drv, 60).until(lambda d: "758" in d.find_element(By.ID, "summary").text)
+        check(drv.find_element(By.ID, "tab-build").get_attribute("aria-selected") == "true",
+              "high-throughput: a record opens in the Build tab")
+        drv.find_element(By.ID, "tab-batch").click()
+        box = drv.find_element(By.ID, "batchtext")
+        box.clear()
+        box.send_keys(">a; colour=red\nACGT\nTGCA\n")
+        WebDriverWait(drv, 20).until(lambda d: "BATCH_FORMAT" in d.find_element(By.ID, "batchissues").text)
+        check(drv.find_element(By.ID, "batchbuild").get_attribute("disabled") is not None,
+              "high-throughput: a format mistake disables the build")
+        drv.find_element(By.ID, "batchclear").click()
+
         # models tab
         drv.find_element(By.ID, "tab-models").click()
         rows = drv.find_elements(By.CSS_SELECTOR, "#modeltable tbody tr")
@@ -261,7 +306,7 @@ def main() -> int:
             return drv.execute_script(FRAME_METRICS)
 
         heights = {}
-        for tab in ("build", "docs", "models", "library", "build"):
+        for tab in ("build", "batch", "docs", "models", "library", "build"):
             drv.find_element(By.ID, f"tab-{tab}").click()
             if tab == "library":
                 WebDriverWait(drv, 30).until(

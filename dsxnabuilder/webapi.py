@@ -5,8 +5,8 @@ dsxnabuilder.webapi
 JSON dispatcher for the browser worker.
 
 ``call(name, payload_json) -> result_json`` with ``name`` in models | pieces
-| validate | build | complement. Binary outputs (the zip) travel base64-encoded; the
-package is a few hundred kB at most.
+| validate | build | complement | batch_validate | batch_zip. Binary outputs
+(the zips) travel base64-encoded: a few MB at most.
 """
 
 from __future__ import annotations
@@ -63,11 +63,13 @@ def call(name: str, payload_json: str) -> str:
             result = s.validate(payload)
         elif name == "complement":
             result = complement(payload)
-        elif name == "build":
-            out = s.build(payload, payload.get("libs"))
+        elif name in ("build", "batch_zip"):
+            out = s.build(payload, payload.get("libs")) if name == "build" else s.batch_zip(payload)
             if out.get("zip") is not None:
                 out["zip_b64"] = base64.b64encode(out.pop("zip")).decode()
             result = out
+        elif name == "batch_validate":
+            result = s.batch_validate(payload)
         else:
             raise ValueError(f"unknown call {name!r}")
         return json.dumps({"ok": True, "result": result})

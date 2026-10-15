@@ -10,6 +10,10 @@ Browser flow (two calls, so that Python stays synchronous):
 1. ``validate(request)`` parses both strands, reports issues and the list of
    residue-library keys the build needs;
 2. the page fetches those library files and calls ``build(request, libs)``.
+
+A batch (``batch``) runs the same way: ``batch_validate`` checks the text and
+every record, the page builds the records one by one with ``build`` (so it
+can show progress and stop) and ``batch_zip`` packs the results.
 """
 
 from __future__ import annotations
@@ -20,6 +24,7 @@ from typing import Dict, List, Optional
 
 from . import __version__
 from .amberio import AmberOptions, package
+from .batch import WEB_LIMIT, batch_files, parse_batch, zip_bytes
 from .build import BuildError, BuildResult, build_duplex
 from .catalog import Catalog, default_chem
 from .fibers import FiberLibrary, load_library
@@ -129,6 +134,36 @@ class Session:
             _, out["zip"] = package(res, opts, self.fibers.provenance, lib_texts, frcmod,
                                     index, pdb)
         return out
+
+    def batch_validate(self, request: dict, limit: int = WEB_LIMIT) -> dict:
+        """Check a batch text (``request["text"]``, see dsxnabuilder.batch) and
+        validate each record. ``ok`` when the format is right and at least one
+        record can be built; the others are reported and skipped."""
+        records, issues = parse_batch(request.get("text", ""), limit)
+        if any(i.code == "BATCH_LIMIT" for i in issues):
+            records = []                    # not worth validating
+        rows = []
+        for r in records:
+            v = self.validate(r.request())
+            rows.append({"name": r.name, "model": r.model, "line": r.line, "top": r.top,
+                         "bottom": r.bottom, "ok": v["ok"], "n_bp": v.get("n_bp"),
+                         "issues": v["issues"], "needed_libs": v.get("needed_libs", [])})
+        return {"ok": not issues and any(row["ok"] for row in rows),
+                "issues": [i.to_json() for i in issues], "records": rows, "limit": limit}
+
+    def batch_zip(self, request: dict, limit: int = WEB_LIMIT) -> dict:
+        """The zip of a batch built record by record: ``request["text"]`` is the
+        batch and ``request["results"]`` maps record names to build outputs."""
+        records, issues = parse_batch(request.get("text", ""), limit)
+        if issues:
+            raise ValueError("; ".join(i.message for i in issues))
+        results = request.get("results") or {}
+        missing = {"ok": False, "issues": [Issue("error", None, "NOT_BUILT",
+                                                 "not built (stopped)", {}).to_json()]}
+        outcomes = [results.get(r.name) or missing for r in records]
+        built = sum(1 for o in outcomes if o.get("ok"))
+        return {"zip": zip_bytes(batch_files(records, outcomes, request.get("text", ""))),
+                "built": built, "failed": len(records) - built}
 
     # ------------------------------------------------------------------
     def _build(self, request: dict, dry_run: bool = False) -> BuildResult:
