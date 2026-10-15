@@ -224,18 +224,20 @@ def figure1():
     fig = plt.figure(figsize=(W, H))
     # a: workflow
     ax = fig.add_axes([0.0, 0.89, 1.0, 0.10]); ax.set_xlim(0, 100); ax.set_ylim(0, 10); ax.axis("off")
-    steps = [("Both strands typed\n5′→3′ over 3′→5′", "#eef2f7"),
-             ("Parsed to modXNA\ntriplets; checks", "#eef2f7"),
-             ("Fiber model:\nscrew placement", "#eef2f7"),
-             ("Base swap, O2′,\nabasic sites", "#eef2f7"),
-             ("modXNA transplant\n(shared atoms kept)", "#e9f5ee"),
+    # the complete flow of the code is Supplementary Figure S1 (make_flowchart.py)
+    steps = [("Both strands\ntyped 5′→3′\nover 3′→5′", "#eef2f7"),
+             ("Parsed to\nmodXNA triplets;\nchecks", "#eef2f7"),
+             ("Fiber model:\nscrew\nplacement", "#eef2f7"),
+             ("Base swap,\nO2′, abasic\nsites", "#eef2f7"),
+             ("modXNA\ntransplant\n(shared atoms)", "#e9f5ee"),
+             ("Hydrogens;\n2′-O chains\nout of contacts", "#e9f5ee"),
              ("PDB (+ optional\nAmber/modXNA)", "#fbeee9")]
-    w, gap = 14.0, 2.6
+    w, gap = 12.0, 2.3
     for k, (txt, col) in enumerate(steps):
         x = 1.5 + k * (w + gap)
         ax.add_patch(FancyBboxPatch((x, 1.5), w, 7, boxstyle="round,pad=0.3,rounding_size=1.2",
                                     fc=col, ec="#8a8a8a", lw=0.6))
-        ax.text(x + w / 2, 5, txt, ha="center", va="center", fontsize=7)
+        ax.text(x + w / 2, 5, txt, ha="center", va="center", fontsize=6.5, linespacing=1.15)
         if k < len(steps) - 1:
             ax.add_patch(FancyArrowPatch((x + w + 0.35, 5), (x + w + gap - 0.35, 5),
                                          arrowstyle="-|>", mutation_scale=7, lw=0.8, color="#555"))
@@ -254,7 +256,10 @@ def figure1():
     # d: PDB header
     axd = fig.add_axes([0.0, 0.0, wl, y_grid - 0.02]); axd.axis("off")
     axd.text(0.0, 1.0, "d", transform=axd.transAxes, fontsize=11, fontweight="bold", va="top")
-    pdb = open(f"{D}/pdb/gapmer.pdb").read().splitlines()
+    # the header as the current version writes it (the render in c is of the same duplex)
+    g = meta["gapmer"]
+    pdb = session.build({"top": g["top"], "bottom": g["bottom"], "model": g["model"]})["pdb"]
+    pdb = pdb.splitlines()
     rem = [l for l in pdb if l.startswith("REMARK")]
     body = [l[11:] for l in rem]                     # header lines as written (<= 80 col)
     pick = []
@@ -264,8 +269,9 @@ def figure1():
             pick.append(l)
         elif l.lstrip().startswith(("X01", "X02")) or (i and body[i - 1].lstrip().startswith(("X01", "X02"))):
             pick.append(l)
-    lines = pick + ["  …"] + [body[-2], body[-1]] + \
-        [l[:54] for l in pdb if l.startswith("ATOM")][:3] + ["…"]
+    tail = [i for i, l in enumerate(body) if l.startswith("modXNA ")][0]
+    lines = pick + ["  …"] + body[tail:] + \
+        [l[:54] for l in pdb if l.startswith("ATOM")][:4] + ["…"]
     axd.text(0.06, 0.93, "header of the output PDB (REMARK 999 records)", transform=axd.transAxes,
              fontsize=7, va="bottom")
     axd.text(0.012, 0.88, "\n".join(lines), family="DejaVu Sans Mono", fontsize=7, va="top",
