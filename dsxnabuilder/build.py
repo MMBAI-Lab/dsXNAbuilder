@@ -16,11 +16,14 @@ letters missing from the model come from the standard bases (base swap) and
 O2' is added or removed for the strand chemistry. None of this moves the
 sugar-phosphate atoms of the template, so the backbone stays as continuous as
 in the fiber repeat.
+
+Modified residues are then transplanted from the modXNA library (``reslib``),
+hydrogens are added from the residue templates (``hydrogens``) and flexible
+2'-O substituents are turned out of contacts (``substituents``).
 """
 
 from __future__ import annotations
 
-import math
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Sequence, Tuple
 
@@ -29,20 +32,24 @@ import numpy as np
 from .catalog import Catalog, default_chem
 from .fibers import FiberLibrary, FiberModel
 from .geometry import rot_x
-from .graph import far_from
 from .hydrogens import Template, add_hydrogens, amber_templates, amber_unit
 from .issues import Issue
 from .naming import ResidueNamer, check_names
 from .nucleotide import PHOSPHATE_ATOMS, PURINES, pair_kind
 from .seqlang import AliasTable, DuplexSpec, ResidueSpec, SequenceParseError, parse_duplex
 from .structure import Atom, element_of, o3p_distances
+from .substituents import orient_2o_chains
 
-MAX_COLUMNS = 200
-CLASH_DISTANCE = 2.2
+MAX_COLUMNS = 200          # base pairs
+CLASH_DISTANCE = 2.2       # A, inter-residue heavy-atom contact reported as a clash
+O3P_RANGE = (1.45, 1.75)   # A, O3'-P distances outside it are a backbone gap
 
 
 @dataclass
 class BuiltResidue:
+    """One residue of the duplex: atoms in PDB order and what was done to it
+    (``flags``: base swap, O2' change, modXNA key, abasic site, ...)."""
+
     chain: str
     resseq: int
     spec: ResidueSpec
@@ -54,6 +61,8 @@ class BuiltResidue:
 
 @dataclass
 class BuildResult:
+    """A built duplex and what the build found (issues, O3'-P, contacts)."""
+
     model: FiberModel
     duplex: DuplexSpec
     residues: List[BuiltResidue]
@@ -67,9 +76,11 @@ class BuildResult:
 
     @property
     def ok(self) -> bool:
+        """No error among the issues."""
         return not any(i.level == "error" for i in self.issues)
 
     def atoms(self) -> List[Atom]:
+        """All atoms, chain by chain, in PDB order."""
         out = []
         for r in self.residues:
             for n, p in zip(r.names, r.xyz):
@@ -77,13 +88,21 @@ class BuildResult:
         return out
 
     def modified(self) -> List[BuiltResidue]:
+        """The residues built from modXNA units."""
         return [r for r in self.residues if r.flags.get("modxna")]
 
 
 class BuildError(Exception):
+    """A build that cannot go on; ``issues`` holds the errors (and any
+    warnings found before them)."""
+
     def __init__(self, issues: List[Issue]):
         super().__init__("; ".join(i.message for i in issues if i.level == "error"))
         self.issues = issues
+
+
+# (strand name, alignment column) -> (atom names, coordinates, flags)
+Placed = Dict[Tuple[str, int], Tuple[List[str], np.ndarray, dict]]
 
 
 def choose_orientation(model: FiberModel, duplex: DuplexSpec) -> bool:
@@ -110,13 +129,52 @@ def build_duplex(top: str, bottom: str, model_id: int, lib: FiberLibrary,
     before it has fetched the library files). ``names`` maps residue keys
     (``BACKBONE/SUGAR/BASE/cap``) to residue names chosen by the user.
     """
-    issues: List[Issue] = []
-    bad_names = check_names({k: v.strip().upper() for k, v in (names or {}).items()
-                             if v and v.strip()})
-    if bad_names:
+    _check_user_names(names)
+    model, duplex = _read_input(top, bottom, model_id, lib, catalog, aliases)
+    issues = _dedupe(duplex.issues)
+    flipped = choose_orientation(model, duplex)
+    phase = choose_phase(model, duplex, flipped)
+    if flipped:
+        issues.append(Issue("info", None, "ORIENTATION_FLIP",
+                            "strand 1 was placed on the model's strand II to match "
+                            "its chemistry", {"model": model.id}))
+    issues += sequence_issues(model, duplex, flipped, phase)
+
+    placed, res_issues = _place_nucleotides(model, duplex, lib, catalog, flipped, phase)
+    issues += _group(res_issues)
+    modx = _modxna_positions(duplex)
+    issues += _install_modxna(placed, duplex, modx, residue_library, dry_run)
+    if any(i.level == "error" for i in issues):
+        raise BuildError(issues)
+
+    namer = ResidueNamer(names)
+    residues = _chains(placed, duplex, modx, namer)
+    if not dry_run:
+        _add_hydrogens(residues, residue_library)
+    if not dry_run and residue_library is not None:
+        orient_2o_chains(residues, residue_library)
+    _orient_and_centre(residues, flipped)
+
+    result = BuildResult(model, duplex, residues, issues, flipped, namer.mapping, [],
+                         phase=phase, custom_names=namer.used_custom)
+    _check_result(result)
+    return result
+
+
+def _check_user_names(names: Optional[Dict[str, str]]) -> None:
+    """Residue names chosen by the user must be valid (naming.check_names)."""
+    bad = check_names({k: v.strip().upper() for k, v in (names or {}).items()
+                       if v and v.strip()})
+    if bad:
         raise BuildError([Issue("error", None, "RESIDUE_NAME",
-                                "residue names: " + "; ".join(bad_names),
-                                {"detail": "; ".join(bad_names)})])
+                                "residue names: " + "; ".join(bad),
+                                {"detail": "; ".join(bad)})])
+
+
+def _read_input(top: str, bottom: str, model_id: int, lib: FiberLibrary,
+                catalog: Catalog, aliases: AliasTable) -> Tuple[FiberModel, DuplexSpec]:
+    """The fiber model and the parsed strands; plain letters take the
+    chemistry of the model strand they are built on."""
     try:
         model = lib.get(model_id)
     except KeyError as exc:
@@ -128,42 +186,43 @@ def build_duplex(top: str, bottom: str, model_id: int, lib: FiberLibrary,
         duplex = parse_duplex(top, bottom, catalog, aliases, chem_defaults)
     except SequenceParseError as exc:
         raise BuildError([exc.issue])
-    issues += _dedupe(duplex.issues)
-    n = duplex.n_columns
-    if n > MAX_COLUMNS:
+    if duplex.n_columns > MAX_COLUMNS:
         raise BuildError([Issue("error", None, "TOO_LONG",
                                 f"at most {MAX_COLUMNS} base pairs", {"max": MAX_COLUMNS})])
+    return model, duplex
 
-    flipped = choose_orientation(model, duplex)
+
+def _bp_index(column: int, n: int, flipped: bool, phase: int) -> int:
+    """Base pair of the model under alignment column ``column`` (of ``n``):
+    a flipped duplex runs the columns backwards."""
+    return ((n - 1 - column) if flipped else column) + phase
+
+
+def _place_nucleotides(model: FiberModel, duplex: DuplexSpec, lib: FiberLibrary,
+                       catalog: Catalog, flipped: bool, phase: int
+                       ) -> Tuple[Placed, List[Issue]]:
+    """Every nucleotide in its slot frame (canonical chemistry), and the
+    per-residue issues (syn pyrimidines, sugar puckers)."""
     slot_top, slot_bot = ("II", "I") if flipped else ("I", "II")
-    phase = choose_phase(model, duplex, flipped)
-
-    def bp_of(column: int) -> int:
-        return ((n - 1 - column) if flipped else column) + phase
-    if flipped:
-        issues.append(Issue("info", None, "ORIENTATION_FLIP",
-                            "strand 1 was placed on the model's strand II to match "
-                            "its chemistry", {"model": model.id}))
-
-    issues += sequence_issues(model, duplex, flipped, phase)
-
-    # -- place nucleotides -------------------------------------------------
-    namer = ResidueNamer(names)
-    res_issues: List[Issue] = []
-    placed: Dict[Tuple[str, int], Tuple[List[str], np.ndarray, dict]] = {}
+    n = duplex.n_columns
+    placed: Placed = {}
+    issues: List[Issue] = []
     for strand_name, strand, slot in (("top", duplex.top, slot_top),
                                       ("bottom", duplex.bottom, slot_bot)):
         for r in strand.residues:
-            bp = bp_of(r.column)
+            bp = _bp_index(r.column, n, flipped, phase)
             names, xyz, flags = model.nucleotide(bp, slot, r.letter, r.chem, lib.standard)
             ss, _ = model.slot_strand(bp, slot)
-            res_issues += residue_issues(model, ss, r, strand_name, catalog)
+            issues += residue_issues(model, ss, r, strand_name, catalog)
             placed[(strand_name, r.column)] = (names, xyz, flags)
+    return placed, issues
 
-    issues += _group(res_issues)
 
-    # -- modXNA residues (phase 2) -----------------------------------------
-    modx = _modxna_positions(duplex)
+def _install_modxna(placed: Placed, duplex: DuplexSpec, modx: set, residue_library,
+                    dry_run: bool) -> List[Issue]:
+    """Replace the residues at ``modx`` by their modXNA residues (transplant);
+    with ``dry_run`` only check that the library has them."""
+    issues: List[Issue] = []
     for strand_name, strand in (("top", duplex.top), ("bottom", duplex.bottom)):
         for r in strand.residues:
             if (strand_name, r.column) not in modx:
@@ -183,11 +242,13 @@ def build_duplex(top: str, bottom: str, model_id: int, lib: FiberLibrary,
                 issues += extra.pop("issues", [])
                 flags = dict(flags, modxna=True, **extra)
             placed[(strand_name, r.column)] = (names, xyz, flags)
+    return issues
 
-    if any(i.level == "error" for i in issues):
-        raise BuildError(issues)
 
-    # -- chains, terminal phosphate, names ---------------------------------
+def _chains(placed: Placed, duplex: DuplexSpec, modx: set,
+            namer: ResidueNamer) -> List[BuiltResidue]:
+    """Chain A (strand 1) and chain B (strand 2), 5'->3', with residue names;
+    the 5'-terminal residues lose their phosphate (5'-OH)."""
     residues: List[BuiltResidue] = []
     for chain, strand_name, strand in (("A", "top", duplex.top), ("B", "bottom", duplex.bottom)):
         for seq, r in enumerate(strand.residues, start=1):
@@ -197,35 +258,34 @@ def build_duplex(top: str, bottom: str, model_id: int, lib: FiberLibrary,
                 names, xyz = [names[i] for i in keep], xyz[keep]
             resname = namer.name_for(r, (strand_name, r.column) in modx)
             residues.append(BuiltResidue(chain, seq, r, resname, names, xyz, flags))
+    return residues
 
-    if not dry_run:
-        _add_hydrogens(residues, residue_library)
-    if not dry_run and residue_library is not None:
-        _orient_2o_chains(residues, residue_library)
 
-    # -- orientation and centring -----------------------------------------
+def _orient_and_centre(residues: Sequence[BuiltResidue], flipped: bool) -> None:
+    """Turn a flipped duplex by Rx(180), so that chain A runs 5'->3' along +z,
+    and centre it on z = 0."""
     allxyz = np.vstack([r.xyz for r in residues])
     R = rot_x(180.0) if flipped else np.eye(3)
     centre = np.array([0.0, 0.0, float(np.mean((R @ allxyz.T).T[:, 2]))])
     for r in residues:
         r.xyz = (R @ r.xyz.T).T - centre
 
-    result = BuildResult(model, duplex, residues, issues, flipped, namer.mapping, [])
-    result.phase = phase
-    result.custom_names = namer.used_custom
+
+def _check_result(result: BuildResult) -> None:
+    """O3'-P distances and inter-residue contacts of the built duplex."""
     result.o3p = o3p_distances(result.atoms())
-    bad = [(c, i, d) for c, i, d in result.o3p if not (1.45 <= d <= 1.75)]
+    lo, hi = O3P_RANGE
+    bad = [(c, i, d) for c, i, d in result.o3p if not (lo <= d <= hi)]
     if bad:
         result.issues.append(Issue("warning", None, "BACKBONE_GAP",
-                                   f"{len(bad)} O3'-P distance(s) outside 1.45-1.75 A",
+                                   f"{len(bad)} O3'-P distance(s) outside {lo}-{hi} A",
                                    {"count": len(bad)}))
-    result.n_clashes = count_clashes(residues)
+    result.n_clashes = count_clashes(result.residues)
     if result.n_clashes:
         result.issues.append(Issue("warning", None, "CLASHES",
                                    f"{result.n_clashes} heavy-atom contact(s) shorter than "
                                    f"{CLASH_DISTANCE} A between residues; minimize before MD",
                                    {"count": result.n_clashes, "cutoff": CLASH_DISTANCE}))
-    return result
 
 
 def choose_phase(model: FiberModel, duplex: DuplexSpec, flipped: bool) -> int:
@@ -241,7 +301,7 @@ def choose_phase(model: FiberModel, duplex: DuplexSpec, flipped: bool) -> int:
         for a in duplex.top.residues:
             if a.is_abasic:
                 continue
-            bp = ((n - 1 - a.column) if flipped else a.column) + p
+            bp = _bp_index(a.column, n, flipped, p)
             ss = getattr(model.slots[bp % model.k], slot)
             miss += (ss.native in PURINES) != (a.letter in PURINES)
         if best[0] is None or miss < best[0]:
@@ -270,9 +330,11 @@ def _group(issues: List[Issue]) -> List[Issue]:
 
 
 def _dedupe(issues: List[Issue]) -> List[Issue]:
+    """Parser issues once per (code, strand, column): an unlabelled ``*``
+    repeated along a strand is reported once."""
     seen, out = set(), []
     for i in issues:
-        key = (i.code, i.strand, i.position if i.code not in ("PS_STEREO_UNSPECIFIED",) else None)
+        key = (i.code, i.strand, i.position)
         if key in seen:
             continue
         seen.add(key)
@@ -303,31 +365,14 @@ def _modxna_positions(duplex: DuplexSpec) -> set:
 # --------------------------------------------------------------------------
 def sequence_issues(model: FiberModel, duplex: DuplexSpec, flipped: bool,
                     phase: int = 0) -> List[Issue]:
+    """Findings on the alignment: abasic sites, mismatches and wobble pairs,
+    overhangs, and how the sequence fits a model derived for one sequence."""
     out: List[Issue] = []
-    n = duplex.n_columns
     for i, (a, b) in enumerate(duplex.pairs()):
-        if a is None or b is None:
-            continue
-        if a.is_abasic or b.is_abasic:
-            other = b if a.is_abasic else a
-            what = "abasic sites on both strands" if (a.is_abasic and b.is_abasic) else \
-                f"abasic site opposite {other.letter}"
-            out.append(Issue("info", i, "ABASIC",
-                             f"column {i + 1}: {what} (sugar-phosphate kept, no base)",
-                             {"column": i + 1, "opposite": "-" if a.is_abasic and b.is_abasic
-                              else other.letter}))
-            continue
-        kind = pair_kind(a.letter, b.letter)
-        if kind == "mismatch":
-            out.append(Issue("warning", i, "MISMATCH",
-                             f"column {i + 1}: {a.letter}:{b.letter} mismatch placed in the "
-                             "model's base-pair frame; expect clashes, minimize",
-                             {"column": i + 1, "pair": f"{a.letter}:{b.letter}"}))
-        elif kind == "wobble":
-            out.append(Issue("info", i, "WOBBLE",
-                             f"column {i + 1}: {a.letter}:{b.letter} wobble pair built in a "
-                             "Watson-Crick frame", {"column": i + 1,
-                                                    "pair": f"{a.letter}:{b.letter}"}))
+        if a is not None and b is not None:
+            issue = _pair_issue(i, a, b)
+            if issue is not None:
+                out.append(issue)
     over = [i for i, (a, b) in enumerate(duplex.pairs()) if a is None or b is None]
     if over:
         out.append(Issue("info", None, "OVERHANG",
@@ -338,26 +383,58 @@ def sequence_issues(model: FiberModel, duplex: DuplexSpec, flipped: bool,
                          f"model #{model.id} was derived for a specific sequence; other "
                          "bases are placed on its backbone geometry", {"model": model.id}))
     if model.sequence_policy == "pattern":
-        slot_top = "II" if flipped else "I"
-        wrong = []
-        for a in duplex.top.residues:
-            if a.is_abasic:
-                continue
-            bp = ((n - 1 - a.column) if flipped else a.column) + phase
-            ss, _ = model.slot_strand(bp, slot_top)
-            if (ss.native in PURINES) != (a.letter in PURINES):
-                wrong.append(a.column + 1)
-        if wrong:
-            out.append(Issue("warning", None, "SEQ_PATTERN",
-                             f"model #{model.id} repeats {_native_top(model, slot_top)}; "
-                             f"columns {_short(wrong)} break its purine/pyrimidine pattern",
-                             {"model": model.id, "columns": _short(wrong),
-                              "pattern": _native_top(model, slot_top)}))
+        out += _pattern_issues(model, duplex, flipped, phase)
     return out
+
+
+def _pair_issue(i: int, a: ResidueSpec, b: ResidueSpec) -> Optional[Issue]:
+    """Abasic site, mismatch or wobble pair in column ``i``, if any."""
+    if a.is_abasic or b.is_abasic:
+        other = b if a.is_abasic else a
+        both = a.is_abasic and b.is_abasic
+        what = "abasic sites on both strands" if both else f"abasic site opposite {other.letter}"
+        return Issue("info", i, "ABASIC",
+                     f"column {i + 1}: {what} (sugar-phosphate kept, no base)",
+                     {"column": i + 1, "opposite": "-" if both else other.letter})
+    kind = pair_kind(a.letter, b.letter)
+    if kind == "mismatch":
+        return Issue("warning", i, "MISMATCH",
+                     f"column {i + 1}: {a.letter}:{b.letter} mismatch placed in the "
+                     "model's base-pair frame; expect clashes, minimize",
+                     {"column": i + 1, "pair": f"{a.letter}:{b.letter}"})
+    if kind == "wobble":
+        return Issue("info", i, "WOBBLE",
+                     f"column {i + 1}: {a.letter}:{b.letter} wobble pair built in a "
+                     "Watson-Crick frame", {"column": i + 1, "pair": f"{a.letter}:{b.letter}"})
+    return None
+
+
+def _pattern_issues(model: FiberModel, duplex: DuplexSpec, flipped: bool,
+                    phase: int) -> List[Issue]:
+    """Strand 1 against the purine/pyrimidine pattern of a model whose repeat
+    has more than one base pair (Z-DNA, ...)."""
+    slot_top = "II" if flipped else "I"
+    n = duplex.n_columns
+    wrong = []
+    for a in duplex.top.residues:
+        if a.is_abasic:
+            continue
+        ss, _ = model.slot_strand(_bp_index(a.column, n, flipped, phase), slot_top)
+        if (ss.native in PURINES) != (a.letter in PURINES):
+            wrong.append(a.column + 1)
+    if not wrong:
+        return []
+    return [Issue("warning", None, "SEQ_PATTERN",
+                  f"model #{model.id} repeats {_native_top(model, slot_top)}; "
+                  f"columns {_short(wrong)} break its purine/pyrimidine pattern",
+                  {"model": model.id, "columns": _short(wrong),
+                   "pattern": _native_top(model, slot_top)})]
 
 
 def residue_issues(model: FiberModel, ss, r: ResidueSpec, strand: str,
                    catalog: Catalog) -> List[Issue]:
+    """Findings on one residue in its slot ``ss``: a pyrimidine in a syn slot,
+    a sugar whose preferred pucker differs from the model's."""
     out: List[Issue] = []
     if r.is_abasic:
         return out
@@ -382,122 +459,14 @@ def residue_issues(model: FiberModel, ss, r: ResidueSpec, strand: str,
 
 
 def _native_top(model: FiberModel, slot: str) -> str:
+    """Bases of the model's repeat on ``slot`` (I or II)."""
     return "".join(getattr(s, slot).native for s in model.slots)
 
 
 def _short(cols: Sequence[int], limit: int = 8) -> str:
+    """Column list for a message, cut after ``limit`` entries."""
     s = ", ".join(str(c) for c in cols[:limit])
     return s + (", ..." if len(cols) > limit else "")
-
-
-CHAIN_CONTACT = 2.9        # heavy-atom distance a 2'-O substituent should keep
-CHAIN_H_CONTACT = 2.0      # the same for pairs involving a hydrogen
-CHAIN_STEP = 30.0          # torsion scan step (degrees)
-
-
-def _orient_2o_chains(residues: Sequence[BuiltResidue], residue_library) -> None:
-    """Choose the torsions of flexible 2'-O substituents (2'-OMe, MOE) in context.
-
-    The transplant copies the substituent from the modXNA residue, minimized as
-    an isolated nucleotide, so in a duplex the MOE chain can run into the next
-    nucleotide (C6' 1.2 A from its C5'). The library conformation is kept when
-    it makes no contact shorter than CHAIN_CONTACT; otherwise the chain
-    torsions are scanned in CHAIN_STEP steps, two bonds at a time from O2'
-    outwards, and the contact-free conformation closest to the library one is
-    taken. Rotations are rigid about each bond, so bond lengths and angles stay
-    those of the library. The LNA bridge closes a ring and is not touched.
-
-    Hydrogens are already placed and turn with their chain atoms; contacts
-    involving a hydrogen count below CHAIN_H_CONTACT, which also staggers the
-    terminal methyl against the sugar. A bare 2'-OH is left as placed.
-    """
-    allxyz = np.vstack([r.xyz for r in residues])
-    owner = np.concatenate([[k] * len(r.names) for k, r in enumerate(residues)])
-    is_h = np.array([element_of(n) == "H" for r in residues for n in r.names])
-    for k, r in enumerate(residues):
-        if not r.flags.get("modxna") or "O2'" not in r.names:
-            continue
-        unit = residue_library.unit(r.flags["key"])
-        present = set(r.names)
-        unb = unit.neighbours()
-        nb = {a: [b for b in unb.get(a, []) if b in present] for a in r.names}
-        tree = _substituent_tree(nb)
-        if not tree:
-            continue
-        parent, chain = tree
-        if all(element_of(a) == "H" for a in chain):
-            continue
-        idx = {n: i for i, n in enumerate(r.names)}
-        # rotatable bonds from O2' outwards and the atoms each one moves
-        desc = {a: [b for b in chain if _ancestor(parent, b, a)] for a in ["O2'"] + chain}
-        bonds = [(parent[a] if a != "O2'" else "C2'", a, desc[a]) for a in ["O2'"] + chain
-                 if desc[a]]
-        # environment: other residues near O2', and own atoms >= 5 bonds away from
-        # each chain atom (1-5 contacts such as CM2...C4' at 2.9 A belong to the
-        # minimized modXNA residue)
-        o2 = r.xyz[idx["O2'"]]
-        near = (owner != k) & (np.linalg.norm(allxyz - o2, axis=1) < 10.0)
-        own = [n for n in r.names if n not in chain]
-        env = np.vstack([allxyz[near], r.xyz[[idx[n] for n in own]]])
-        env_h = np.concatenate([is_h[near], [element_of(n) == "H" for n in own]])
-        far = {a: far_from(nb, [a], 5) for a in chain}
-        counted = np.array([[True] * int(near.sum()) + [b in far[a] for b in own]
-                            for a in chain])
-        chain_h = np.array([element_of(a) == "H" for a in chain])
-        cut = np.where(chain_h[:, None] | env_h[None, :], CHAIN_H_CONTACT, CHAIN_CONTACT)
-        cut = np.where(counted, cut, 0.0)
-        chain_far = [(i, j, CHAIN_H_CONTACT if chain_h[i] or chain_h[j] else CHAIN_CONTACT)
-                     for i, a in enumerate(chain) for j, b in enumerate(chain)
-                     if i < j and b in far[a]]
-        start = {a: r.xyz[idx[a]].copy() for a in r.names}
-
-        def build(angles):
-            pos = dict(start)
-            for (u, v, moving), ang in zip(bonds, angles):
-                if ang:
-                    pts = np.array([pos[m] for m in moving])
-                    pts = _rotate(pts, pos[v], pos[v] - pos[u], ang)
-                    for m, p in zip(moving, pts):
-                        pos[m] = p
-            return pos
-
-        def penalty(pos):
-            c = np.array([pos[a] for a in chain])
-            d = np.linalg.norm(c[:, None, :] - env[None, :, :], axis=2)
-            p = float(np.sum(np.clip(cut - d, 0.0, None) ** 2))
-            for i, j, lim in chain_far:
-                p += max(0.0, lim - float(np.linalg.norm(c[i] - c[j]))) ** 2
-            return p
-
-        best = [0.0] * len(bonds)
-        best_p = penalty(build(best))
-        if best_p == 0.0:
-            continue
-        grid = [CHAIN_STEP * i for i in range(int(round(360.0 / CHAIN_STEP)))]
-        cost = lambda a: sum(min(x % 360.0, 360.0 - x % 360.0) for x in a)
-        for _ in range(2):
-            for s in range(0, len(bonds), 2):
-                pair = range(s, min(s + 2, len(bonds)))
-                cands = [[]]
-                for _j in pair:
-                    cands = [c + [g] for c in cands for g in grid]
-                # closest to the library first (stable, so ties keep the grid order):
-                # once a contact-free candidate is reached no later one can improve,
-                # which ends most scans after a few trials (a staggered methyl)
-                cands.sort(key=cost)
-                for c in cands:
-                    trial = list(best)
-                    for j, g in zip(pair, c):
-                        trial[j] = g
-                    if best_p <= 1e-9 and cost(trial) >= cost(best):
-                        break
-                    p = penalty(build(trial))
-                    if p < best_p - 1e-9 or (abs(p - best_p) <= 1e-9 and cost(trial) < cost(best)):
-                        best, best_p = trial, p
-        pos = build(best)
-        for a in chain:
-            r.xyz[idx[a]] = pos[a]
-        r.flags["chain_torsions"] = [round(x, 1) for x in best]
 
 
 def _add_hydrogens(residues: Sequence[BuiltResidue], residue_library) -> None:
@@ -521,45 +490,6 @@ def _add_hydrogens(residues: Sequence[BuiltResidue], residue_library) -> None:
                 raise ValueError(f"no Amber unit {unit} for the hydrogens of {r.spec.token}")
             tpl = amber[unit]
         r.names, r.xyz = add_hydrogens(r.names, r.xyz, tpl, abasic)
-
-
-def _substituent_tree(nb: Dict[str, List[str]]):
-    """Atoms hanging from O2' (not through C2') as a tree: (parent, atoms in BFS
-    order), or None when there are none or they close a ring (LNA/cEt)."""
-    parent = {"O2'": None}
-    order: List[str] = []
-    queue = ["O2'"]
-    while queue:
-        a = queue.pop(0)
-        for b in nb.get(a, []):
-            if a == "O2'" and b == "C2'":
-                continue
-            if b in parent:
-                if parent[a] != b:
-                    return None
-                continue
-            parent[b] = a
-            order.append(b)
-            queue.append(b)
-    return (parent, order) if order else None
-
-
-def _ancestor(parent: Dict[str, Optional[str]], atom: str, anc: str) -> bool:
-    a = parent.get(atom)
-    while a is not None:
-        if a == anc:
-            return True
-        a = parent.get(a)
-    return False
-
-
-def _rotate(points: np.ndarray, origin: np.ndarray, axis: np.ndarray, deg: float) -> np.ndarray:
-    """Rotate points by ``deg`` about the axis through ``origin`` (Rodrigues)."""
-    k = axis / np.linalg.norm(axis)
-    t = math.radians(deg)
-    p = points - origin
-    return (origin + p * math.cos(t) + np.cross(k, p) * math.sin(t)
-            + np.outer(p @ k, k) * (1.0 - math.cos(t)))
 
 
 def count_clashes(residues: Sequence[BuiltResidue], cutoff: float = CLASH_DISTANCE) -> int:

@@ -136,9 +136,11 @@ class ResidueLibrary:
 
     # ------------------------------------------------------------------
     def key_for(self, spec) -> str:
+        """Library key of a residue (seqlang.ResidueSpec)."""
         return residue_key(spec.backbone, spec.sugar, spec.base, spec.cap)
 
     def has(self, spec) -> bool:
+        """Whether the library has the residue."""
         return self.key_for(spec) in self.residues
 
     def provide(self, libs: Optional[Dict[str, str]] = None,
@@ -238,15 +240,42 @@ def transplant(unit: OffUnit, names: List[str], xyz: np.ndarray
     hset = set(heavy)
     unb = unit.neighbours()
     nb = {a: [b for b in unb[a] if b in hset] for a in heavy}
-    placed: Dict[str, np.ndarray] = {}
     elements = dict(zip(unit.atom_names, unit.elements))
     special = _phosphorus_rule(nb, hset, sc, lib, elements)
+    placed, released = _keep_scaffold(heavy, nb, sc, special)
+    _place_on_phosphorus(placed, special, sc, lib)
+    new = [a for a in heavy if a not in placed]
+    order = _place(new, placed, lib, nb, unit.name)
+    if released:
+        _refine(list(new), placed, lib, nb)
+    # stereocentres: carbon and sulfur (a three-coordinate N or O inverts freely)
+    centres = {n for n, e in elements.items() if e in (6, 16) and n in hset}
+    stereo, redo, redo_order = _fix_stereo(placed, sc, lib, nb, centres, special, unit.name)
+    order += redo_order
+    new += redo
+    strained, distorted = _bond_changes(unit, hset, lib, placed, set(new) | set(special))
+    out_names = list(heavy)
+    out_xyz = np.array([placed[a] for a in out_names])
+    if not np.all(np.isfinite(out_xyz)):        # _refine diverged on a ring closure
+        distorted.insert(0, "ring closure did not converge")
+    return out_names, out_xyz, {"placed": order + list(special), "strained": strained,
+                                "stereo": stereo, "distorted": distorted,
+                                "contacts": _close_contacts(out_names, out_xyz, nb)}
+
+
+def _keep_scaffold(heavy: List[str], nb: Dict[str, List[str]], sc: Dict[str, np.ndarray],
+                   special: Dict[str, str]) -> Tuple[Dict[str, np.ndarray], set]:
+    """The shared atoms at their scaffold coordinates, and the shared
+    substituents released for a ring closure (placed again from the residue).
+
+    Ring closure (LNA/cEt bridge C4'-C6'-O2'): a shared substituent bonded to
+    a new atom that also bonds to the scaffold core must move with the bridge;
+    left at the ribose O2' position it makes the bridge 0.6 A too long.
+    """
+    placed: Dict[str, np.ndarray] = {}
     for a in heavy:
         if a in sc and a not in special:
             placed[a] = np.array(sc[a], float)
-    # Ring closure (LNA/cEt bridge C4'-C6'-O2'): a shared substituent bonded to a
-    # new atom that also bonds to the scaffold core must move with the bridge;
-    # left at the ribose O2' position it makes the bridge 0.6 A too long.
     released = set()
     for a in heavy:
         if a in placed:
@@ -257,31 +286,49 @@ def transplant(unit: OffUnit, names: List[str], xyz: np.ndarray
                 if b not in CORE_ATOMS:
                     placed.pop(b, None)
                     released.add(b)
+    return placed, released
+
+
+def _place_on_phosphorus(placed: Dict[str, np.ndarray], special: Dict[str, str],
+                         sc: Dict[str, np.ndarray], lib: Dict[str, np.ndarray]) -> None:
+    """Each atom chosen by _phosphorus_rule goes along the P-O bond of the
+    scaffold oxygen it takes the place of, at its own P-X distance."""
     for s_name, o_name in special.items():
         v = sc[o_name] - sc["P"]
         d = float(np.linalg.norm(lib[s_name] - lib["P"]))
         placed[s_name] = sc["P"] + d * v / np.linalg.norm(v)
-    new = [a for a in heavy if a not in placed]
-    order = _place(new, placed, lib, nb, unit.name)
-    if released:
-        _refine(list(new), placed, lib, nb)
-    # Stereocentres are carbon and sulfur (a three-coordinate N or O inverts
-    # freely). A shared substituent kept from the scaffold can sit on the wrong
-    # face for this sugar (O2' of arabinose: the scaffold puts it where ribose
-    # has it); such atoms are placed from the residue instead. Ring atoms cannot be.
-    centres = {n for n, e in elements.items() if e in (6, 16) and n in hset}
+
+
+def _fix_stereo(placed: Dict[str, np.ndarray], sc: Dict[str, np.ndarray],
+                lib: Dict[str, np.ndarray], nb: Dict[str, List[str]], centres: set,
+                special: Dict[str, str], unit_name: str
+                ) -> Tuple[List[str], List[str], List[str]]:
+    """Re-place shared substituents around inverted stereocentres.
+
+    A shared substituent kept from the scaffold can sit on the wrong face for
+    this sugar (O2' of arabinose: the scaffold puts it where ribose has it).
+    Such atoms are placed from the residue instead; core and ring atoms
+    cannot be. Returns the centres still inverted, the atoms re-placed and
+    the order they were placed in.
+    """
     stereo = _stereo_mismatches(lib, placed, nb, centres)
     rings = ring_atoms(nb)
     redo = sorted({a for c in stereo for a in [c] + nb[c]
                    if a in sc and a not in CORE_ATOMS and a not in special and a not in rings})
-    if redo:
-        for a in redo:
-            placed.pop(a)
-        order += _place(redo, placed, lib, nb, unit.name)
-        new += redo
-        stereo = _stereo_mismatches(lib, placed, nb, centres)
+    if not redo:
+        return stereo, [], []
+    for a in redo:
+        placed.pop(a)
+    order = _place(redo, placed, lib, nb, unit_name)
+    return _stereo_mismatches(lib, placed, nb, centres), redo, order
+
+
+def _bond_changes(unit: OffUnit, hset: set, lib: Dict[str, np.ndarray],
+                  placed: Dict[str, np.ndarray], moved: set) -> Tuple[List[str], List[str]]:
+    """Heavy-atom bonds whose length differs from the residue's: (strained,
+    distorted). Distorted is beyond GEOMETRY_TOL anywhere; strained is beyond
+    STRAIN_TOL on a bond to an atom the transplant placed (``moved``)."""
     strained, distorted = [], []
-    newset = set(new) | set(special)
     for i, j in unit.bonds:
         a, b = unit.atom_names[i], unit.atom_names[j]
         if a not in hset or b not in hset:
@@ -290,15 +337,9 @@ def transplant(unit: OffUnit, names: List[str], xyz: np.ndarray
         d1 = float(np.linalg.norm(placed[a] - placed[b]))
         if abs(d1 - d0) > GEOMETRY_TOL:
             distorted.append(f"{a}-{b} {d1:.2f}/{d0:.2f} A")
-        elif {a, b} & newset and abs(d1 - d0) > STRAIN_TOL:
+        elif {a, b} & moved and abs(d1 - d0) > STRAIN_TOL:
             strained.append(f"{a}-{b} {d1:.2f}/{d0:.2f} A")
-    out_names = list(heavy)
-    out_xyz = np.array([placed[a] for a in out_names])
-    if not np.all(np.isfinite(out_xyz)):        # _refine diverged on a ring closure
-        distorted.insert(0, "ring closure did not converge")
-    return out_names, out_xyz, {"placed": order + list(special), "strained": strained,
-                                "stereo": stereo, "distorted": distorted,
-                                "contacts": _close_contacts(out_names, out_xyz, nb)}
+    return strained, distorted
 
 
 def _phosphorus_rule(nb: Dict[str, List[str]], hset: set, sc: Dict[str, np.ndarray],

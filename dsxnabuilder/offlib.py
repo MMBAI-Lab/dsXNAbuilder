@@ -35,6 +35,7 @@ class OffUnit:
 
     @property
     def net_charge(self) -> float:
+        """Sum of the partial charges."""
         return float(sum(self.charges))
 
     def coords(self) -> Dict[str, np.ndarray]:
@@ -51,6 +52,7 @@ class OffUnit:
         return nb
 
     def heavy_atoms(self) -> List[str]:
+        """Names of the non-hydrogen atoms, in unit order."""
         return [n for n, e in zip(self.atom_names, self.elements) if e != 1]
 
 

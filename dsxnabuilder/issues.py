@@ -30,6 +30,7 @@ class Issue:
     strand: Optional[str] = None
 
     def to_json(self) -> dict:
+        """The issue as sent to the web page and written in the manifest."""
         return {"level": self.level, "code": self.code, "strand": self.strand,
                 "position": self.position, "message": self.message,
                 "params": self.params}

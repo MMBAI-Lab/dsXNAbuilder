@@ -90,6 +90,7 @@ class Fragment:
 
     @property
     def pucker_domain(self) -> Optional[str]:
+        """North or South for a sugar with a furanose ring, else None."""
         return (self.sugar_geom or {}).get("domain")
 
     @property
@@ -107,6 +108,7 @@ class Catalog:
 
     @classmethod
     def from_json(cls, path: Optional[str] = None) -> "Catalog":
+        """Read data/modxna_catalog.json (or ``path``)."""
         with open(path or os.path.join(DATA, "modxna_catalog.json"), encoding="utf-8") as fh:
             blob = json.load(fh)
         return cls([Fragment(code=row["code"], moiety=row["moiety"],
@@ -123,6 +125,3 @@ class Catalog:
 
     def __contains__(self, code: str) -> bool:
         return code in self._by_code
-
-    def by_moiety(self, moiety: str) -> List[Fragment]:
-        return [f for f in self.fragments if f.moiety == moiety]

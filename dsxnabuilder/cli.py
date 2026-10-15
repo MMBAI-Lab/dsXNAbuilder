@@ -19,6 +19,20 @@ _DEFAULTS = AmberOptions()
 
 
 def main(argv=None) -> int:
+    """Run ``dsxnabuilder models`` or ``dsxnabuilder build``; returns the exit status."""
+    ap = _parser()
+    a = ap.parse_args(argv)
+    s = Session(residue_library=ResidueLibrary.load_default())
+    if a.cmd == "models":
+        _print_models(s)
+        return 0
+    bad = [n for n in a.name if "=" not in n]
+    if bad:
+        ap.error(f"--name expects KEY=NAME, got {', '.join(bad)}")
+    return _build(s, a)
+
+
+def _parser() -> argparse.ArgumentParser:
     ap = argparse.ArgumentParser(prog="dsxnabuilder", description=__doc__.split("\n\n")[0])
     sub = ap.add_subparsers(dest="cmd", required=True)
     sub.add_parser("models", help="list the buildable fiber models")
@@ -26,7 +40,7 @@ def main(argv=None) -> int:
     b.add_argument("--top", required=True, help="strand 1, 5'->3'")
     b.add_argument("--bottom", required=True, help="strand 2, 3'->5', aligned under strand 1")
     b.add_argument("--model", type=int, default=4, help="3DNA fiber model id (default 4, B-DNA)")
-    b.add_argument("-o", "--out", default="dsxnabuilder.pdb", help="output PDB (default)")
+    b.add_argument("-o", "--out", default="dsxnabuilder.pdb", help="output PDB (default %(default)s)")
     b.add_argument("--name", action="append", default=[], metavar="KEY=NAME",
                    help="residue name for a modXNA residue, e.g. PS1/OME/RAA/int=OMA "
                         "(repeatable; the others are named X01, X02, ...)")
@@ -45,25 +59,22 @@ def main(argv=None) -> int:
                    help="solute to box edge, %g-%g A (default %%(default)s)" % BUFFER_RANGE)
     p.add_argument("--no-neutralize", dest="neutralize", action="store_false",
                    help="do not add Na+/Cl- counterions to the solvated system")
-    a = ap.parse_args(argv)
+    return ap
 
-    s = Session(residue_library=ResidueLibrary.load_default())
-    if a.cmd == "models":
-        info = s.models()
-        for m in info["models"]:
-            print(f"{m['id']:>3}  {m['family']:<26} {m['twist']:>7.2f} deg  "
-                  f"{m['rise']:.3f} A  {m['handedness'][0].upper()}  k={m['k']:<2} "
-                  f"{m['policy']:<8} {m['description'][:60]}")
-        for m in info["excluded"]:
-            print(f"{m['id']:>3}  (excluded) {'; '.join(m.get('issues') or [])[:90]}")
-        return 0
 
-    bad = [n for n in a.name if "=" not in n]
-    if bad:
-        ap.error(f"--name expects KEY=NAME, got {', '.join(bad)}")
-    names = dict(n.rsplit("=", 1) for n in a.name)
+def _print_models(s: Session) -> None:
+    info = s.models()
+    for m in info["models"]:
+        print(f"{m['id']:>3}  {m['family']:<26} {m['twist']:>7.2f} deg  "
+              f"{m['rise']:.3f} A  {m['handedness'][0].upper()}  k={m['k']:<2} "
+              f"{m['policy']:<8} {m['description'][:60]}")
+    for m in info["excluded"]:
+        print(f"{m['id']:>3}  (excluded) {'; '.join(m.get('issues') or [])[:90]}")
+
+
+def _build(s: Session, a: argparse.Namespace) -> int:
     req = {"top": a.top, "bottom": a.bottom, "model": a.model, "package": bool(a.amber),
-           "names": names,
+           "names": dict(n.rsplit("=", 1) for n in a.name),
            "amber": {"dna_ff": a.dna_ff, "rna_ff": a.rna_ff, "water": a.water, "box": a.box,
                      "buffer": a.buffer, "neutralize": a.neutralize}}
     out = s.build(req)

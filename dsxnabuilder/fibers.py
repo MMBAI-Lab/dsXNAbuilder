@@ -154,6 +154,7 @@ def _slot_strand(d: dict) -> SlotStrand:
 
 
 def model_from_json(d: dict) -> FiberModel:
+    """A FiberModel from its entry in data/fiber_models.json."""
     slots = [Slot(I=_slot_strand(s["I"]), II=_slot_strand(s["II"]),
                   pairing=s.get("pairing", "wc")) for s in d["slots"]]
     return FiberModel(
@@ -178,6 +179,7 @@ class FiberLibrary:
     provenance: dict
 
     def get(self, model_id: int) -> FiberModel:
+        """A buildable model; KeyError says why an excluded one is left out."""
         try:
             return self.models[int(model_id)]
         except KeyError:

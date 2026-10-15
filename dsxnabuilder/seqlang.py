@@ -115,6 +115,7 @@ class ResidueSpec:
         return self.letter == "-"
 
     def triplet(self) -> Tuple[str, str, str]:
+        """(backbone, sugar, base) modXNA codes."""
         return (self.backbone, self.sugar, self.base)
 
     @property
@@ -169,6 +170,8 @@ class _Tok:
 
 
 def _strip_ends(text: str, top: bool) -> str:
+    """The line without blanks and without its end labels (5'- ... -3' on
+    strand 1, 3'- ... -5' on strand 2); a label on the wrong end is an error."""
     s = re.sub(r"\s+", "", text)
     for p in _PRIMES[1:]:
         s = s.replace(p, "'")
@@ -195,6 +198,11 @@ def _strip_ends(text: str, top: bool) -> str:
 
 def _tokenize(body: str, catalog: Catalog, aliases: AliasTable, default_chem: str,
               strand: str, issues: List[Issue]) -> List[_Tok]:
+    """Split a cleaned line into residues, linkages and gaps.
+
+    ``d(...)`` and ``r(...)`` set the chemistry of the plain letters inside;
+    a bare ``(...)`` only groups.
+    """
     toks: List[_Tok] = []
     stack = [default_chem]
     i = 0
@@ -204,104 +212,116 @@ def _tokenize(body: str, catalog: Catalog, aliases: AliasTable, default_chem: st
         if ch in "dr" and body[i + 1:i + 2] == "(":
             stack.append({"d": "DNA", "r": "RNA"}[ch])
             i += 2
-            continue
-        if ch == "(":
+        elif ch == "(":
             stack.append(chem)
             i += 1
-            continue
-        if ch == ")":
+        elif ch == ")":
             if len(stack) == 1:
                 raise SequenceParseError(f"unbalanced ')' at character {i + 1}",
                                          "UNBALANCED", strand, i, {"char": i + 1})
             stack.pop()
             i += 1
-            continue
-        if ch == "-":
+        elif ch == "-":
             toks.append(_Tok("gap", i, "-", chem=chem))
             i += 1
-            continue
-        if ch == "*":
-            suf = body[i + 1:i + 2]
-            tok = f"*{suf}" if suf in ("R", "S", "1", "2") else "*"
-            code = aliases.linkage.get(tok)
-            if tok == "*":
-                issues.append(Issue("warning", None, "PS_STEREO_UNSPECIFIED",
-                                    f"phosphorothioate without stereo label; {code} is used "
-                                    "(write *1 or *2 to choose the retained oxygen)",
-                                    {"fragment": code}, strand))
-            elif tok in aliases.unverified:
-                issues.append(Issue("warning", None, "UNVERIFIED_ALIAS",
-                                    f"{tok} -> {code} is not verified against modXNA "
-                                    "documentation; *1/*2 are unambiguous",
-                                    {"alias": tok, "fragment": code}, strand))
-            toks.append(_Tok("link", i, tok, linkage=code))
-            i += len(tok)
-            continue
-        if ch == ".":
+        elif ch == ".":
             toks.append(_Tok("link", i, ".", linkage=None))
             i += 1
-            continue
-        if ch == "{":
-            mm = _EXPLICIT.match(body, i)
-            if mm:
-                bb, sug, base = mm.group("bb"), mm.group("sug"), mm.group("base")
-                letter = mm.group("letter") or _letter_of(base, aliases, strand, i)
-                # the sugar decides the chemistry, whatever group it is written in
-                if sug in catalog:
-                    rchem = "RNA" if catalog[sug].is_ribo_type else "DNA"
-                else:
-                    rchem = chem
-                toks.append(_Tok("res", i, mm.group(0), res=ResidueSpec(
-                    backbone=bb, sugar=sug, base=base, letter=letter, chem=rchem,
-                    token=mm.group(0), explicit_backbone=True)))
-                i = mm.end()
-                continue
-            mb = _EXPLICIT_BB.match(body, i)
-            if mb:
-                toks.append(_Tok("link", i, mb.group(0), linkage=mb.group("bb")))
-                i = mb.end()
-                continue
-            raise SequenceParseError(f"malformed {{...}} block at character {i + 1}",
-                                     "BAD_BLOCK", strand, i, {"char": i + 1})
-        # shorthand residue
-        prefix = ""
-        for plen in (3, 2, 1):
-            cand = body[i:i + plen]
-            if cand in aliases.sugar and body[i + plen:i + plen + 1].upper() in tuple("ACGTU"):
-                prefix = cand
-                break
-        start = i
-        i += len(prefix)
-        letter = body[i:i + 1].upper()
-        if letter not in ("A", "C", "G", "T", "U"):
-            raise SequenceParseError(f"unexpected character {body[i:i + 1]!r} at "
-                                     f"character {i + 1}", "BAD_CHAR", strand, i,
-                                     {"char": i + 1, "text": body[i:i + 1]})
-        i += 1
-        suffix = ""
-        if body[i:i + 1] == "^":
-            mm = re.match(r"\^([A-Za-z0-9]{3})", body[i:])
-            if not mm:
-                raise SequenceParseError(f"malformed base modifier at character {i + 1}",
-                                         "BAD_BASE_MOD", strand, i, {"char": i + 1})
-            suffix = mm.group(1)
-            i += mm.end()
-        rchem = aliases.sugar_chem.get(prefix, chem) if prefix else chem
-        sugar = aliases.sugar.get(prefix, CANONICAL_SUGAR[rchem])
-        if suffix:
-            base = aliases.base.get(suffix, suffix)
-            if base not in catalog or catalog[base].moiety != "base":
-                raise SequenceParseError(f"unknown base modifier ^{suffix}",
-                                         "UNKNOWN_BASE_MOD", strand, start,
-                                         {"suffix": suffix})
         else:
-            base = canonical_base(rchem, letter)
-        toks.append(_Tok("res", start, body[start:i], res=ResidueSpec(
-            backbone=CANONICAL_BACKBONE[rchem], sugar=sugar, base=base, letter=letter,
-            chem=rchem, token=body[start:i])))
+            if ch == "*":
+                tok, i = _read_thioate(body, i, aliases, strand, issues)
+            elif ch == "{":
+                tok, i = _read_block(body, i, catalog, aliases, chem, strand)
+            else:
+                tok, i = _read_shorthand(body, i, catalog, aliases, chem, strand)
+            toks.append(tok)
     if len(stack) != 1:
         raise SequenceParseError("unbalanced '(': missing ')'", "UNBALANCED", strand)
     return toks
+
+
+def _read_thioate(body: str, i: int, aliases: AliasTable, strand: str,
+                  issues: List[Issue]) -> Tuple[_Tok, int]:
+    """A phosphorothioate linkage at ``i``: ``*``, ``*1``, ``*2`` (``*R``/``*S``
+    are aliases whose stereochemistry is not verified)."""
+    suf = body[i + 1:i + 2]
+    tok = f"*{suf}" if suf in ("R", "S", "1", "2") else "*"
+    code = aliases.linkage.get(tok)
+    if tok == "*":
+        issues.append(Issue("warning", None, "PS_STEREO_UNSPECIFIED",
+                            f"phosphorothioate without stereo label; {code} is used "
+                            "(write *1 or *2 to choose the retained oxygen)",
+                            {"fragment": code}, strand))
+    elif tok in aliases.unverified:
+        issues.append(Issue("warning", None, "UNVERIFIED_ALIAS",
+                            f"{tok} -> {code} is not verified against modXNA "
+                            "documentation; *1/*2 are unambiguous",
+                            {"alias": tok, "fragment": code}, strand))
+    return _Tok("link", i, tok, linkage=code), i + len(tok)
+
+
+def _read_block(body: str, i: int, catalog: Catalog, aliases: AliasTable, chem: str,
+                strand: str) -> Tuple[_Tok, int]:
+    """A ``{...}`` block at ``i``: an explicit residue {BB/SUGAR/BASE[:X]} or a
+    backbone {BB} for the next residue."""
+    mm = _EXPLICIT.match(body, i)
+    if mm:
+        bb, sug, base = mm.group("bb"), mm.group("sug"), mm.group("base")
+        letter = mm.group("letter") or _letter_of(base, aliases, strand, i)
+        # the sugar decides the chemistry, whatever group it is written in
+        if sug in catalog:
+            rchem = "RNA" if catalog[sug].is_ribo_type else "DNA"
+        else:
+            rchem = chem
+        return _Tok("res", i, mm.group(0), res=ResidueSpec(
+            backbone=bb, sugar=sug, base=base, letter=letter, chem=rchem,
+            token=mm.group(0), explicit_backbone=True)), mm.end()
+    mb = _EXPLICIT_BB.match(body, i)
+    if mb:
+        return _Tok("link", i, mb.group(0), linkage=mb.group("bb")), mb.end()
+    raise SequenceParseError(f"malformed {{...}} block at character {i + 1}",
+                             "BAD_BLOCK", strand, i, {"char": i + 1})
+
+
+def _read_shorthand(body: str, i: int, catalog: Catalog, aliases: AliasTable, chem: str,
+                    strand: str) -> Tuple[_Tok, int]:
+    """A shorthand residue at ``i``: optional sugar prefix, letter, optional
+    base modifier (``mC``, ``+T``, ``C^5mC``)."""
+    prefix = ""
+    for plen in (3, 2, 1):
+        cand = body[i:i + plen]
+        if cand in aliases.sugar and body[i + plen:i + plen + 1].upper() in tuple("ACGTU"):
+            prefix = cand
+            break
+    start = i
+    i += len(prefix)
+    letter = body[i:i + 1].upper()
+    if letter not in ("A", "C", "G", "T", "U"):
+        raise SequenceParseError(f"unexpected character {body[i:i + 1]!r} at "
+                                 f"character {i + 1}", "BAD_CHAR", strand, i,
+                                 {"char": i + 1, "text": body[i:i + 1]})
+    i += 1
+    suffix = ""
+    if body[i:i + 1] == "^":
+        mm = re.match(r"\^([A-Za-z0-9]{3})", body[i:])
+        if not mm:
+            raise SequenceParseError(f"malformed base modifier at character {i + 1}",
+                                     "BAD_BASE_MOD", strand, i, {"char": i + 1})
+        suffix = mm.group(1)
+        i += mm.end()
+    rchem = aliases.sugar_chem.get(prefix, chem) if prefix else chem
+    sugar = aliases.sugar.get(prefix, CANONICAL_SUGAR[rchem])
+    if suffix:
+        base = aliases.base.get(suffix, suffix)
+        if base not in catalog or catalog[base].moiety != "base":
+            raise SequenceParseError(f"unknown base modifier ^{suffix}",
+                                     "UNKNOWN_BASE_MOD", strand, start,
+                                     {"suffix": suffix})
+    else:
+        base = canonical_base(rchem, letter)
+    return _Tok("res", start, body[start:i], res=ResidueSpec(
+        backbone=CANONICAL_BACKBONE[rchem], sugar=sugar, base=base, letter=letter,
+        chem=rchem, token=body[start:i])), i
 
 
 def _letter_of(base: str, aliases: AliasTable, strand: str, pos: int) -> str:
@@ -334,8 +354,25 @@ def parse_line(text: str, top: bool, catalog: Catalog, aliases: AliasTable,
     if not body:
         raise SequenceParseError("empty strand", "EMPTY", strand)
     toks = _tokenize(body, catalog, aliases, default_chem, strand, issues)
+    _mark_abasic_sites(toks, strand)
+    columns: List[Optional[ResidueSpec]] = []      # in typed order
+    for t in toks:
+        if t.kind == "res":
+            t.res.column = len(columns)
+            columns.append(t.res)
+        elif t.kind == "gap":
+            columns.append(None)
+    residues = _link_residues(toks if top else list(reversed(toks)), strand, issues)
+    if len(residues) < 2:
+        raise SequenceParseError("a strand needs at least two nucleotides",
+                                 "TOO_SHORT", strand)
+    _cap_ends(residues, strand, issues)
+    return Strand(columns=columns, residues=residues, raw=text), issues
 
-    # '-' between nucleotides is an abasic site; at the ends, no nucleotide
+
+def _mark_abasic_sites(toks: List[_Tok], strand: str) -> None:
+    """'-' between nucleotides is an abasic site (sugar-phosphate of the
+    chemistry in effect, no base); at the ends it means no nucleotide."""
     res_idx = [k for k, t in enumerate(toks) if t.kind == "res"]
     if not res_idx:
         raise SequenceParseError("strand has no nucleotides", "EMPTY", strand)
@@ -347,17 +384,10 @@ def parse_line(text: str, top: bool, catalog: Catalog, aliases: AliasTable,
                                 sugar=CANONICAL_SUGAR[t.chem], base="ABS", letter="-",
                                 chem=t.chem, token="-")
 
-    # columns in typed order
-    columns: List[Optional[ResidueSpec]] = []
-    for t in toks:
-        if t.kind == "res":
-            t.res.column = len(columns)
-            columns.append(t.res)
-        elif t.kind == "gap":
-            columns.append(None)
 
-    # 5'->3' token order; linkages belong to the following residue
-    order = toks if top else list(reversed(toks))
+def _link_residues(order: List[_Tok], strand: str, issues: List[Issue]) -> List[ResidueSpec]:
+    """Residues 5'->3' from the tokens in 5'->3' order; a linkage sets the
+    backbone of the residue after it ('.' restores the phosphodiester)."""
     residues: List[ResidueSpec] = []
     pending: Optional[_Tok] = None
     for t in order:
@@ -384,19 +414,21 @@ def parse_line(text: str, top: bool, catalog: Catalog, aliases: AliasTable,
     if pending is not None:
         issues.append(Issue("warning", None, "DANGLING_LINKAGE",
                             "linkage after the 3'-terminal residue is ignored", {}, strand))
-    if len(residues) < 2:
-        raise SequenceParseError("a strand needs at least two nucleotides",
-                                 "TOO_SHORT", strand)
-    residues[0].cap = "5cap"
-    if residues[0].explicit_backbone and residues[0].backbone not in (
-            CAP_5_OH, CANONICAL_BACKBONE[residues[0].chem]):
-        issues.append(Issue("warning", residues[0].column, "FIVE_PRIME_BACKBONE",
-                            f"backbone {residues[0].backbone} of the 5'-terminal residue "
-                            "is replaced by the 5'-OH cap", {"fragment": residues[0].backbone},
+    return residues
+
+
+def _cap_ends(residues: List[ResidueSpec], strand: str, issues: List[Issue]) -> None:
+    """The 5'-terminal residue takes the 5'-OH cap in place of its backbone."""
+    first = residues[0]
+    first.cap = "5cap"
+    if first.explicit_backbone and first.backbone not in (CAP_5_OH,
+                                                          CANONICAL_BACKBONE[first.chem]):
+        issues.append(Issue("warning", first.column, "FIVE_PRIME_BACKBONE",
+                            f"backbone {first.backbone} of the 5'-terminal residue "
+                            "is replaced by the 5'-OH cap", {"fragment": first.backbone},
                             strand))
-    residues[0].backbone = CAP_5_OH
+    first.backbone = CAP_5_OH
     residues[-1].cap = "3cap"
-    return Strand(columns=columns, residues=residues, raw=text), issues
 
 
 @dataclass
@@ -412,6 +444,7 @@ class DuplexSpec:
         return len(self.top.columns)
 
     def pairs(self) -> List[Tuple[Optional[ResidueSpec], Optional[ResidueSpec]]]:
+        """(strand 1, strand 2) residues column by column; None where a strand has none."""
         return list(zip(self.top.columns, self.bottom.columns))
 
 

@@ -60,11 +60,13 @@ def pdb_atom_line(serial: int, a: Atom) -> str:
 
 
 def read_pdb(path: str) -> List[Atom]:
+    """ATOM/HETATM records of a PDB file."""
     with open(path, "r", encoding="utf-8", errors="replace") as fh:
         return parse_pdb(fh.read())
 
 
 def parse_pdb(text: str) -> List[Atom]:
+    """ATOM/HETATM records of PDB text (element from columns 77-78, else from the name)."""
     atoms: List[Atom] = []
     for line in text.splitlines():
         if not line.startswith(("ATOM", "HETATM")):
@@ -80,6 +82,7 @@ def parse_pdb(text: str) -> List[Atom]:
 
 
 def format_pdb(atoms: Sequence[Atom], remarks: Iterable[str] = ()) -> str:
+    """PDB text: REMARK 999 records, then the atoms with a TER after each chain."""
     out = [f"REMARK 999 {r}" for r in remarks]
     serial = 0
     prev = None
@@ -101,12 +104,9 @@ def residues(atoms: Sequence[Atom]) -> Dict[Tuple[str, int], List[Atom]]:
     return out
 
 
-def base_class_of(names: Iterable[str]) -> str:
-    return "purine" if "N9" in set(names) else "pyrimidine"
-
-
-def ring_atoms(names: Iterable[str]) -> List[str]:
-    return PURINE_RING if base_class_of(names) == "purine" else PYRIMIDINE_RING
+def base_ring_atoms(names: Iterable[str]) -> List[str]:
+    """Ring atoms of a base, purine or pyrimidine (it has N9 or not)."""
+    return PURINE_RING if "N9" in set(names) else PYRIMIDINE_RING
 
 
 def standard_base_frame(coords: Dict[str, np.ndarray],
@@ -116,7 +116,7 @@ def standard_base_frame(coords: Dict[str, np.ndarray],
     ``reference`` holds the standard base in its own frame (Atomic_X). The ring
     atoms common to both are superposed; returns (frame, ring-fit rmsd).
     """
-    ring = [a for a in ring_atoms(reference) if a in coords and a in reference]
+    ring = [a for a in base_ring_atoms(reference) if a in coords and a in reference]
     if len(ring) < 3:
         raise ValueError(f"not enough ring atoms to define a base frame: {sorted(coords)}")
     R, t, rmsd = kabsch(np.array([reference[a] for a in ring]),
