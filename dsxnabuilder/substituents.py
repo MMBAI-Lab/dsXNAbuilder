@@ -79,6 +79,7 @@ def orient_2o_chains(residues: Sequence, residue_library) -> None:
     applied are recorded in ``flags["chain_torsions"]``.
     """
     allxyz = np.vstack([r.xyz for r in residues])
+    first = np.cumsum([0] + [len(r.names) for r in residues])
     owner = np.concatenate([[k] * len(r.names) for k, r in enumerate(residues)])
     is_h = np.array([element_of(n) == "H" for r in residues for n in r.names])
     for k, r in enumerate(residues):
@@ -95,6 +96,9 @@ def orient_2o_chains(residues: Sequence, residue_library) -> None:
         pos = ch.conformation(best)
         for a in ch.atoms:
             r.xyz[idx[a]] = pos[a]
+        # the residues scanned next see this chain where it is now, so that two
+        # neighbouring chains do not both turn into the same space
+        allxyz[first[k]:first[k + 1]] = r.xyz
         r.flags["chain_torsions"] = [round(x, 1) for x in best]
 
 

@@ -276,3 +276,27 @@ def test_phosphorus_follows_the_modxna_geometry(rl, lib):
         target = "OP1" if s == "S1" else "OP2"       # by name, on the Amber scaffold
         assert np.linalg.norm(built[s] - built["P"] - 2.02 * (dict(zip(names, xyz))[target] - built["P"])
                               / np.linalg.norm(dict(zip(names, xyz))[target] - built["P"])) < 0.05
+
+
+CHAIN_ATOMS = {"CM2", "HM'1", "HM'2", "HM'3",                     # 2'-OMe
+               "C6'", "C7'", "O7'", "C8'", "H6'", "H6''", "H7'", "H7''",
+               "H8'1", "H8'2", "H8'3"}                            # 2'-MOE
+
+
+def test_neighbouring_2o_chains_do_not_overlap(msession):
+    """Each 2'-O chain is turned against the chains already turned around it,
+    so chains on both strands of a fully modified duplex keep apart."""
+    from dsxnabuilder.structure import element_of, parse_pdb
+    from dsxnabuilder.substituents import CHAIN_CONTACT, CHAIN_H_CONTACT
+    out = msession.build({"top": "eA*mA*eU*mC*eU*eG*eC*mG*eC*eG*eC*eA*eG",
+                          "bottom": "eU*eU*mA*eG*mA*eC*mG*eC*mG*eC*mG*eU*mC", "model": 20})
+    assert out["ok"], out["issues"]
+    atoms = [a for a in parse_pdb(out["pdb"]) if a.name in CHAIN_ATOMS]
+    for i, a in enumerate(atoms):
+        for b in atoms[i + 1:]:
+            if (a.chain, a.resseq) == (b.chain, b.resseq):
+                continue
+            hydrogen = "H" in (element_of(a.name), element_of(b.name))
+            limit = CHAIN_H_CONTACT if hydrogen else CHAIN_CONTACT
+            d = float(np.linalg.norm(a.xyz - b.xyz))
+            assert d >= limit - 1e-3, (a.chain, a.resseq, a.name, b.chain, b.resseq, b.name, d)
