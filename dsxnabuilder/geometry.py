@@ -36,9 +36,8 @@ M is the CEHS "hinge" middle frame: both frames are bent by -/+ Gamma/2 about
 the hinge axis (the roll-tilt axis, which lies in the xy plane of T_mst at
 angle phi from its y axis) so that their z axes coincide, and T_mst is their
 average. Positive tilt is a rotation about +x of T_mst and positive roll about
-+y. M is not the principal square root of R_step; the two coincide only when
-Gamma = 0, where the construction reduces to the screw operator S(Omega, Dz)
-of a fiber model.
++y. For Gamma = 0 the step is the screw operator S(Omega, Dz) of a fiber
+model.
 
 The inverse decomposes T_i^T T_{i+1} = Rz(alpha) Ry(Gamma) Rz(beta) (ZYZ),
 with Omega = alpha + beta and phi = (beta - alpha)/2 on the branch
@@ -70,16 +69,11 @@ positive rise and negative twist of Z-DNA.
 
 Verification
 ------------
-Pair and step parameters of duplexes built on eight 3DNA fiber models
-(A, B, C, D, Z, S-DNA, A-RNA, DNA:RNA hybrid) agree with cpptraj ``nastruct``
-(3DNA conventions) within its four-decimal output; see
-``tests/test_cpptraj_parameters.py``. Any uniform helix with a dyad axis
-perpendicular to the helix axis through each base pair (A, B fiber models)
-has tau = 0 and Dx = 0; ``tests/test_geometry.py::test_fiber_dyad_symmetry``
-checks it to machine precision (measured on five A/B/A'/hybrid fiber helices,
-23 steps each: max|tau| = 1.8e-15 deg, max|Dx| = 4.2e-15 A). The
-forward/inverse pair is exact (5000 random steps and pairs with twist and
-opening in (-170, 170): max error 3.3e-11 and 2.9e-12).
+Pair and step parameters of duplexes built on fiber models agree with cpptraj
+``nastruct`` (3DNA conventions) within its four-decimal output
+(tests/test_cpptraj_parameters.py). A uniform helix with a dyad axis through
+each base pair has tau = 0 and Dx = 0, and the forward and inverse operations
+are exact inverses (tests/test_geometry.py).
 """
 
 from __future__ import annotations
@@ -93,15 +87,15 @@ import numpy as np
 __all__ = [
     "rot_x", "rot_y", "rot_z", "Frame", "StepParams", "PairParams",
     "step_rotation", "apply_step", "pair_rotation", "pair_to_base_frames",
-    "frames_to_step_params", "base_frames_to_pair", "rot_sqrt",
-    "fiber_frames", "kabsch", "pseudorotation", "PUCKER_ENVELOPES",
+    "frames_to_step_params", "base_frames_to_pair", "fiber_frames", "kabsch",
+    "dihedral", "signed_volume", "pseudorotation", "PUCKER_ENVELOPES",
 ]
 
 DEG = math.pi / 180.0
 
 
 # --------------------------------------------------------------------------
-# Rotaciones elementales
+# Elementary rotations (angles in degrees)
 # --------------------------------------------------------------------------
 def rot_x(a_deg: float) -> np.ndarray:
     c, s = math.cos(a_deg * DEG), math.sin(a_deg * DEG)
@@ -119,11 +113,11 @@ def rot_z(a_deg: float) -> np.ndarray:
 
 
 # --------------------------------------------------------------------------
-# Marco
+# Frames and parameters
 # --------------------------------------------------------------------------
 @dataclass
 class Frame:
-    """Marco de referencia ortonormal dextrogiro."""
+    """Right-handed orthonormal reference frame (origin, triad)."""
 
     origin: np.ndarray = field(default_factory=lambda: np.zeros(3))
     triad: np.ndarray = field(default_factory=lambda: np.eye(3))
@@ -133,34 +127,26 @@ class Frame:
         self.triad = np.asarray(self.triad, dtype=float).reshape(3, 3)
 
     def to_global(self, local: np.ndarray) -> np.ndarray:
-        """Transforma coordenadas locales (N,3) o (3,) al sistema global."""
+        """Local coordinates, (N, 3) or (3,), in the global system."""
         local = np.asarray(local, dtype=float)
         return (self.triad @ local.reshape(-1, 3).T).T + self.origin
 
     def to_local(self, glob: np.ndarray) -> np.ndarray:
+        """Global coordinates, (N, 3) or (3,), in the frame."""
         glob = np.asarray(glob, dtype=float)
         return (self.triad.T @ (glob.reshape(-1, 3) - self.origin).T).T
 
-    def rotated(self, R: np.ndarray) -> "Frame":
-        return Frame(self.origin.copy(), self.triad @ R)
 
-    def orthonormality_error(self) -> float:
-        return float(np.abs(self.triad.T @ self.triad - np.eye(3)).max())
-
-
-# --------------------------------------------------------------------------
-# Parametros
-# --------------------------------------------------------------------------
 @dataclass
 class StepParams:
-    """Parametros de escalon entre pares de bases consecutivos."""
+    """Step parameters between consecutive base pairs (angstrom, degrees)."""
 
-    shift: float = 0.0   # Dx, angstrom
-    slide: float = 0.0   # Dy, angstrom
-    rise: float = 3.38   # Dz, angstrom
-    tilt: float = 0.0    # tau, grados
-    roll: float = 0.0    # rho, grados
-    twist: float = 36.0  # Omega, grados
+    shift: float = 0.0   # Dx
+    slide: float = 0.0   # Dy
+    rise: float = 0.0    # Dz
+    tilt: float = 0.0    # tau
+    roll: float = 0.0    # rho
+    twist: float = 0.0   # Omega
 
     def as_tuple(self) -> Tuple[float, ...]:
         return (self.shift, self.slide, self.rise, self.tilt, self.roll, self.twist)
@@ -168,14 +154,14 @@ class StepParams:
 
 @dataclass
 class PairParams:
-    """Parametros intra-par de bases."""
+    """Parameters between the two bases of a pair (angstrom, degrees)."""
 
-    shear: float = 0.0      # Sx, angstrom
-    stretch: float = 0.0    # Sy, angstrom
-    stagger: float = 0.0    # Sz, angstrom
-    buckle: float = 0.0     # kappa, grados
-    propeller: float = 0.0  # omega, grados
-    opening: float = 0.0    # sigma, grados
+    shear: float = 0.0      # Sx
+    stretch: float = 0.0    # Sy
+    stagger: float = 0.0    # Sz
+    buckle: float = 0.0     # kappa
+    propeller: float = 0.0  # omega
+    opening: float = 0.0    # sigma
 
     def as_tuple(self) -> Tuple[float, ...]:
         return (self.shear, self.stretch, self.stagger,
@@ -183,20 +169,19 @@ class PairParams:
 
 
 # --------------------------------------------------------------------------
-# Escalon: directo e inverso
+# Step: forward and inverse
 # --------------------------------------------------------------------------
-def rot_sqrt(R: np.ndarray) -> np.ndarray:
-    """Raiz cuadrada principal de una rotacion propia (mitad del eje-angulo)."""
-    ang = math.acos(max(-1.0, min(1.0, (np.trace(R) - 1.0) / 2.0)))
-    if ang < 1e-12:
-        return np.eye(3)
-    axis = np.array([R[2, 1] - R[1, 2], R[0, 2] - R[2, 0], R[1, 0] - R[0, 1]])
-    axis = axis / (2.0 * math.sin(ang))
-    h = ang / 2.0
-    K = np.array([[0.0, -axis[2], axis[1]],
-                  [axis[2], 0.0, -axis[0]],
-                  [-axis[1], axis[0], 0.0]])
-    return np.eye(3) + math.sin(h) * K + (1.0 - math.cos(h)) * (K @ K)
+def _bend(a: float, b: float) -> Tuple[float, float]:
+    """(Gamma, phi) of a bend from its two components: (tilt, roll) for a
+    step, (buckle, propeller) for a pair. Degrees."""
+    gamma = math.hypot(a, b)
+    phi = math.degrees(math.atan2(a, b)) if gamma > 1e-12 else 0.0
+    return gamma, phi
+
+
+def _bend_components(gamma: float, phi: float) -> Tuple[float, float]:
+    """Inverse of :func:`_bend`: (tilt, roll) or (buckle, propeller)."""
+    return gamma * math.sin(phi * DEG), gamma * math.cos(phi * DEG)
 
 
 def _cehs(omega: float, gamma: float, phi: float) -> Tuple[np.ndarray, np.ndarray]:
@@ -212,8 +197,7 @@ def _cehs(omega: float, gamma: float, phi: float) -> Tuple[np.ndarray, np.ndarra
 
 def step_rotation(sp: StepParams) -> Tuple[np.ndarray, np.ndarray]:
     """Return (R_step, M) for a step: T_{i+1} = T_i R_step, T_mst = T_i M."""
-    gamma = math.hypot(sp.tilt, sp.roll)
-    phi = math.degrees(math.atan2(sp.tilt, sp.roll)) if gamma > 1e-12 else 0.0
+    gamma, phi = _bend(sp.tilt, sp.roll)
     return _cehs(sp.twist, gamma, phi)
 
 
@@ -226,19 +210,19 @@ def apply_step(frame: Frame, sp: StepParams) -> Frame:
 
 
 def _zyz_from_matrix(R: np.ndarray) -> Tuple[float, float, float]:
-    """Extrae (phi, Gamma, psi) con R = Rz(phi).Ry(Gamma).Rz(psi), en grados."""
+    """(alpha, Gamma, beta) with R = Rz(alpha) Ry(Gamma) Rz(beta), in degrees."""
     gamma = math.degrees(math.acos(max(-1.0, min(1.0, R[2, 2]))))
     if abs(math.sin(gamma * DEG)) < 1e-10:
-        # Degenerado (sin curvatura): toda la rotacion es alrededor de z.
-        phi = 0.0
+        # no bend: the whole rotation is about z
+        alpha = 0.0
         if R[2, 2] > 0:
-            psi = math.degrees(math.atan2(R[1, 0], R[0, 0]))
+            beta = math.degrees(math.atan2(R[1, 0], R[0, 0]))
         else:
-            psi = math.degrees(math.atan2(-R[1, 0], -R[0, 0]))
+            beta = math.degrees(math.atan2(-R[1, 0], -R[0, 0]))
     else:
-        phi = math.degrees(math.atan2(R[1, 2], R[0, 2]))
-        psi = math.degrees(math.atan2(R[2, 1], -R[2, 0]))
-    return phi, gamma, psi
+        alpha = math.degrees(math.atan2(R[1, 2], R[0, 2]))
+        beta = math.degrees(math.atan2(R[2, 1], -R[2, 0]))
+    return alpha, gamma, beta
 
 
 def _unwrap_twist_phase(alpha: float, beta: float) -> Tuple[float, float]:
@@ -269,19 +253,17 @@ def frames_to_step_params(f_i: Frame, f_j: Frame) -> StepParams:
     omega, gamma, phi = _decompose(f_i.triad.T @ f_j.triad)
     _, M = _cehs(omega, gamma, phi)
     d = (f_i.triad @ M).T @ (f_j.origin - f_i.origin)
+    tilt, roll = _bend_components(gamma, phi)
     return StepParams(shift=float(d[0]), slide=float(d[1]), rise=float(d[2]),
-                      tilt=float(gamma * math.sin(phi * DEG)),
-                      roll=float(gamma * math.cos(phi * DEG)),
-                      twist=float(omega))
+                      tilt=float(tilt), roll=float(roll), twist=float(omega))
 
 
 # --------------------------------------------------------------------------
-# Par de bases: directo e inverso
+# Base pair: forward and inverse
 # --------------------------------------------------------------------------
 def pair_rotation(pp: PairParams) -> Tuple[np.ndarray, np.ndarray]:
     """Return (R_pair, M): R_pair = T_IIu^T T_I and T_bp = T_IIu M (T_IIu = unflipped base II)."""
-    gamma = math.hypot(pp.buckle, pp.propeller)
-    phi = math.degrees(math.atan2(pp.buckle, pp.propeller)) if gamma > 1e-12 else 0.0
+    gamma, phi = _bend(pp.buckle, pp.propeller)
     return _cehs(pp.opening, gamma, phi)
 
 
@@ -312,8 +294,7 @@ def base_frames_to_pair(f1: Frame, f2: Frame,
     o_bp = (f1.origin + f2.origin) / 2.0
     d = T_bp.T @ (f1.origin - f2.origin)
     shear, stretch, stagger = float(d[0]), float(d[1]), float(d[2])
-    buckle = float(gamma * math.sin(phi * DEG))
-    propeller = float(gamma * math.cos(phi * DEG))
+    buckle, propeller = (float(x) for x in _bend_components(gamma, phi))
     opening = float(omega)
     if direction is not None and float(np.dot(T_bp[:, 2], np.asarray(direction, float))) < 0:
         T_bp = T_bp @ rot_y(180.0)
@@ -324,21 +305,21 @@ def base_frames_to_pair(f1: Frame, f2: Frame,
 
 
 # --------------------------------------------------------------------------
-# Modelos de fibra: simetria helicoidal exacta
+# Fiber models: exact screw symmetry
 # --------------------------------------------------------------------------
 def fiber_frames(n_bp: int, twist: float, rise: float,
                  x_displacement: float = 0.0,
                  inclination: float = 0.0,
                  tip: float = 0.0) -> List[Frame]:
-    """Marcos de par de bases de un modelo de fibra con simetria de tornillo.
+    """Base-pair frames of a fiber model with screw symmetry.
 
-    El eje de la helice es el eje z global. El marco i-esimo es
+    The helix axis is the global z axis. Frame i is
 
         T_i = Rz(i.Omega) . Ry(tip) . Rx(inclination)
         o_i = Rz(i.Omega) . (dx, 0, 0)^T + (0, 0, i.h)^T
 
-    Para ``inclination = tip = 0`` y ``x_displacement = 0`` esto es exactamente
-    la orbita del operador de tornillo S(Omega, h) aplicado al marco identidad.
+    With inclination = tip = 0 and dx = 0 this is the orbit of the identity
+    frame under the screw operator S(Omega, h).
     """
     base_T = rot_y(tip) @ rot_x(inclination)
     frames = []
@@ -350,19 +331,19 @@ def fiber_frames(n_bp: int, twist: float, rise: float,
 
 
 # --------------------------------------------------------------------------
-# Superposicion
+# Superposition and torsions
 # --------------------------------------------------------------------------
 def kabsch(mobile: np.ndarray, ref: np.ndarray,
            weights: Sequence[float] | None = None) -> Tuple[np.ndarray, np.ndarray, float]:
-    """Superposicion de minimos cuadrados: devuelve (R, t, rmsd).
+    """Least-squares superposition: (R, t, rmsd) minimising
+    sum_a w_a ||R m_a + t - r_a||^2.
 
-    Minimiza sum_a w_a ||R.m_a + t - r_a||^2. Rotacion propia garantizada
-    (det R = +1), por lo que nunca introduce una inversion quiral.
+    R is a proper rotation (det R = +1), so the fit never inverts chirality.
     """
     m = np.asarray(mobile, float).reshape(-1, 3)
     r = np.asarray(ref, float).reshape(-1, 3)
     if m.shape != r.shape or m.shape[0] < 3:
-        raise ValueError(f"se requieren >=3 pares de atomos; recibido {m.shape} vs {r.shape}")
+        raise ValueError(f"need at least 3 matching points, got {m.shape} and {r.shape}")
     w = np.ones(len(m)) if weights is None else np.asarray(weights, float)
     w = w / w.sum()
     mc = (w[:, None] * m).sum(0)
@@ -378,14 +359,8 @@ def kabsch(mobile: np.ndarray, ref: np.ndarray,
     return R, t, rmsd
 
 
-# --------------------------------------------------------------------------
-# Pseudorrotacion del azucar (Altona & Sundaralingam 1972)
-# --------------------------------------------------------------------------
-PUCKER_ENVELOPES = ["C3'-endo", "C4'-exo", "O4'-endo", "C1'-exo", "C2'-endo",
-                    "C3'-exo", "C4'-endo", "O4'-exo", "C1'-endo", "C2'-exo"]
-
-
 def dihedral(p0, p1, p2, p3) -> float:
+    """Torsion angle p0-p1-p2-p3 in degrees, in (-180, 180]."""
     p0, p1, p2, p3 = (np.asarray(p, float) for p in (p0, p1, p2, p3))
     b0, b1, b2 = p0 - p1, p2 - p1, p3 - p2
     b1n = b1 / np.linalg.norm(b1)
@@ -394,12 +369,26 @@ def dihedral(p0, p1, p2, p3) -> float:
     return math.degrees(math.atan2(np.dot(np.cross(b1n, v), w), np.dot(v, w)))
 
 
-def pseudorotation(coords: Dict[str, Iterable[float]]) -> dict | None:
-    """Fase P, amplitud nu_max y dominio N/S del anillo de furanosa.
+def signed_volume(c: Dict[str, np.ndarray], centre: str, a: str, b: str, d: str) -> float:
+    """(a - centre) x (b - centre) . (d - centre): its sign is the handedness."""
+    o = c[centre]
+    return float(np.dot(np.cross(c[a] - o, c[b] - o), c[d] - o))
 
-    Acepta anillos con O4' o S4' (azucares 4'-tio). Devuelve ``None`` si el
-    fragmento no contiene un anillo de furanosa reconocible (p. ej. UNA
-    aciclica o morfolino).
+
+# --------------------------------------------------------------------------
+# Sugar pseudorotation (Altona & Sundaralingam 1972)
+# --------------------------------------------------------------------------
+# Names of the ten 36-degree sectors of P starting at 0, as 3DNA and cpptraj
+# label them: [0, 36) is C3'-endo, [144, 180) C2'-endo.
+PUCKER_ENVELOPES = ["C3'-endo", "C4'-exo", "O4'-endo", "C1'-exo", "C2'-endo",
+                    "C3'-exo", "C4'-endo", "O4'-exo", "C1'-endo", "C2'-exo"]
+
+
+def pseudorotation(coords: Dict[str, Iterable[float]]) -> dict | None:
+    """Phase P, amplitude nu_max and North/South domain of a furanose ring.
+
+    Rings with O4' or S4' (4'-thio sugars) are accepted. Returns None when
+    there is no furanose ring (an acyclic sugar, a morpholino).
     """
     ring_o = "O4'" if "O4'" in coords else ("S4'" if "S4'" in coords else None)
     if ring_o is None or not all(k in coords for k in ("C1'", "C2'", "C3'", "C4'")):
@@ -415,5 +404,5 @@ def pseudorotation(coords: Dict[str, Iterable[float]]) -> dict | None:
     domain = "North" if (P < 90.0 or P > 270.0) else "South"
     return {"nu": [round(x, 2) for x in nu], "P": round(P, 1),
             "nu_max": round(numax, 1), "ring_heteroatom": ring_o,
-            "envelope": PUCKER_ENVELOPES[int(((P + 18) % 360) // 36)],
+            "envelope": PUCKER_ENVELOPES[int(P // 36) % 10],
             "domain": domain}

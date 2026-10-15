@@ -29,6 +29,7 @@ from __future__ import annotations
 import hashlib
 import io
 import json
+import shlex
 import zipfile
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
@@ -45,10 +46,15 @@ WATER = {"none": None,
          "opc": ("leaprc.water.opc", "OPCBOX"),
          "tip3p": ("leaprc.water.tip3p", "TIP3PBOX"),
          "spce": ("leaprc.water.spce", "SPCBOX")}
+BOXES = {"octahedral": "solvateOct", "cubic": "solvateBox"}
+BUFFER_RANGE = (5.0, 30.0)      # A, solute to box edge
 
 
 @dataclass
 class AmberOptions:
+    """Options of the tleap input. ``box``, ``buffer`` and ``neutralize``
+    apply only with explicit water."""
+
     dna_ff: str = "OL15"
     rna_ff: str = "OL3"
     water: str = "none"          # none (vacuum / implicit solvent) | opc | tip3p | spce
@@ -57,19 +63,31 @@ class AmberOptions:
     neutralize: bool = True
 
     def validate(self) -> None:
+        """Raise ValueError for an option tleap would not understand."""
         if self.dna_ff not in DNA_FF:
             raise ValueError(f"unknown DNA force field {self.dna_ff!r}")
         if self.rna_ff not in RNA_FF:
             raise ValueError(f"unknown RNA force field {self.rna_ff!r}")
         if self.water not in WATER:
             raise ValueError(f"unknown water model {self.water!r}")
-        if self.box not in ("octahedral", "cubic"):
+        if self.box not in BOXES:
             raise ValueError(f"unknown box {self.box!r}")
-        if not (5.0 <= self.buffer <= 30.0):
-            raise ValueError("buffer must be within 5-30 A")
+        lo, hi = BUFFER_RANGE
+        if not lo <= self.buffer <= hi:
+            raise ValueError(f"buffer must be within {lo:g}-{hi:g} A")
+
+    def cli_args(self) -> List[str]:
+        """The same options as ``dsxnabuilder build`` arguments."""
+        args = ["--dna-ff", self.dna_ff, "--rna-ff", self.rna_ff, "--water", self.water]
+        if WATER[self.water]:
+            args += ["--box", self.box, "--buffer", f"{self.buffer:g}"]
+            if not self.neutralize:
+                args.append("--no-neutralize")
+        return args
 
 
 def leap_script(res: BuildResult, opts: AmberOptions, libs: List[str]) -> str:
+    """tleap input: force fields, modXNA libraries ``libs``, optional solvent."""
     has_mod = bool(libs)
     lines = ["# dsXNAbuilder: Amber topology", "# run: tleap -f leap.in"]
     if has_mod:
@@ -83,7 +101,7 @@ def leap_script(res: BuildResult, opts: AmberOptions, libs: List[str]) -> str:
         lines.append(f"source {water[0]}")
     lines += ["", "mol = loadpdb structure.pdb", "check mol", "charge mol"]
     if water:
-        solv = "solvateOct" if opts.box == "octahedral" else "solvateBox"
+        solv = BOXES[opts.box]
         if opts.neutralize:
             lines += ["addIons mol Na+ 0", "addIons mol Cl- 0"]
         lines.append(f"{solv} mol {water[1]} {opts.buffer:.1f}")
@@ -107,6 +125,7 @@ echo "topology: system.parm7 system.rst7 (system.pdb)"
 
 
 def readme_text(res: BuildResult, opts: AmberOptions) -> str:
+    """README.txt of the package."""
     m = res.model
     mod = " + modXNA (frcmod.modxna, libs/)" if res.modified() else ""
     water = WATER[opts.water]
@@ -138,8 +157,19 @@ frcmod.modxna are GPL-3.0. Your structures are yours.
 """
 
 
+def reproduce_command(res: BuildResult, opts: AmberOptions) -> str:
+    """Shell command that rebuilds this package with the CLI."""
+    args = ["dsxnabuilder", "build", "--top", res.duplex.top.raw,
+            "--bottom", res.duplex.bottom.raw, "--model", str(res.model.id)]
+    for key, name in sorted(res.custom_names.items()):
+        args += ["--name", f"{key}={name}"]
+    args += opts.cli_args() + ["--amber", "package.zip"]
+    return " ".join(shlex.quote(a) for a in args)
+
+
 def manifest(res: BuildResult, opts: AmberOptions, files: Dict[str, bytes],
              fiber_provenance: dict, residue_index: Optional[dict] = None) -> dict:
+    """manifest.json: inputs, model, residues, issues and file hashes."""
     m = res.model
     chains = {}
     for r in res.residues:
@@ -155,11 +185,7 @@ def manifest(res: BuildResult, opts: AmberOptions, files: Dict[str, bytes],
         "created_utc": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "input": {"strand1_5to3": res.duplex.top.raw, "strand2_3to5": res.duplex.bottom.raw,
                   "model": m.id, "amber": asdict(opts)},
-        "reproduce": (f"dsxnabuilder build --top {json.dumps(res.duplex.top.raw)} "
-                      f"--bottom {json.dumps(res.duplex.bottom.raw)} --model {m.id} "
-                      + "".join(f"--name {json.dumps(k + '=' + v)} "
-                                for k, v in sorted(res.custom_names.items()))
-                      + "--amber package.zip"),
+        "reproduce": reproduce_command(res, opts),
         "model": {"id": m.id, "family": m.family, "description": m.description,
                   "repeat_bp": m.k, "twist_per_bp": m.bp_twist, "rise_per_bp": m.bp_rise,
                   "handedness": m.handedness, "references": m.references,
@@ -205,6 +231,7 @@ def package(res: BuildResult, opts: AmberOptions, fiber_provenance: dict,
 
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
+        # fixed timestamps and order: the same build gives the same zip bytes
         for name in sorted(files):
             info = zipfile.ZipInfo(f"dsxnabuilder/{name}", date_time=(2026, 1, 1, 0, 0, 0))
             info.external_attr = (0o755 if name.endswith(".sh") else 0o644) << 16

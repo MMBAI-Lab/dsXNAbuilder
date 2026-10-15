@@ -38,7 +38,7 @@ ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 sys.path.insert(0, ROOT)
 
 from dsxnabuilder.catalog import Catalog  # noqa: E402
-from dsxnabuilder.fragments import base_families, test_context  # noqa: E402
+from dsxnabuilder.fragments import base_families, scaffold_context  # noqa: E402
 from dsxnabuilder.reslib import ResidueLibrary  # noqa: E402
 from dsxnabuilder.service import Session  # noqa: E402
 
@@ -47,10 +47,10 @@ PAIR = {"A": "T", "T": "A", "U": "A", "G": "C", "C": "G"}
 
 def duplex_for(key: str, res: dict, catalog, families):
     """A short duplex with the residue at its own position (5' end, middle or 3'
-    end), on a model with its sugar pucker (dsxnabuilder.fragments.test_context)."""
+    end), on a model with its sugar pucker (dsxnabuilder.fragments.scaffold_context)."""
     bb, sugar, base = res["triplet"]
     cap = res["cap"]
-    letter, chem, model = test_context((bb, sugar, base), catalog, families)
+    letter, chem, model = scaffold_context((bb, sugar, base), catalog, families)
     rna = chem == "RNA"
     tok = f"{{{bb}/{sugar}/{base}:{letter}}}"
     flank = "r(GC)" if rna else "d(GC)"

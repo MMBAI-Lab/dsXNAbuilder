@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "dsxnabuilder"
 dynamic = ["version"]
-description = "Canonical dsDNA/dsRNA/hybrid builder from 3DNA fiber models with modXNA chemistry and Amber-ready output"
+description = "Double-stranded DNA/RNA/hybrid builder from 3DNA fiber models with modXNA modifications; PDB output and an optional Amber/modXNA topology package"
 readme = "README.md"
 requires-python = ">=3.10"
 license = {text = "GPL-3.0-or-later"}

@@ -33,7 +33,6 @@ double-stranded model the script
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import math
 import os
@@ -52,9 +51,9 @@ from dsxnabuilder.geometry import (Frame, base_frames_to_pair,  # noqa: E402
                                    frames_to_step_params, pseudorotation,
                                    rot_x, rot_z)
 from dsxnabuilder.nucleotide import (BACKBONE_ATOMS, GLYCOSIDIC_BOND,  # noqa: E402
-                                     IDEAL_BONDS, WATSON_CRICK, chi, is_syn,
-                                     normalize_name)
-from dsxnabuilder.offlib import signed_volume  # noqa: E402
+                                     IDEAL_BONDS, RING_LETTER, WATSON_CRICK, chi,
+                                     is_syn, normalize_name)
+from dsxnabuilder.geometry import signed_volume  # noqa: E402
 from dsxnabuilder.structure import (HBOND_ATOMS, parse_pdb, residues,  # noqa: E402
                                     standard_base_frame)
 
@@ -172,7 +171,6 @@ class Res:
 
 
 DYAD = rot_x(180.0)
-RING_LETTER = {"A": "A", "G": "G", "I": "G", "X": "G", "C": "C", "T": "T", "U": "U"}
 
 
 def read_res(path: str) -> List[Res]:
@@ -379,12 +377,12 @@ def derive_model(mid: int, mdir: str, readme, std, sha: Dict[str, str]) -> dict:
         inter = link(u[-1], screw_apply(u[0], tw, h, -1))
         intra = [link(u[j], u[j + 1]) for j in range(len(u) - 1)]
         return inter, intra
-    inter2, intra2 = closes_II(U2)
+    inter2, _ = closes_II(U2)
     if not (O3P_OK[0] - 0.05 <= inter2 <= O3P_OK[1] + 0.05):
         r2 = list(reversed(U2))
-        i2, ii2 = closes_II(r2)
+        i2, _ = closes_II(r2)
         if O3P_OK[0] - 0.05 <= i2 <= O3P_OK[1] + 0.05:
-            U2, inter2, intra2 = r2, i2, ii2
+            U2, inter2 = r2, i2
     # -- 3. normalize to strand I 5'->3' along +z ----------------------------
     flipped = h < 0
     if flipped:

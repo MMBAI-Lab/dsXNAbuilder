@@ -15,4 +15,4 @@ def test_yaml_json_in_sync(name):
         y = yaml.safe_load(fh)
     with open(os.path.join(ROOT, "data", f"{name}.json"), encoding="utf-8") as fh:
         j = json.load(fh)
-    assert y == j, f"run: python tools/build_data.py"
+    assert y == j, "run: python tools/build_data.py"

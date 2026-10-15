@@ -48,17 +48,16 @@ from __future__ import annotations
 import json
 import os
 import re
-from collections import deque
 from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 
-from .catalog import Issue
 from .geometry import kabsch
+from .graph import ring_atoms, within
+from .issues import Issue
 from .offlib import OffUnit, parse_off, rename_unit
+from .paths import DATA, FRCMOD, RESIDUE_DIR
 
-HERE = os.path.dirname(os.path.abspath(__file__))
-ROOT = os.path.abspath(os.path.join(HERE, ".."))
 STRAIN_TOL = 0.15     # A, bond length change where a new atom closes a ring
 GEOMETRY_TOL = 0.30   # A, bond length change that makes a transplant unusable
 CONTACT_MIN = 2.0     # A, non-bonded atoms of one residue (1-4 and beyond)
@@ -67,6 +66,12 @@ CHIRAL_MIN = 0.25     # |u1 . (u2 x u3)| of a tetrahedral centre is ~0.5-0.6; pl
 # backbone and glycosidic atoms (they define the helical frame and O3'-P).
 CORE_ATOMS = {"P", "OP1", "OP2", "O5'", "C5'", "C4'", "O4'", "C3'", "O3'", "C2'", "C1'",
               "N9", "N1"}
+# Ring-closure relaxation (_refine): weights of the 1-2 and 1-3 distance terms,
+# gradient step (A^-1 per unit weight) and number of steps.
+REFINE_W_BOND = 4.0
+REFINE_W_ANGLE = 0.3
+REFINE_STEP = 0.05
+REFINE_ITERS = 400
 
 
 def tleap_name(name: str) -> str:
@@ -98,10 +103,17 @@ def _rename_atoms_off(text: str) -> str:
 
 
 def residue_key(backbone: str, sugar: str, base: str, cap: str) -> str:
+    """Key of a prebuilt residue in data/residue_index.json."""
     return f"{backbone}-{sugar}-{base}-{cap}"
 
 
 class ResidueLibrary:
+    """The prebuilt modXNA residues (one OFF file each) and frcmod.modxna.
+
+    The CLI reads them from ``web/lib``; in the browser the worker fetches the
+    files a build needs and hands them over with :meth:`provide`.
+    """
+
     def __init__(self, index: dict, root: Optional[str] = None,
                  frcmod_path: Optional[str] = None):
         self.index = index
@@ -115,12 +127,12 @@ class ResidueLibrary:
 
     @classmethod
     def load_default(cls) -> "ResidueLibrary":
-        with open(os.path.join(ROOT, "data", "residue_index.json"), encoding="utf-8") as fh:
+        """The curated library of the repository (files may be absent: tests
+        that need them are skipped)."""
+        with open(os.path.join(DATA, "residue_index.json"), encoding="utf-8") as fh:
             index = json.load(fh)
-        root = os.path.join(ROOT, "web", "lib", "residues")
-        frc = os.path.join(ROOT, "web", "lib", "frcmod.modxna")
-        return cls(index, root if os.path.isdir(root) else None,
-                   frc if os.path.exists(frc) else None)
+        return cls(index, RESIDUE_DIR if os.path.isdir(RESIDUE_DIR) else None,
+                   FRCMOD if os.path.exists(FRCMOD) else None)
 
     # ------------------------------------------------------------------
     def key_for(self, spec) -> str:
@@ -139,15 +151,13 @@ class ResidueLibrary:
             self._frcmod = frcmod
 
     def text(self, key: str) -> str:
+        """OFF text of a residue, read from disk when it was not provided."""
         if key not in self._texts:
             if self.root is None:
                 raise KeyError(f"residue library file for {key} was not provided")
             with open(os.path.join(self.root, self.residues[key]["file"]), encoding="utf-8") as fh:
                 self._texts[key] = fh.read()
         return self._texts[key]
-
-    def available(self, key: str) -> bool:
-        return key in self._texts or self.root is not None
 
     def unit(self, key: str) -> OffUnit:
         """The modXNA unit, with atom names as tleap reads them back from the PDB."""
@@ -156,6 +166,7 @@ class ResidueLibrary:
         return self._units[key]
 
     def frcmod(self) -> str:
+        """Text of frcmod.modxna."""
         if self._frcmod is None:
             if self.frcmod_path is None:
                 raise KeyError("frcmod.modxna was not provided")
@@ -164,26 +175,33 @@ class ResidueLibrary:
         return self._frcmod
 
     # ------------------------------------------------------------------
-    def transplant(self, spec, names: List[str], xyz: np.ndarray
-                   ) -> Tuple[List[str], np.ndarray, dict]:
+    def install(self, spec, names: List[str], xyz: np.ndarray,
+                strand: Optional[str] = None) -> Tuple[List[str], np.ndarray, dict]:
+        """Transplant the residue of ``spec`` onto a scaffold nucleotide.
+
+        Returns its heavy atoms and a dict with the residue key, the atoms
+        placed and the issues: TRANSPLANT_FAILED (error) when the result
+        fails a check, TRANSPLANT_STRAIN (warning) for strained ring closures.
+        """
         key = self.key_for(spec)
-        unit = self.unit(key)
-        new_names, new_xyz, report = transplant(unit, names, xyz)
+        new_names, new_xyz, report = transplant(self.unit(key), names, xyz)
         issues = []
-        bad = ([f"configuration at {', '.join(report['stereo'])}"] if report["stereo"] else []) + \
-            report["distorted"][:3] + report["contacts"][:3]
+        bad = report["distorted"][:3] + report["contacts"][:3]
+        if report["stereo"]:
+            bad.insert(0, f"configuration at {', '.join(report['stereo'])}")
         if bad:
             issues.append(Issue("error", spec.column, "TRANSPLANT_FAILED",
                                 f"{spec.token}: the {'/'.join(spec.triplet())} residue does not fit "
                                 f"the fiber scaffold ({'; '.join(bad)})",
                                 {"token": spec.token, "triplet": "/".join(spec.triplet()),
-                                 "detail": "; ".join(bad)}, None))
+                                 "detail": "; ".join(bad)}, strand))
         if report["strained"]:
             issues.append(Issue("warning", spec.column, "TRANSPLANT_STRAIN",
                                 f"{spec.token}: modified atoms close onto the scaffold with "
                                 f"strained bonds ({', '.join(report['strained'][:3])}); "
                                 "minimize before MD",
-                                {"token": spec.token, "bonds": ", ".join(report["strained"][:3])}))
+                                {"token": spec.token, "bonds": ", ".join(report["strained"][:3])},
+                                strand))
         return new_names, new_xyz, {"key": key, "placed": report["placed"], "issues": issues}
 
     def package_libs(self, result, provided: Optional[Dict[str, str]] = None
@@ -214,7 +232,7 @@ def transplant(unit: OffUnit, names: List[str], xyz: np.ndarray
     sugar (L- or alpha-sugars, unlocked rings) or base atoms share names with a
     different ring.
     """
-    sc = {n: p for n, p in zip(names, xyz)}
+    sc = dict(zip(names, xyz))
     lib = unit.coords()
     heavy = unit.heavy_atoms()
     hset = set(heavy)
@@ -227,8 +245,8 @@ def transplant(unit: OffUnit, names: List[str], xyz: np.ndarray
         if a in sc and a not in special:
             placed[a] = np.array(sc[a], float)
     # Ring closure (LNA/cEt bridge C4'-C6'-O2'): a shared substituent bonded to a
-    # new atom that also bonds to the scaffold core must move with the bridge,
-    # otherwise the ribose O2' position leaves the bridge 0.6 A too long.
+    # new atom that also bonds to the scaffold core must move with the bridge;
+    # left at the ribose O2' position it makes the bridge 0.6 A too long.
     released = set()
     for a in heavy:
         if a in placed:
@@ -243,17 +261,17 @@ def transplant(unit: OffUnit, names: List[str], xyz: np.ndarray
         v = sc[o_name] - sc["P"]
         d = float(np.linalg.norm(lib[s_name] - lib["P"]))
         placed[s_name] = sc["P"] + d * v / np.linalg.norm(v)
-    new = [a for a in heavy if a not in placed and a not in special]
+    new = [a for a in heavy if a not in placed]
     order = _place(new, placed, lib, nb, unit.name)
     if released:
         _refine(list(new), placed, lib, nb)
-    # A shared substituent kept from the scaffold can sit on the wrong face for
-    # this sugar (O2' of arabinose: the scaffold puts it where ribose has it).
-    # Such atoms are placed from the residue instead; ring atoms cannot be.
-    # stereocentres: carbon and sulfur (a three-coordinate N or O inverts freely)
-    centres = {n for n, e in zip(unit.atom_names, unit.elements) if e in (6, 16) and n in hset}
+    # Stereocentres are carbon and sulfur (a three-coordinate N or O inverts
+    # freely). A shared substituent kept from the scaffold can sit on the wrong
+    # face for this sugar (O2' of arabinose: the scaffold puts it where ribose
+    # has it); such atoms are placed from the residue instead. Ring atoms cannot be.
+    centres = {n for n, e in elements.items() if e in (6, 16) and n in hset}
     stereo = _stereo_mismatches(lib, placed, nb, centres)
-    rings = _ring_atoms(nb)
+    rings = ring_atoms(nb)
     redo = sorted({a for c in stereo for a in [c] + nb[c]
                    if a in sc and a not in CORE_ATOMS and a not in special and a not in rings})
     if redo:
@@ -276,7 +294,7 @@ def transplant(unit: OffUnit, names: List[str], xyz: np.ndarray
             strained.append(f"{a}-{b} {d1:.2f}/{d0:.2f} A")
     out_names = list(heavy)
     out_xyz = np.array([placed[a] for a in out_names])
-    if not np.all(np.isfinite(out_xyz)):        # a ring closure that would not relax
+    if not np.all(np.isfinite(out_xyz)):        # _refine diverged on a ring closure
         distorted.insert(0, "ring closure did not converge")
     return out_names, out_xyz, {"placed": order + list(special), "strained": strained,
                                 "stereo": stereo, "distorted": distorted,
@@ -333,9 +351,9 @@ def _place(atoms: List[str], placed: Dict[str, np.ndarray], lib: Dict[str, np.nd
         for a in cands:
             if not any(b in placed for b in nb[a]):
                 continue
-            refs = _refs(a, nb, placed, 2)
+            refs = [b for b in within(nb, a, 2) if b in placed]
             if len(refs) < 3:
-                refs = _refs(a, nb, placed, 3)
+                refs = [b for b in within(nb, a, 3) if b in placed]
             if len(refs) < 3:
                 continue
             R, t, _ = kabsch(np.array([lib[r] for r in refs]),
@@ -350,25 +368,8 @@ def _place(atoms: List[str], placed: Dict[str, np.ndarray], lib: Dict[str, np.nd
     return order
 
 
-def _ring_atoms(nb: Dict[str, List[str]]) -> set:
-    """Atoms on a ring: two of their neighbours stay connected without them."""
-    out = set()
-    for a, ns in nb.items():
-        if len(ns) < 2:
-            continue
-        seen, q = {ns[0]}, deque([ns[0]])
-        while q:
-            x = q.popleft()
-            for y in nb.get(x, []):
-                if y != a and y not in seen:
-                    seen.add(y)
-                    q.append(y)
-        if any(n in seen for n in ns[1:]):
-            out.add(a)
-    return out
-
-
 def _chirality(pos: Dict[str, np.ndarray], c: str, ns: List[str]) -> float:
+    """Signed volume of the unit vectors from ``c`` to its first three neighbours."""
     u = [(pos[n] - pos[c]) / np.linalg.norm(pos[n] - pos[c]) for n in ns[:3]]
     return float(np.dot(u[0], np.cross(u[1], u[2])))
 
@@ -394,38 +395,17 @@ def _stereo_mismatches(lib: Dict[str, np.ndarray], placed: Dict[str, np.ndarray]
 
 def _close_contacts(names: List[str], xyz: np.ndarray, nb: Dict[str, List[str]]) -> List[str]:
     """Atom pairs of the residue three or more bonds apart closer than CONTACT_MIN."""
-    idx = {n: i for i, n in enumerate(names)}
     d = np.linalg.norm(xyz[:, None, :] - xyz[None, :, :], axis=2)
     out = []
     for i, j in zip(*np.nonzero(np.triu(d < CONTACT_MIN, 1))):
         a, b = names[i], names[j]
-        near = {a}
-        for _ in range(2):          # atoms within two bonds of a
-            near |= {y for x in near for y in nb.get(x, [])}
-        if b not in near:
+        if b not in within(nb, a, 2):
             out.append(f"{a}...{b} {d[i, j]:.2f} A")
     return out
 
 
-def _refs(atom: str, nb: Dict[str, List[str]], placed: Dict[str, np.ndarray],
-          depth: int) -> List[str]:
-    """Placed atoms within ``depth`` bonds of ``atom`` (graph distance)."""
-    seen = {atom: 0}
-    q = deque([atom])
-    while q:
-        a = q.popleft()
-        if seen[a] == depth:
-            continue
-        for b in sorted(nb[a]):
-            if b not in seen:
-                seen[b] = seen[a] + 1
-                q.append(b)
-    return [a for a, d in sorted(seen.items(), key=lambda kv: kv[1])
-            if d > 0 and a in placed]
-
-
 def _refine(movable: List[str], placed: Dict[str, np.ndarray], lib: Dict[str, np.ndarray],
-            nb: Dict[str, List[str]], iters: int = 400) -> None:
+            nb: Dict[str, List[str]], iters: int = REFINE_ITERS) -> None:
     """Relax ring-closing new atoms to the library 1-2 and 1-3 distances.
 
     Only the new atoms move; the scaffold stays fixed. Used when new atoms
@@ -438,10 +418,10 @@ def _refine(movable: List[str], placed: Dict[str, np.ndarray], lib: Dict[str, np
     pairs = []
     for a in movable:
         for b in nb[a]:
-            pairs.append((a, b, 4.0))
+            pairs.append((a, b, REFINE_W_BOND))
             for c in nb[b]:
                 if c != a:
-                    pairs.append((a, c, 0.3))
+                    pairs.append((a, c, REFINE_W_ANGLE))
     target = {(a, b): float(np.linalg.norm(lib[a] - lib[b])) for a, b, _ in pairs}
     for _ in range(iters):
         grad = {a: np.zeros(3) for a in movable}
@@ -453,4 +433,4 @@ def _refine(movable: List[str], placed: Dict[str, np.ndarray], lib: Dict[str, np
             if b in mov:
                 grad[b] -= g
         for a in movable:
-            placed[a] = placed[a] - 0.05 * grad[a]
+            placed[a] = placed[a] - REFINE_STEP * grad[a]

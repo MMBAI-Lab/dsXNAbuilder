@@ -1,7 +1,7 @@
 {
- "generated_from": "github.com/modxna/modxna @HEAD (instantanea)",
+ "generated_from": "github.com/modxna/modxna @ad2e8bd",
  "content_sha256": "2e22e517286cb2e2dd449dc3b52d6ef1",
- "pucker_method": "Altona-Sundaralingam via xnafiber.geometry.pseudorotation (acepta anillos con O4' o S4')",
+ "pucker_method": "Altona-Sundaralingam via dsxnabuilder.geometry.pseudorotation (rings with O4' or S4')",
  "n_fragments": 298,
  "counts": {
   "backbone": 31,
@@ -1326,7 +1326,7 @@
     "P": 59.6,
     "nu_max": 41.9,
     "ring_heteroatom": "O4'",
-    "envelope": "O4'-endo",
+    "envelope": "C4'-exo",
     "domain": "North"
    }
   },
@@ -1383,7 +1383,7 @@
     "P": 129.2,
     "nu_max": 40.2,
     "ring_heteroatom": "O4'",
-    "envelope": "C2'-endo",
+    "envelope": "C1'-exo",
     "domain": "South"
    }
   },
@@ -1441,7 +1441,7 @@
     "P": 19.7,
     "nu_max": 36.7,
     "ring_heteroatom": "O4'",
-    "envelope": "C4'-exo",
+    "envelope": "C3'-endo",
     "domain": "North"
    }
   },
@@ -1567,7 +1567,7 @@
     "P": 19.0,
     "nu_max": 36.9,
     "ring_heteroatom": "O4'",
-    "envelope": "C4'-exo",
+    "envelope": "C3'-endo",
     "domain": "North"
    }
   },
@@ -1629,7 +1629,7 @@
     "P": 22.1,
     "nu_max": 59.0,
     "ring_heteroatom": "O4'",
-    "envelope": "C4'-exo",
+    "envelope": "C3'-endo",
     "domain": "North"
    }
   },
@@ -1822,7 +1822,7 @@
     "P": 349.8,
     "nu_max": 31.9,
     "ring_heteroatom": "O4'",
-    "envelope": "C3'-endo",
+    "envelope": "C2'-exo",
     "domain": "North"
    }
   },
@@ -2009,7 +2009,7 @@
     "P": 170.4,
     "nu_max": 47.3,
     "ring_heteroatom": "S4'",
-    "envelope": "C3'-exo",
+    "envelope": "C2'-endo",
     "domain": "South"
    }
   },
@@ -2068,7 +2068,7 @@
     "P": 250.8,
     "nu_max": 63.6,
     "ring_heteroatom": "O4'",
-    "envelope": "O4'-exo",
+    "envelope": "C4'-endo",
     "domain": "South"
    }
   },
@@ -2142,7 +2142,7 @@
     "HEAD03STRIP": "@C12,H121,H122,H123"
    },
    "natoms": 22,
-   "qsum": 0.0,
+   "qsum": -0.0,
    "atom_names": [
     "O3'",
     "C1'",
@@ -2180,7 +2180,7 @@
     "P": 25.6,
     "nu_max": 39.6,
     "ring_heteroatom": "O4'",
-    "envelope": "C4'-exo",
+    "envelope": "C3'-endo",
     "domain": "North"
    }
   },
@@ -2235,7 +2235,7 @@
     "P": 24.4,
     "nu_max": 38.2,
     "ring_heteroatom": "O4'",
-    "envelope": "C4'-exo",
+    "envelope": "C3'-endo",
     "domain": "North"
    }
   },
@@ -2294,7 +2294,7 @@
     "P": 20.6,
     "nu_max": 58.0,
     "ring_heteroatom": "O4'",
-    "envelope": "C4'-exo",
+    "envelope": "C3'-endo",
     "domain": "North"
    }
   },
@@ -2358,7 +2358,7 @@
     "P": 164.9,
     "nu_max": 36.4,
     "ring_heteroatom": "O4'",
-    "envelope": "C3'-exo",
+    "envelope": "C2'-endo",
     "domain": "South"
    }
   },
@@ -2426,7 +2426,7 @@
     "P": 21.8,
     "nu_max": 38.1,
     "ring_heteroatom": "O4'",
-    "envelope": "C4'-exo",
+    "envelope": "C3'-endo",
     "domain": "North"
    }
   },
@@ -2700,7 +2700,7 @@
     "P": 26.7,
     "nu_max": 37.4,
     "ring_heteroatom": "O4'",
-    "envelope": "C4'-exo",
+    "envelope": "C3'-endo",
     "domain": "North"
    }
   },
@@ -2758,7 +2758,7 @@
     "P": 32.8,
     "nu_max": 40.2,
     "ring_heteroatom": "O4'",
-    "envelope": "C4'-exo",
+    "envelope": "C3'-endo",
     "domain": "North"
    }
   },
@@ -2828,7 +2828,7 @@
     "P": 26.2,
     "nu_max": 37.2,
     "ring_heteroatom": "O4'",
-    "envelope": "C4'-exo",
+    "envelope": "C3'-endo",
     "domain": "North"
    }
   },
@@ -2889,7 +2889,7 @@
     "P": 29.8,
     "nu_max": 39.1,
     "ring_heteroatom": "O4'",
-    "envelope": "C4'-exo",
+    "envelope": "C3'-endo",
     "domain": "North"
    }
   },
@@ -3007,7 +3007,7 @@
     "P": 71.3,
     "nu_max": 102.0,
     "ring_heteroatom": "O4'",
-    "envelope": "O4'-endo",
+    "envelope": "C4'-exo",
     "domain": "North"
    }
   },
@@ -3260,7 +3260,7 @@
     "P": 137.5,
     "nu_max": 41.7,
     "ring_heteroatom": "O4'",
-    "envelope": "C2'-endo",
+    "envelope": "C1'-exo",
     "domain": "South"
    }
   },
@@ -3439,7 +3439,7 @@
     "P": 26.3,
     "nu_max": 34.0,
     "ring_heteroatom": "O4'",
-    "envelope": "C4'-exo",
+    "envelope": "C3'-endo",
     "domain": "North"
    }
   },
@@ -3496,7 +3496,7 @@
     "P": 33.9,
     "nu_max": 41.1,
     "ring_heteroatom": "O4'",
-    "envelope": "C4'-exo",
+    "envelope": "C3'-endo",
     "domain": "North"
    }
   },
@@ -3667,7 +3667,7 @@
     "P": 343.0,
     "nu_max": 35.9,
     "ring_heteroatom": "O4'",
-    "envelope": "C3'-endo",
+    "envelope": "C2'-exo",
     "domain": "North"
    }
   },

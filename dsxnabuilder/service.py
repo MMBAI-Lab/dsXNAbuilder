@@ -20,17 +20,25 @@ from typing import Dict, List, Optional
 
 from . import __version__
 from .amberio import AmberOptions, package
-from .pdbout import structure_pdb
 from .build import BuildError, BuildResult, build_duplex
-from .catalog import Catalog, Issue
+from .catalog import Catalog, default_chem
 from .fibers import FiberLibrary, load_library
-from .seqlang import AliasTable, SequenceParseError, parse_duplex
+from .fragments import pieces
+from .issues import Issue
+from .nucleotide import pair_kind
+from .paths import DATA
+from .pdbout import describe, structure_pdb
+from .seqlang import AliasTable, DuplexSpec, SequenceParseError, parse_duplex
 from .structure import element_of
-
-DATA = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "data")
 
 
 class Session:
+    """Data loaded once (catalogue, aliases, fiber models) and the requests.
+
+    ``residue_library`` is a reslib.ResidueLibrary, or None to build only
+    canonical duplexes.
+    """
+
     def __init__(self, data_dir: Optional[str] = None, residue_library=None):
         d = data_dir or DATA
         self.data_dir = d
@@ -64,7 +72,6 @@ class Session:
 
     def pieces(self) -> dict:
         """Sugars, bases and linkages of the prebuilt library (modXNA library tab)."""
-        from .fragments import pieces
         return pieces(self.data_dir)
 
     def validate(self, request: dict) -> dict:
@@ -74,7 +81,7 @@ class Session:
         except (KeyError, ValueError) as exc:
             return {"ok": False, "issues": [Issue("error", None, "UNKNOWN_MODEL",
                                                   str(exc), {}).to_json()]}
-        defaults = (_chem(model.strand_chem("I")), _chem(model.strand_chem("II")))
+        defaults = (default_chem(model.strand_chem("I")), default_chem(model.strand_chem("II")))
         try:
             dup = parse_duplex(request.get("top", ""), request.get("bottom", ""),
                                self.catalog, self.aliases, defaults)
@@ -93,6 +100,13 @@ class Session:
         """Build the duplex. Always returns the ``pdb`` text (the default
         output); with ``request["package"]`` true also the Amber/modXNA
         topology package as ``zip`` bytes (advanced option)."""
+        opts = None
+        if request.get("package"):
+            try:
+                opts = amber_options(request.get("amber", {}))
+            except (TypeError, ValueError) as exc:
+                return {"ok": False, "issues": [Issue("error", None, "AMBER_OPTIONS",
+                                                      f"Amber package: {exc}", {}).to_json()]}
         if self.residue_library is not None:
             self.residue_library.provide(libs, request.get("frcmod"))
         try:
@@ -103,13 +117,12 @@ class Session:
         pdb = structure_pdb(res, self.fibers.provenance, index)
         out = {"ok": True, "issues": [i.to_json() for i in res.issues], "pdb": pdb,
                "summary": summary(res)}
-        if request.get("package") and any(r.flags.get("abasic") for r in res.residues):
+        if opts is not None and any(r.flags.get("abasic") for r in res.residues):
             out["issues"].append(Issue(
                 "error", None, "ABASIC_NO_PARAMETERS",
                 "the Amber/modXNA package cannot include abasic sites: modXNA has no abasic "
                 "fragment yet. The PDB is still available.", {}).to_json())
-        elif request.get("package"):
-            opts = amber_options(request.get("amber", {}))
+        elif opts is not None:
             lib_texts, frcmod = None, None
             if self.residue_library is not None and res.modified():
                 lib_texts, frcmod = self.residue_library.package_libs(res, libs)
@@ -119,25 +132,23 @@ class Session:
 
     # ------------------------------------------------------------------
     def _build(self, request: dict, dry_run: bool = False) -> BuildResult:
+        """build_duplex with the request's strands, model and residue names."""
         return build_duplex(request.get("top", ""), request.get("bottom", ""),
                             int(request.get("model", 4)), self.fibers, self.catalog,
                             self.aliases, self.residue_library, dry_run=dry_run,
                             names=request.get("names"))
 
     def _needed(self, res: BuildResult) -> List[str]:
+        """Residue-library keys of the modified residues (files the page fetches)."""
         if self.residue_library is None:
             return []
         return sorted({r.flags.get("key") or self.residue_library.key_for(r.spec)
                        for r in res.modified()})
 
 
-def _chem(c: str) -> str:
-    return c if c in ("DNA", "RNA") else "DNA"
-
-
-def _columns(dup) -> List[dict]:
+def _columns(dup: DuplexSpec) -> List[dict]:
+    """The alignment, column by column, for the page's pair table."""
     out = []
-    from .nucleotide import pair_kind
     for i, (a, b) in enumerate(dup.pairs()):
         kind = None
         if a is not None and b is not None:
@@ -149,6 +160,7 @@ def _columns(dup) -> List[dict]:
 
 
 def amber_options(d: dict) -> AmberOptions:
+    """AmberOptions from the request (unknown keys ignored), validated."""
     names = {f.name for f in fields(AmberOptions)}
     opts = AmberOptions(**{k: v for k, v in (d or {}).items() if k in names})
     opts.validate()
@@ -156,6 +168,7 @@ def amber_options(d: dict) -> AmberOptions:
 
 
 def summary(res: BuildResult) -> dict:
+    """Figures of a build shown by the page and printed by the CLI."""
     return {"model": res.model.id, "family": res.model.family,
             "n_bp": res.duplex.n_columns,
             "n_residues": len(res.residues), "n_atoms": sum(len(r.names) for r in res.residues),
@@ -175,7 +188,7 @@ def summary(res: BuildResult) -> dict:
 
 
 def _named(res: BuildResult) -> List[dict]:
-    from .pdbout import describe
+    """Residues that carry a generated name, once per residue key."""
     out, seen = [], set()
     for r in res.residues:
         key = r.spec.key()

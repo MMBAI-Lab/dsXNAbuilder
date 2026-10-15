@@ -1,15 +1,13 @@
 """The derived fiber models reproduce the 3DNA repeats and are physically sane."""
 
-import math
 import os
 
 import numpy as np
 import pytest
 
 from conftest import THREEDNA, needs_3dna
-from dsxnabuilder.geometry import rot_x, rot_z
-from dsxnabuilder.offlib import signed_volume
-from dsxnabuilder.structure import parse_pdb, residues
+from dsxnabuilder.geometry import rot_x, signed_volume
+from dsxnabuilder.structure import parse_pdb
 
 EXPECTED_OK = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 18, 19, 20, 21,
                22, 23, 24, 25, 37, 38, 39, 40, 41, 43, 44, 45, 46, 47, 49, 50, 51,
@@ -48,7 +46,6 @@ def test_handedness(lib):
 
 def test_backbone_closes_everywhere(lib, catalog, aliases):
     """O3'(i)-P(i+1) in 1.55-1.65 A along both strands of a 3-repeat duplex."""
-    from dsxnabuilder.structure import o3p_distances
     from dsxnabuilder.build import build_duplex
     for mid, m in lib.models.items():
         chem1, chem2 = m.strand_chem("I"), m.strand_chem("II")

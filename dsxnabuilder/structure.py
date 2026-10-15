@@ -15,8 +15,8 @@ is robust to substituted base analogues (5mC, s4T, Br5U, ...).
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import Dict, Iterable, List, Optional, Sequence, Tuple
+from dataclasses import dataclass
+from typing import Dict, Iterable, List, Sequence, Tuple
 
 import numpy as np
 
@@ -39,13 +39,6 @@ class Atom:
     xyz: np.ndarray
     element: str = ""
 
-    def copy(self, **kw) -> "Atom":
-        d = dict(name=self.name, resname=self.resname, resseq=self.resseq,
-                 chain=self.chain, xyz=np.array(self.xyz, float),
-                 element=self.element)
-        d.update(kw)
-        return Atom(**d)
-
 
 def element_of(name: str) -> str:
     """Element from an Amber/PDB nucleic-acid atom name (no metals expected)."""
@@ -55,12 +48,12 @@ def element_of(name: str) -> str:
     return n[:1].upper()
 
 
-def pdb_atom_line(serial: int, a: Atom, record: str = "ATOM") -> str:
-    # PDB column 13-16: names shorter than 4 characters start in column 14
-    # unless the element symbol has two letters.
-    nm = a.name if len(a.name) >= 4 else f" {a.name:<3s}"
+def pdb_atom_line(serial: int, a: Atom) -> str:
+    """ATOM record. Atom names take columns 13-16; names shorter than four
+    characters start in column 14 unless the element symbol has two letters."""
     el = a.element or element_of(a.name)
-    return (f"{record:<6s}{serial % 100000:5d} {nm:<4s} {a.resname:>3s} "
+    nm = a.name if len(a.name) >= 4 or len(el) == 2 else f" {a.name:<3s}"
+    return (f"ATOM  {serial % 100000:5d} {nm:<4s} {a.resname:>3s} "
             f"{a.chain:1s}{a.resseq % 10000:4d}    "
             f"{a.xyz[0]:8.3f}{a.xyz[1]:8.3f}{a.xyz[2]:8.3f}"
             f"  1.00  0.00          {el:>2s}")
@@ -98,11 +91,6 @@ def format_pdb(atoms: Sequence[Atom], remarks: Iterable[str] = ()) -> str:
         prev = a.chain
     out += ["TER", "END", ""]
     return "\n".join(out)
-
-
-def write_pdb(atoms: Sequence[Atom], path: str, remarks: Iterable[str] = ()) -> None:
-    with open(path, "w", encoding="utf-8") as fh:
-        fh.write(format_pdb(atoms, remarks))
 
 
 def residues(atoms: Sequence[Atom]) -> Dict[Tuple[str, int], List[Atom]]:

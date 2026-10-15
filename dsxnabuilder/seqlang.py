@@ -21,6 +21,7 @@ Grammar (one line)
     explicit := '{' BB '/' SUGAR '/' BASE (':' LETTER)? '}'   e.g. {PS1/MOE/RUU}
     shorthand:= sugar_prefix? LETTER ('^' BASECODE)?          e.g. +A, mU, dC, C^5mC
     linkage  := '*' | '*1' | '*2' | '*R' | '*S' | '.' | '{' BB '}'
+                ('.' is an explicit phosphodiester)
     group    := ('d' | 'r')? '(' item* ')'                    chemistry of the group
     '-'      := no nucleotide at the ends of a line (overhang); between
                 nucleotides, an abasic site (sugar-phosphate without base)
@@ -28,7 +29,8 @@ Grammar (one line)
     wrap3    := '-'? "3'"        (top line)    |  '-'? "5'"  (bottom line)
 
 Ends are recognized only with the prime, so any other ``-`` is a gap.
-Prefixes, linkages and base suffixes come from ``data/aliases.json``.
+Prefixes, linkages and base suffixes come from ``data/aliases.json``, the
+pairing letters of modified bases from ``data/base_pairing.json``.
 
 Backbone convention
 -------------------
@@ -47,13 +49,14 @@ import re
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Tuple
 
-from .catalog import (CANONICAL_BACKBONE, CANONICAL_SUGAR, CAP_5_OH, Catalog,
-                      Issue, canonical_base)
-
-DATA = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "data")
+from .catalog import CANONICAL_BACKBONE, CANONICAL_SUGAR, CAP_5_OH, Catalog, canonical_base
+from .issues import Issue
+from .paths import DATA
 
 
 class SequenceParseError(ValueError):
+    """A line that cannot be read; ``issue`` holds the error for the user."""
+
     def __init__(self, message: str, code: str = "PARSE", strand: Optional[str] = None,
                  position: Optional[int] = None, params: Optional[dict] = None):
         super().__init__(message)
@@ -65,28 +68,29 @@ class SequenceParseError(ValueError):
 # --------------------------------------------------------------------------
 @dataclass
 class AliasTable:
+    """The notation: sugar prefixes (and the strand chemistry each implies),
+    base suffixes and linkage symbols, mapped to modXNA codes; aliases whose
+    assignment is not verified; and the pairing letter of modified bases."""
+
     sugar: Dict[str, str] = field(default_factory=dict)
     sugar_chem: Dict[str, str] = field(default_factory=dict)
     base: Dict[str, str] = field(default_factory=dict)
     linkage: Dict[str, str] = field(default_factory=dict)
     unverified: List[str] = field(default_factory=list)
+    pairing: Dict[str, str] = field(default_factory=dict)
 
     @classmethod
-    def load(cls, path: Optional[str] = None, text: Optional[str] = None) -> "AliasTable":
-        if text is None:
-            with open(path or os.path.join(DATA, "aliases.json"), encoding="utf-8") as fh:
-                text = fh.read()
-        raw = json.loads(text)
+    def load(cls, path: Optional[str] = None) -> "AliasTable":
+        """aliases.json and, from the same directory, base_pairing.json."""
+        path = path or os.path.join(DATA, "aliases.json")
+        with open(path, encoding="utf-8") as fh:
+            raw = json.load(fh)
+        with open(os.path.join(os.path.dirname(path), "base_pairing.json"),
+                  encoding="utf-8") as fh:
+            pairing = json.load(fh).get("pairing", {})
         return cls(sugar=raw.get("sugar", {}), sugar_chem=raw.get("sugar_chem", {}),
                    base=raw.get("base", {}), linkage=raw.get("linkage", {}),
-                   unverified=raw.get("unverified", []))
-
-
-def load_pairing(path: Optional[str] = None, text: Optional[str] = None) -> Dict[str, str]:
-    if text is None:
-        with open(path or os.path.join(DATA, "base_pairing.json"), encoding="utf-8") as fh:
-            text = fh.read()
-    return dict(json.loads(text).get("pairing", {}))
+                   unverified=raw.get("unverified", []), pairing=dict(pairing))
 
 
 # --------------------------------------------------------------------------
@@ -94,10 +98,12 @@ def load_pairing(path: Optional[str] = None, text: Optional[str] = None) -> Dict
 # --------------------------------------------------------------------------
 @dataclass
 class ResidueSpec:
+    """One nucleotide as written: its modXNA triplet and where it sits."""
+
     backbone: str
     sugar: str
     base: str
-    letter: str                 # nominal Watson-Crick letter A/C/G/T/U
+    letter: str                 # Watson-Crick letter A/C/G/T/U, or "-" for an abasic site
     chem: str                   # DNA | RNA (sugar family)
     token: str = ""
     column: int = -1            # alignment column (0-based)
@@ -127,6 +133,9 @@ class ResidueSpec:
         return self.backbone in (CANONICAL_BACKBONE[self.chem], CAP_5_OH)
 
     def key(self) -> str:
+        """BACKBONE/SUGAR/BASE/cap: the residue's identity as users write it
+        (residue names, the manifest). The residue library files use the
+        same fields joined by "-" (reslib.residue_key)."""
         return "/".join(self.triplet()) + f"/{self.cap}"
 
 
@@ -146,7 +155,7 @@ _EXPLICIT = re.compile(
     r"\{(?P<bb>[A-Za-z0-9]{3})/(?P<sug>[A-Za-z0-9]{3})/(?P<base>[A-Za-z0-9]{3})"
     r"(?::(?P<letter>[ACGTU]))?\}")
 _EXPLICIT_BB = re.compile(r"\{(?P<bb>[A-Za-z0-9]{3})\}")
-_PRIMES = "'′’"
+_PRIMES = "'\u2032\u2019"     # ', prime, right single quotation mark
 
 
 @dataclass
@@ -236,8 +245,12 @@ def _tokenize(body: str, catalog: Catalog, aliases: AliasTable, default_chem: st
             mm = _EXPLICIT.match(body, i)
             if mm:
                 bb, sug, base = mm.group("bb"), mm.group("sug"), mm.group("base")
-                letter = mm.group("letter") or _letter_of(base, strand, i)
-                rchem = "RNA" if sug in catalog and _has_o2(catalog, sug) else chem
+                letter = mm.group("letter") or _letter_of(base, aliases, strand, i)
+                # the sugar decides the chemistry, whatever group it is written in
+                if sug in catalog:
+                    rchem = "RNA" if catalog[sug].is_ribo_type else "DNA"
+                else:
+                    rchem = chem
                 toks.append(_Tok("res", i, mm.group(0), res=ResidueSpec(
                     backbone=bb, sugar=sug, base=base, letter=letter, chem=rchem,
                     token=mm.group(0), explicit_backbone=True)))
@@ -254,14 +267,13 @@ def _tokenize(body: str, catalog: Catalog, aliases: AliasTable, default_chem: st
         prefix = ""
         for plen in (3, 2, 1):
             cand = body[i:i + plen]
-            if cand in aliases.sugar and body[i + plen:i + plen + 1].upper() in tuple("ACGTU") \
-                    and body[i + plen:i + plen + 1] != "":
+            if cand in aliases.sugar and body[i + plen:i + plen + 1].upper() in tuple("ACGTU"):
                 prefix = cand
                 break
         start = i
         i += len(prefix)
         letter = body[i:i + 1].upper()
-        if letter not in ("A", "C", "G", "T", "U") or letter == "":
+        if letter not in ("A", "C", "G", "T", "U"):
             raise SequenceParseError(f"unexpected character {body[i:i + 1]!r} at "
                                      f"character {i + 1}", "BAD_CHAR", strand, i,
                                      {"char": i + 1, "text": body[i:i + 1]})
@@ -292,25 +304,14 @@ def _tokenize(body: str, catalog: Catalog, aliases: AliasTable, default_chem: st
     return toks
 
 
-def _has_o2(catalog: Catalog, sugar: str) -> bool:
-    """Ribo-type sugar (2'-substituted): selects the RNA base set and backbone."""
-    return bool(set(catalog[sugar].atom_names) & {"O2'", "F2'"})
-
-
-_PAIRING: Dict[str, str] = {}
-
-
-def _letter_of(base: str, strand: str, pos: int) -> str:
-    """Nominal Watson-Crick letter of a modXNA base; only verified entries.
+def _letter_of(base: str, aliases: AliasTable, strand: str, pos: int) -> str:
+    """Watson-Crick letter of a modXNA base, from the verified pairing table.
 
     Guessing the pairing of a base analogue from its three-letter code would
-    build silently wrong duplexes, so unknown bases must state the letter.
+    build silently wrong duplexes, so other bases must state the letter.
     """
-    global _PAIRING
-    if not _PAIRING:
-        _PAIRING = load_pairing()
-    if base in _PAIRING:
-        return _PAIRING[base]
+    if base in aliases.pairing:
+        return aliases.pairing[base]
     raise SequenceParseError(
         f"base {base!r} has no verified Watson-Crick letter; write "
         f"{{BB/SUGAR/{base}:X}} with X = A, C, G, T or U",
@@ -322,6 +323,11 @@ def _letter_of(base: str, strand: str, pos: int) -> str:
 # --------------------------------------------------------------------------
 def parse_line(text: str, top: bool, catalog: Catalog, aliases: AliasTable,
                default_chem: str = "DNA") -> Tuple[Strand, List[Issue]]:
+    """One line: strand 1 (``top``, typed 5'->3') or strand 2 (typed 3'->5').
+
+    ``default_chem`` is the chemistry of plain letters, that of the model
+    strand the line is built on. Raises SequenceParseError.
+    """
     strand = "top" if top else "bottom"
     issues: List[Issue] = []
     body = _strip_ends(text, top)
@@ -369,8 +375,8 @@ def parse_line(text: str, top: bool, catalog: Catalog, aliases: AliasTable,
                                         "linkage before the 5'-terminal residue is ignored "
                                         "(5' end is 5'-OH)", {}, strand))
                 elif pending.linkage is None:
-                    r.backbone = CANONICAL_BACKBONE[r.chem] if not r.explicit_backbone \
-                        else r.backbone
+                    if not r.explicit_backbone:
+                        r.backbone = CANONICAL_BACKBONE[r.chem]
                 else:
                     r.backbone = pending.linkage
                 pending = None
@@ -378,6 +384,9 @@ def parse_line(text: str, top: bool, catalog: Catalog, aliases: AliasTable,
     if pending is not None:
         issues.append(Issue("warning", None, "DANGLING_LINKAGE",
                             "linkage after the 3'-terminal residue is ignored", {}, strand))
+    if len(residues) < 2:
+        raise SequenceParseError("a strand needs at least two nucleotides",
+                                 "TOO_SHORT", strand)
     residues[0].cap = "5cap"
     if residues[0].explicit_backbone and residues[0].backbone not in (
             CAP_5_OH, CANONICAL_BACKBONE[residues[0].chem]):
@@ -386,16 +395,14 @@ def parse_line(text: str, top: bool, catalog: Catalog, aliases: AliasTable,
                             "is replaced by the 5'-OH cap", {"fragment": residues[0].backbone},
                             strand))
     residues[0].backbone = CAP_5_OH
-    if len(residues) > 1:
-        residues[-1].cap = "3cap"
-    else:
-        raise SequenceParseError("a strand needs at least two nucleotides",
-                                 "TOO_SHORT", strand)
+    residues[-1].cap = "3cap"
     return Strand(columns=columns, residues=residues, raw=text), issues
 
 
 @dataclass
 class DuplexSpec:
+    """Both strands, aligned column by column."""
+
     top: Strand
     bottom: Strand
     issues: List[Issue]
@@ -410,6 +417,9 @@ class DuplexSpec:
 
 def parse_duplex(top: str, bottom: str, catalog: Catalog, aliases: AliasTable,
                  default_chem: Tuple[str, str] = ("DNA", "DNA")) -> DuplexSpec:
+    """Both lines, checked to align: same number of columns, none empty on
+    both strands. ``default_chem`` holds the chemistry of plain letters on
+    each strand. Raises SequenceParseError."""
     t, it = parse_line(top, True, catalog, aliases, default_chem[0])
     b, ib = parse_line(bottom, False, catalog, aliases, default_chem[1])
     issues = it + ib

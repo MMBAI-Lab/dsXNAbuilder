@@ -26,10 +26,12 @@ from typing import Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
 
-from .catalog import Catalog, Issue
+from .catalog import Catalog, default_chem
 from .fibers import FiberLibrary, FiberModel
 from .geometry import rot_x
+from .graph import far_from
 from .hydrogens import Template, add_hydrogens, amber_templates, amber_unit
+from .issues import Issue
 from .naming import ResidueNamer, check_names
 from .nucleotide import PHOSPHATE_ATOMS, PURINES, pair_kind
 from .seqlang import AliasTable, DuplexSpec, ResidueSpec, SequenceParseError, parse_duplex
@@ -120,8 +122,8 @@ def build_duplex(top: str, bottom: str, model_id: int, lib: FiberLibrary,
     except KeyError as exc:
         raise BuildError([Issue("error", None, "UNKNOWN_MODEL", str(exc.args[0]),
                                 {"model": model_id})])
-    chem_defaults = (_default_chem(model.strand_chem("I")),
-                     _default_chem(model.strand_chem("II")))
+    chem_defaults = (default_chem(model.strand_chem("I")),
+                     default_chem(model.strand_chem("II")))
     try:
         duplex = parse_duplex(top, bottom, catalog, aliases, chem_defaults)
     except SequenceParseError as exc:
@@ -177,7 +179,7 @@ def build_duplex(top: str, bottom: str, model_id: int, lib: FiberLibrary,
             if dry_run:
                 flags = dict(flags, modxna=True, key=residue_library.key_for(r))
             else:
-                names, xyz, extra = residue_library.transplant(r, names, xyz)
+                names, xyz, extra = residue_library.install(r, names, xyz, strand_name)
                 issues += extra.pop("issues", [])
                 flags = dict(flags, modxna=True, **extra)
             placed[(strand_name, r.column)] = (names, xyz, flags)
@@ -265,10 +267,6 @@ def _group(issues: List[Issue]) -> List[Issue]:
                          f"{len(items)} residues (columns {_short(cols)}): {first.message}",
                          params, strand))
     return out
-
-
-def _default_chem(c: str) -> str:
-    return c if c in ("DNA", "RNA") else "DNA"
 
 
 def _dedupe(issues: List[Issue]) -> List[Issue]:
@@ -442,7 +440,7 @@ def _orient_2o_chains(residues: Sequence[BuiltResidue], residue_library) -> None
         own = [n for n in r.names if n not in chain]
         env = np.vstack([allxyz[near], r.xyz[[idx[n] for n in own]]])
         env_h = np.concatenate([is_h[near], [element_of(n) == "H" for n in own]])
-        far = {a: _graph_far(nb, [a], 5) for a in chain}
+        far = {a: far_from(nb, [a], 5) for a in chain}
         counted = np.array([[True] * int(near.sum()) + [b in far[a] for b in own]
                             for a in chain])
         chain_h = np.array([element_of(a) == "H" for a in chain])
@@ -553,21 +551,6 @@ def _ancestor(parent: Dict[str, Optional[str]], atom: str, anc: str) -> bool:
             return True
         a = parent.get(a)
     return False
-
-
-def _graph_far(nb: Dict[str, List[str]], sources: Sequence[str], n: int) -> set:
-    """Atoms at least ``n`` bonds from every atom in ``sources``."""
-    dist = {s: 0 for s in sources}
-    queue = list(sources)
-    while queue:
-        a = queue.pop(0)
-        if dist[a] >= n - 1:
-            continue
-        for b in nb.get(a, []):
-            if b not in dist:
-                dist[b] = dist[a] + 1
-                queue.append(b)
-    return {a for a in nb if a not in dist}
 
 
 def _rotate(points: np.ndarray, origin: np.ndarray, axis: np.ndarray, deg: float) -> np.ndarray:

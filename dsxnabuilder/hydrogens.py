@@ -25,15 +25,15 @@ from __future__ import annotations
 
 import json
 import os
-from collections import deque
 from typing import Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
 
 from .geometry import kabsch
+from .graph import within
+from .paths import DATA
 
-ROOT = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
-AMBER_JSON = os.path.join(ROOT, "data", "amber_residues.json")
+AMBER_JSON = os.path.join(DATA, "amber_residues.json")
 ABASIC_NAMES = {"H1'": "H1'2", "H4'": "H4'1"}     # Amber -> PDB component 3DR
 
 
@@ -54,6 +54,7 @@ class Template:
 
     @classmethod
     def from_off(cls, unit) -> "Template":
+        """Template of a parsed OFF unit (offlib.OffUnit)."""
         return cls(unit.atom_names, unit.elements, unit.xyz, unit.bonds)
 
 
@@ -61,6 +62,7 @@ _AMBER: Optional[Dict[str, Template]] = None
 
 
 def amber_templates(path: str = AMBER_JSON) -> Dict[str, Template]:
+    """Amber units of DNA.OL15.lib and RNA.lib by name (read once)."""
     global _AMBER
     if _AMBER is None:
         with open(path, encoding="utf-8") as fh:
@@ -139,14 +141,4 @@ def _abasic_h1(tpl: Template, present: set, built: Dict[str, np.ndarray]) -> np.
 
 def _refs(tpl: Template, atom: str, present: set, depth: int) -> List[str]:
     """Present heavy atoms within ``depth`` bonds of ``atom``, through heavy atoms."""
-    seen = {atom: 0}
-    q = deque([atom])
-    while q:
-        a = q.popleft()
-        if seen[a] == depth:
-            continue
-        for b in tpl.nb[a]:
-            if b not in seen and b in tpl.heavy:
-                seen[b] = seen[a] + 1
-                q.append(b)
-    return [a for a, d in sorted(seen.items(), key=lambda kv: kv[1]) if d > 0 and a in present]
+    return [a for a in within(tpl.nb, atom, depth, through=tpl.heavy) if a in present]

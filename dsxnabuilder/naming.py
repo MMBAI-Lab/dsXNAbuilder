@@ -49,7 +49,12 @@ def check_names(custom: Dict[str, str]) -> List[str]:
 
 
 class ResidueNamer:
+    """Residue names for one duplex: Amber names for canonical nucleotides,
+    3DR for a 2'-deoxy abasic site, and for every other residue the name the
+    user chose or the next free automatic name."""
+
     PREFIXES = "XYZQWVUT"
+    PER_PREFIX = 99                  # X01..X99, then Y01..
 
     def __init__(self, custom: Optional[Dict[str, str]] = None) -> None:
         self.custom = {k: v.strip().upper() for k, v in (custom or {}).items() if v and v.strip()}
@@ -57,12 +62,14 @@ class ResidueNamer:
         self._n = 0
 
     def name_for(self, spec: ResidueSpec, modxna: bool) -> str:
-        """``modxna`` forces a modXNA unit even for a canonical triplet (used
-        when a strand end must come from modXNA to keep integer charges).
+        """Residue name of ``spec``.
 
-        A 2'-deoxy abasic site with a phosphodiester is the PDB chemical
-        component 3DR (1',2'-dideoxyribofuranose-5'-phosphate); other abasic
-        sites get an X name described in the PDB header."""
+        ``modxna`` forces a modXNA unit even for a canonical triplet (when a
+        strand end must come from modXNA to keep integer charges). A 2'-deoxy
+        abasic site with a phosphodiester is the PDB chemical component 3DR
+        (1',2'-dideoxyribofuranose-5'-phosphate); other abasic sites get a
+        generated name, described in the PDB header.
+        """
         if spec.is_abasic and spec.sugar == "DC2" and spec.backbone == "DPO":
             return "3DR"
         if not modxna and spec.is_canonical:
@@ -74,9 +81,10 @@ class ResidueNamer:
                 return self._map[key]
             taken = set(self.custom.values())
             while True:
-                p, k = divmod(self._n, 99)
+                p, k = divmod(self._n, self.PER_PREFIX)
                 if p >= len(self.PREFIXES):
-                    raise RuntimeError("more than 792 distinct modified residues")
+                    raise RuntimeError(f"more than {len(self.PREFIXES) * self.PER_PREFIX} "
+                                       "distinct modified residues")
                 name = f"{self.PREFIXES[p]}{k + 1:02d}"
                 self._n += 1
                 if name not in taken:
@@ -91,4 +99,5 @@ class ResidueNamer:
 
     @property
     def mapping(self) -> Dict[str, str]:
+        """Residue key -> generated or chosen name."""
         return dict(self._map)

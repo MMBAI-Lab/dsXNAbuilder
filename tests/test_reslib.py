@@ -70,7 +70,7 @@ def test_shared_atoms_do_not_move(rl, lib, key, letter):
 
 
 def test_phosphorothioate_stereo_rule(rl, lib):
-    from dsxnabuilder.offlib import signed_volume
+    from dsxnabuilder.geometry import signed_volume
     sc, ps1, _ = place(rl, lib, "PS1-RC3-RAA-int", "A")
     _, ps2, _ = place(rl, lib, "PS2-RC3-RAA-int", "A")
     for out, s_name, o_name in ((ps1, "S1", "OP1"), (ps2, "S2", "OP2")):

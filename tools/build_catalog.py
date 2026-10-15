@@ -1,19 +1,17 @@
 #!/usr/bin/env python3
-"""Regenera ``data/modxna_catalog.json`` desde un arbol de modXNA.
+"""Regenerate ``data/modxna_catalog.json`` from a modXNA checkout.
 
-    python tools/build_catalog.py --modxna /opt/modxna [-o data/modxna_catalog.json]
+    python tools/build_catalog.py --modxna external/modxna [-o data/modxna_catalog.json]
 
-Lee los ``mol2`` de ``dat/lib_{backbone,sugar,base}``, extrae los metadatos de
-conexion de la linea de titulo, suma las cargas parciales y calcula la
-pseudorrotacion de cada azucar con el mismo codigo que usa el servidor
-(``xnafiber.geometry.pseudorotation``), de modo que la anotacion de pucker del
-catalogo y la del control de calidad no pueden divergir.
+Reads the ``mol2`` files of ``dat/lib_{backbone,sugar,base}``, takes the
+connection metadata from their title lines, sums the partial charges and
+computes the pseudorotation of every sugar with the code the builder uses
+(``dsxnabuilder.geometry.pseudorotation``), so that the pucker of a fragment
+and the pucker checks of a build cannot disagree.
 
-Ejecutar siempre que se actualice el catalogo de modXNA. El fichero resultante
-lleva el hash del contenido del arbol de origen; la cache de residuos NO se
-invalida sola al cambiar el catalogo (su clave depende del sha256 de
-``modxna.sh``, no de los fragmentos), asi que si cambia ``content_sha256``
-conviene decidir si procede vaciarla.
+Run it whenever modXNA is updated, then rebuild the residue library
+(tools/build_residue_library.py). The output records the hash of the
+fragment files it was made from.
 """
 
 from __future__ import annotations
@@ -22,19 +20,21 @@ import argparse
 import hashlib
 import json
 import os
+import subprocess
 import sys
 from typing import List, Optional
 
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
+ROOT = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
+sys.path.insert(0, ROOT)
 
-from xnafiber.geometry import pseudorotation
+from dsxnabuilder.geometry import pseudorotation  # noqa: E402
 
 MOIETIES = ("backbone", "sugar", "base")
 GLYCOSIDIC = {"N9": "purine", "N1": "pyrimidine"}
 
 
 def parse_title(line: str) -> Optional[dict]:
-    """Interpreta la linea de titulo modXNA de un mol2."""
+    """Connection metadata of a modXNA mol2 title line (None if it is not one)."""
     line = line.strip()
     for prefix, cap in (("modXNA-5'-fragment:", "5prime"),
                         ("modXNA-3'-fragment:", "3prime"),
@@ -52,13 +52,13 @@ def parse_title(line: str) -> Optional[dict]:
 
 
 def read_mol2(path: str):
-    """Devuelve (atomos, linea de titulo). Atomo = {name, xyz, type, q}."""
+    """(atoms, title line) of a mol2 file; an atom is {name, xyz, type, q}."""
     with open(path, "r", encoding="utf-8", errors="replace") as fh:
         lines = fh.read().splitlines()
     try:
         i = next(k for k, l in enumerate(lines) if l.startswith("@<TRIPOS>ATOM"))
     except StopIteration:
-        raise ValueError(f"{path}: sin seccion ATOM")
+        raise ValueError(f"{path}: no ATOM section")
     try:
         j = next(k for k, l in enumerate(lines) if k > i and l.startswith("@<TRIPOS>"))
     except StopIteration:
@@ -75,10 +75,22 @@ def read_mol2(path: str):
     return atoms, (lines[1].strip() if len(lines) > 1 else "")
 
 
+def source_label(modxna_root: str) -> str:
+    """Where the fragments come from: the upstream repository and the commit
+    of the checkout (a local path would only make sense on this machine)."""
+    try:
+        commit = subprocess.run(["git", "-C", modxna_root, "rev-parse", "--short", "HEAD"],
+                                capture_output=True, text=True, check=True).stdout.strip()
+    except (OSError, subprocess.CalledProcessError):
+        commit = "unknown commit"
+    return f"github.com/modxna/modxna @{commit}"
+
+
 def build(modxna_root: str) -> dict:
+    """The catalogue of every fragment under ``modxna_root``/dat."""
     dat = os.path.join(modxna_root, "dat")
     if not os.path.isdir(dat):
-        raise SystemExit(f"no existe {dat!r}: pase --modxna con la raiz del arbol modXNA")
+        raise SystemExit(f"{dat!r} does not exist: --modxna must be the root of a modXNA checkout")
 
     fragments: List[dict] = []
     digest = hashlib.sha256()
@@ -93,8 +105,7 @@ def build(modxna_root: str) -> dict:
             atoms, title = read_mol2(path)
             meta = parse_title(title)
             if meta is None:
-                print(f"aviso: {fn} sin cabecera modXNA reconocible, se omite",
-                      file=sys.stderr)
+                print(f"warning: {fn} has no modXNA title line, skipped", file=sys.stderr)
                 continue
             code = fn[:-5]
             row = {
@@ -122,10 +133,10 @@ def build(modxna_root: str) -> dict:
     sugars = [f for f in fragments if f["moiety"] == "sugar" and f.get("sugar_geom")]
     north = sum(1 for f in sugars if f["sugar_geom"]["domain"] == "North")
     return {
-        "generated_from": os.path.abspath(modxna_root),
+        "generated_from": source_label(modxna_root),
         "content_sha256": digest.hexdigest()[:32],
-        "pucker_method": ("Altona-Sundaralingam via xnafiber.geometry.pseudorotation "
-                          "(acepta anillos con O4' o S4')"),
+        "pucker_method": ("Altona-Sundaralingam via dsxnabuilder.geometry.pseudorotation "
+                          "(rings with O4' or S4')"),
         "n_fragments": len(fragments),
         "counts": counts,
         "sugar_pucker_summary": {"with_furanose": len(sugars), "north": north,
@@ -137,17 +148,15 @@ def build(modxna_root: str) -> dict:
 
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("--modxna", required=True, help="raiz del arbol modXNA")
-    ap.add_argument("-o", "--output",
-                    default=os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                                         "..", "data", "modxna_catalog.json"))
+    ap.add_argument("--modxna", required=True, help="root of a modXNA checkout")
+    ap.add_argument("-o", "--output", default=os.path.join(ROOT, "data", "modxna_catalog.json"))
     args = ap.parse_args()
     blob = build(args.modxna)
     with open(args.output, "w", encoding="utf-8") as fh:
         json.dump(blob, fh, indent=1)
-    print(f"{blob['n_fragments']} fragmentos -> {args.output}")
+    print(f"{blob['n_fragments']} fragments -> {args.output}")
     print(f"  {blob['counts']}")
-    print(f"  azucares: {blob['sugar_pucker_summary']}")
+    print(f"  sugars: {blob['sugar_pucker_summary']}")
 
 
 if __name__ == "__main__":

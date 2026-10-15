@@ -214,8 +214,66 @@ def test_residue_names_chosen_by_the_user(session):
     z = zipfile.ZipFile(io.BytesIO(out["zip"]))
     assert "dsxnabuilder/libs/OMC.lib" in z.namelist()
     man = json.loads(z.read("dsxnabuilder/manifest.json"))
-    assert '--name "PS1/OME/RCC/int=OMC"' in man["reproduce"]
+    assert "--name PS1/OME/RCC/int=OMC" in man["reproduce"]
     for bad in ({"PS1/OME/RCC/int": "DA"}, {"PS1/OME/RCC/int": "ABCD"},
                 {"PS1/OME/RCC/int": "QQ1", "PS1/AF2/RGG/3cap": "QQ1"}):
         out = s.build(dict(req, names=bad))
         assert not out["ok"] and out["issues"][0]["code"] == "RESIDUE_NAME", bad
+
+
+def test_user_names_recorded_without_modified_residues(session):
+    """A name chosen for an abasic site is recorded even with no modXNA residue."""
+    out = session.build({"top": "r(GGCG-UUGCGUC)", "bottom": "r(CCGCGAACGCAG)", "model": 20,
+                         "names": {"RPO/RC3/ABS/int": "ABR"}})
+    assert out["ok"], out["issues"]
+    remarks = " ".join(l[11:] for l in out["pdb"].splitlines() if l.startswith("REMARK"))
+    assert "residue names chosen by the user: ABR=RPO/RC3/ABS/int" in remarks
+
+
+def test_complement_keeps_abasic_columns():
+    from dsxnabuilder import webapi
+    assert webapi.complement({"top": "CGCGA-TTCGCG", "model": 4}) == {"bottom": "GCGCT-AAGCGC"}
+    assert webapi.complement({"top": "--ACGU", "model": 20}) == {"bottom": "--UGCA"}
+
+
+@pytest.mark.skipif(not os.path.isdir(os.path.join(ROOT, "web", "lib", "residues")),
+                    reason="residue library not built (tools/build_residue_library.py)")
+def test_reproduce_command_rebuilds_the_package(tmp_path):
+    """The manifest's command, run through the CLI, gives the same package."""
+    import shlex
+    from dsxnabuilder import cli
+    from dsxnabuilder.reslib import ResidueLibrary
+    from dsxnabuilder.service import Session
+    s = Session(residue_library=ResidueLibrary.load_default())
+    req = {"top": "5\u2032-CGC^5mCGAA*2TTCGCG-3\u2032", "bottom": "GCGCTT*1AAGCGC", "model": 4,
+           "package": True, "names": {"PS2/DC2/DTT/int": "PST"},
+           "amber": {"dna_ff": "OL21", "water": "opc", "box": "cubic", "buffer": 12,
+                     "neutralize": False}}
+    out = s.build(req)
+    assert out["ok"], out["issues"]
+    man = json.loads(zipfile.ZipFile(io.BytesIO(out["zip"])).read("dsxnabuilder/manifest.json"))
+    args = shlex.split(man["reproduce"])
+    assert args[:2] == ["dsxnabuilder", "build"] and "PS2/DC2/DTT/int=PST" in args
+    i = args.index("--amber")
+    args[i + 1] = str(tmp_path / "package.zip")
+    assert cli.main(args[1:] + ["-o", str(tmp_path / "duplex.pdb")]) == 0
+    assert (tmp_path / "duplex.pdb").read_text() == out["pdb"]
+    again = zipfile.ZipFile(tmp_path / "package.zip")
+    man2 = json.loads(again.read("dsxnabuilder/manifest.json"))
+    assert man2["input"] == man["input"] and man2["reproduce"] == man["reproduce"]
+    assert man["input"]["amber"] == {"dna_ff": "OL21", "rna_ff": "OL3", "water": "opc",
+                                     "box": "cubic", "buffer": 12, "neutralize": False}
+
+
+def test_cli_rejects_unknown_options(tmp_path, capsys):
+    from dsxnabuilder import cli
+    base = ["build", "--top", "CGCG", "--bottom", "GCGC", "-o", str(tmp_path / "x.pdb")]
+    for extra in (["--water", "tip4p"], ["--box", "sphere"], ["--dna-ff", "OL99"],
+                  ["--name", "PS1/OME/RAA/int"]):
+        with pytest.raises(SystemExit) as exc:
+            cli.main(base + extra)
+        assert exc.value.code == 2, extra
+    # a value argparse cannot check comes back as an issue, not a traceback
+    assert cli.main(base + ["--amber", str(tmp_path / "p.zip"), "--buffer", "50"]) == 1
+    assert "AMBER_OPTIONS" in capsys.readouterr().err
+    assert not (tmp_path / "x.pdb").exists()

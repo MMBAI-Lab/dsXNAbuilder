@@ -35,7 +35,9 @@ NAME_MAP = {"O1P": "OP1", "O2P": "OP2", "C5M": "C7", "O5*": "O5'", "C5*": "C5'",
 WATSON_CRICK = {"A": "T", "T": "A", "G": "C", "C": "G", "U": "A"}
 WC_PAIRS = {frozenset("AT"), frozenset("AU"), frozenset("GC")}
 WOBBLE_PAIRS = {frozenset("GU"), frozenset("GT")}
-PURINES = {"A", "G", "I", "X"}
+PURINES = {"A", "G", "I", "X"}         # I, X: inosine and xanthosine of 3DNA fiber repeats
+# standard base whose ring atoms define the reference frame of each base letter
+RING_LETTER = {"A": "A", "G": "G", "I": "G", "X": "G", "C": "C", "T": "T", "U": "U"}
 
 # Ideal bond lengths (A) for template QC; Parkinson et al. (1996) Acta Cryst
 # D52:57-64 / Gelbin et al. (1996) JACS 118:519-529 averages, rounded.
@@ -45,18 +47,12 @@ IDEAL_BONDS = {
     ("C4'", "C3'"): 1.524, ("C3'", "O3'"): 1.423, ("C3'", "C2'"): 1.525,
     ("C2'", "C1'"): 1.521, ("C1'", "O4'"): 1.420, ("C2'", "O2'"): 1.413,
 }
-GLYCOSIDIC_BOND = 1.47
+GLYCOSIDIC_BOND = 1.47                 # C1'-N9/N1, same sources
 
 
 def normalize_name(name: str) -> str:
+    """Amber name of a 3DNA/PDB-v2 atom name."""
     return NAME_MAP.get(name, name)
-
-
-
-
-
-def glycosidic_atom(names: Sequence[str]) -> str:
-    return "N9" if "N9" in names else "N1"
 
 
 def chi(c: Dict[str, np.ndarray]) -> Optional[float]:
@@ -147,7 +143,8 @@ def tetrahedral_positions(centre: np.ndarray, a: np.ndarray, b: np.ndarray,
     return p1, p2
 
 
-def place_o2prime(c: Dict[str, np.ndarray], bond: float = 1.413) -> np.ndarray:
+def place_o2prime(c: Dict[str, np.ndarray],
+                  bond: float = IDEAL_BONDS[("C2'", "O2'")]) -> np.ndarray:
     """O2' of a ribose built on a (deoxy)ribose sugar.
 
     In ribonucleosides O2' lies on the alpha face of the furanose, opposite to
@@ -163,6 +160,7 @@ def place_o2prime(c: Dict[str, np.ndarray], bond: float = 1.413) -> np.ndarray:
 
 
 def to_rna(names: List[str], xyz: np.ndarray) -> Tuple[List[str], np.ndarray]:
+    """The nucleotide with O2' added (ribose), unless it has one already."""
     if "O2'" in names:
         return names, xyz
     c = {n: xyz[i] for i, n in enumerate(names)}
@@ -171,6 +169,7 @@ def to_rna(names: List[str], xyz: np.ndarray) -> Tuple[List[str], np.ndarray]:
 
 
 def to_dna(names: List[str], xyz: np.ndarray) -> Tuple[List[str], np.ndarray]:
+    """The nucleotide without O2' (2'-deoxyribose)."""
     keep = [i for i, n in enumerate(names) if n != "O2'"]
     return [names[i] for i in keep], xyz[keep]
 

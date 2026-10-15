@@ -84,6 +84,9 @@ python -m venv .venv && .venv/bin/pip install -e '.[dev]'
 unzip dickerson.zip && cd dsxnabuilder && ./run.sh     # tleap -> system.parm7/rst7
 ```
 
+`dsxnabuilder build -h` lists the package options (force fields, water model, box, buffer,
+counterions). The package's `manifest.json` holds the `reproduce` command that rebuilds it.
+
 ## Repository
 
 | path | content |

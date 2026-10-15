@@ -106,7 +106,7 @@ def main() -> int:
         check(n_opt == 40, f"{n_opt} models in the selector")
         generic = drv.find_elements(By.CSS_SELECTOR, "#model option.generic")
         # the seven generic 3DNA models and C-DNA #8, which also has all four bases
-        check(len(generic) == 8 and all(o.text.startswith("★") for o in generic),
+        check(len(generic) == 8 and all(o.text.startswith("\u2605") for o in generic),
               f"{len(generic)} generic models highlighted in the selector")
 
         def run_example(ex, expect_bp):
@@ -131,7 +131,7 @@ def main() -> int:
               ("rendered" if has_canvas else "not available (no WebGL in this browser)"))
         if has_canvas:      # the legend belongs to the viewer
             legend = drv.find_element(By.ID, "legend").text
-            check(all(x in legend for x in ("A", "C", "G", "T", "sugar–phosphate")),
+            check(all(x in legend for x in ("A", "C", "G", "T", "sugar\u2013phosphate")),
                   "base colour legend")
         shot("dickerson")
         s, iss = run_example("zdna", 6)

@@ -20,13 +20,17 @@ from typing import Dict, List, Sequence, Tuple
 import numpy as np
 
 from .geometry import Frame, PairParams, StepParams, base_frames_to_pair, frames_to_step_params
+from .nucleotide import RING_LETTER
 from .structure import Atom, residues, standard_base_frame
-
-RING_LETTER = {"A": "A", "G": "G", "C": "C", "T": "T", "U": "U", "I": "G"}
 
 
 def _letter(resname: str) -> str:
-    return resname.strip()[-1].upper()
+    """Base letter of an Amber residue name: DA, A, and the terminal forms
+    DA5, DA3, DAN."""
+    name = resname.strip().rstrip("0123456789")
+    if len(name) > 1 and name.endswith("N"):
+        name = name[:-1]
+    return name[-1].upper()
 
 
 def duplex_parameters(atoms: Sequence[Atom], standard: Dict[str, Dict[str, np.ndarray]]
@@ -34,8 +38,8 @@ def duplex_parameters(atoms: Sequence[Atom], standard: Dict[str, Dict[str, np.nd
     """(pair parameters, step parameters, pair frames) along chain A.
 
     ``standard`` maps A/C/G/T/U to the standard base coordinates (name -> xyz).
-    Residues whose name does not end in a base letter (modXNA residues named
-    X01, ...) are not supported here.
+    Residues must carry Amber nucleotide names; modXNA residues (X01, ...) are
+    not supported here. At least two base pairs are needed to orient them.
     """
     by_chain: Dict[str, List[List[Atom]]] = {}
     for (chain, _), ats in residues(atoms).items():
@@ -44,6 +48,8 @@ def duplex_parameters(atoms: Sequence[Atom], standard: Dict[str, Dict[str, np.nd
     if len(a) != len(b):
         raise ValueError("duplex_parameters needs two chains of equal length")
     n = len(a)
+    if n < 2:
+        raise ValueError("duplex_parameters needs at least two base pairs")
 
     def frame(ats: List[Atom]) -> Frame:
         c = {x.name: x.xyz for x in ats}

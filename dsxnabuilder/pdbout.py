@@ -7,10 +7,10 @@ The default output: one self-describing PDB file.
 All atoms, hydrogens included, with Amber-style residue and atom names
 (DA/DC/DG/DT, A/C/G/U; OP1/OP2; thymine C7, H71-H73), chain A = strand 1 and
 chain B = strand 2, both 5'->3'. Modified nucleotides keep the modXNA atom
-names (hydrogens included) and get a
-three-character residue name (X01, X02, ...); REMARK 999 records spell out
-what each one is, together with the input, the fiber model and the data
-provenance, so the file can be used and reproduced with any program.
+names and get a three-character residue name (X01, X02, ... or one chosen by
+the user); REMARK 999 records spell out what each one is, together with the
+input, the fiber model and the data provenance, so the file can be used and
+reproduced with any program.
 """
 
 from __future__ import annotations
@@ -20,18 +20,11 @@ from typing import Dict, List, Optional
 
 from . import __version__
 from .build import BuildResult
+from .catalog import BACKBONE_NAMES, BASE_NAMES, SUGAR_NAMES
+from .fragments import fragment_names
 from .structure import format_pdb
 
-SUGAR_NAMES = {"DC2": "2'-deoxyribose", "RC3": "ribose", "OME": "2'-O-methylribose",
-               "AF2": "2'-deoxy-2'-fluororibose", "MOE": "2'-O-(2-methoxyethyl)ribose",
-               "LNA": "LNA (2'-O,4'-C-methylene) ribose", "CET": "cEt", "DS4": "4'-thio-2'-deoxyribose",
-               "RS4": "4'-thioribose"}
-BASE_NAMES = {"DAA": "adenine", "RAA": "adenine", "DCC": "cytosine", "RCC": "cytosine",
-              "DGG": "guanine", "RGG": "guanine", "DTT": "thymine", "RUU": "uracil",
-              "M5C": "5-methylcytosine"}
-BACKBONE_NAMES = {"DPO": "phosphodiester", "RPO": "phosphodiester", "5PO": "5'-OH",
-                  "PS1": "phosphorothioate PS1 (S on OP1 position)",
-                  "PS2": "phosphorothioate PS2 (S on OP2 position)"}
+PDB_REMARK_WIDTH = 69       # text columns of a "REMARK 999 " record within 80
 CAP_NAMES = {"int": "internal", "5cap": "5'-terminal", "3cap": "3'-terminal"}
 
 
@@ -43,7 +36,6 @@ def catalogue_name(code: str) -> str:
     global _CATALOGUE_NAMES
     if _CATALOGUE_NAMES is None:
         try:
-            from .fragments import fragment_names
             _CATALOGUE_NAMES = fragment_names()
         except OSError:             # data/modxna_names.json not shipped
             _CATALOGUE_NAMES = {}
@@ -51,6 +43,7 @@ def catalogue_name(code: str) -> str:
 
 
 def describe(triplet, cap: str) -> str:
+    """One-line description of a residue: base, sugar, backbone; chain position."""
     bb, sugar, base = triplet
     return (f"{BASE_NAMES.get(base) or catalogue_name(base)}, "
             f"{SUGAR_NAMES.get(sugar) or catalogue_name(sugar)}, "
@@ -59,6 +52,7 @@ def describe(triplet, cap: str) -> str:
 
 def remarks(res: BuildResult, fiber_provenance: Optional[dict] = None,
             residue_index: Optional[dict] = None) -> List[str]:
+    """Text of the REMARK records (unwrapped)."""
     m = res.model
     out = [f"dsXNAbuilder {__version__}",
            f"strand 1 (chain A) 5'-{res.duplex.top.raw.strip()}-3'",
@@ -88,19 +82,19 @@ def remarks(res: BuildResult, fiber_provenance: Optional[dict] = None,
         for name, r in sorted(mods.items()):
             out.append(f"  {name} = {'/'.join(r.spec.triplet())} {r.spec.cap}: "
                        f"{describe(r.spec.triplet(), r.spec.cap)}")
-        if res.custom_names:
-            out.append("residue names chosen by the user: " + ", ".join(
-                f"{v}={k}" for k, v in sorted(res.custom_names.items())))
         if residue_index:
             out.append(f"modXNA {residue_index.get('modxna_version', '?')} "
                        f"@{str(residue_index.get('modxna_commit', '?'))[:7]}")
+    if res.custom_names:
+        out.append("residue names chosen by the user: " + ", ".join(
+            f"{v}={k}" for k, v in sorted(res.custom_names.items())))
     out.append("hydrogens placed on the built heavy atoms from the residue templates "
                "(Amber DNA.OL15/RNA.lib for canonical nucleotides, modXNA for modified "
                "ones) under the names tleap expects")
     return out
 
 
-def wrap(lines: List[str], width: int = 69) -> List[str]:
+def wrap(lines: List[str], width: int = PDB_REMARK_WIDTH) -> List[str]:
     """Keep REMARK records within the 80 columns of the PDB format."""
     out: List[str] = []
     for line in lines:
@@ -112,4 +106,5 @@ def wrap(lines: List[str], width: int = 69) -> List[str]:
 
 def structure_pdb(res: BuildResult, fiber_provenance: Optional[dict] = None,
                   residue_index: Optional[dict] = None) -> str:
+    """The PDB file of a build, REMARK records first."""
     return format_pdb(res.atoms(), wrap(remarks(res, fiber_provenance, residue_index)))

@@ -65,7 +65,7 @@ from typing import Optional  # noqa: E402
 from dsxnabuilder.catalog import (CANONICAL_BACKBONE, CANONICAL_SUGAR, CAP_5_OH,  # noqa: E402
                                   Catalog)
 from dsxnabuilder.fibers import load_library  # noqa: E402
-from dsxnabuilder.fragments import base_families, test_context  # noqa: E402
+from dsxnabuilder.fragments import base_families, scaffold_context  # noqa: E402
 from dsxnabuilder.offlib import parse_off  # noqa: E402
 from dsxnabuilder.reslib import duplicate_names, tleap_name, transplant  # noqa: E402
 
@@ -179,7 +179,7 @@ def extended(catalog, review: dict) -> list:
 def validate_on_scaffold(job, text: str, catalog, families, fibers) -> Optional[str]:
     """None if the residue can be transplanted onto a fiber scaffold, else why not."""
     bb, sugar, base, cap = job
-    letter, chem, model = test_context((bb, sugar, base), catalog, families)
+    letter, chem, model = scaffold_context((bb, sugar, base), catalog, families)
     names, xyz, _ = fibers.models[model].nucleotide(3, "I", letter, chem, fibers.standard)
     if cap == "5cap":
         keep = [i for i, n in enumerate(names) if n not in ("P", "OP1", "OP2")]

@@ -11,7 +11,11 @@ import argparse
 import json
 import sys
 
+from .amberio import BOXES, BUFFER_RANGE, DNA_FF, RNA_FF, WATER, AmberOptions
+from .reslib import ResidueLibrary
 from .service import Session
+
+_DEFAULTS = AmberOptions()
 
 
 def main(argv=None) -> int:
@@ -23,19 +27,27 @@ def main(argv=None) -> int:
     b.add_argument("--bottom", required=True, help="strand 2, 3'->5', aligned under strand 1")
     b.add_argument("--model", type=int, default=4, help="3DNA fiber model id (default 4, B-DNA)")
     b.add_argument("-o", "--out", default="dsxnabuilder.pdb", help="output PDB (default)")
-    b.add_argument("--amber", metavar="ZIP",
-                   help="advanced: also write the Amber/modXNA topology package here")
-    b.add_argument("--dna-ff", default="OL15", help="package option (OL15, OL21, OL24, bsc1)")
-    b.add_argument("--water", default="none", help="package option (none, opc, tip3p, spce)")
-    b.add_argument("--box", default="octahedral", help="package option (octahedral, cubic)")
-    b.add_argument("--buffer", type=float, default=10.0, help="package option, A")
     b.add_argument("--name", action="append", default=[], metavar="KEY=NAME",
                    help="residue name for a modXNA residue, e.g. PS1/OME/RAA/int=OMA "
                         "(repeatable; the others are named X01, X02, ...)")
     b.add_argument("--json", action="store_true", help="print issues as JSON")
+    p = b.add_argument_group("Amber/modXNA package (advanced)")
+    p.add_argument("--amber", metavar="ZIP", help="also write the topology package here")
+    p.add_argument("--dna-ff", choices=sorted(DNA_FF), default=_DEFAULTS.dna_ff,
+                   help="DNA force field (default %(default)s)")
+    p.add_argument("--rna-ff", choices=sorted(RNA_FF), default=_DEFAULTS.rna_ff,
+                   help="RNA force field (default %(default)s)")
+    p.add_argument("--water", choices=list(WATER), default=_DEFAULTS.water,
+                   help="explicit water model (default %(default)s)")
+    p.add_argument("--box", choices=list(BOXES), default=_DEFAULTS.box,
+                   help="solvent box (default %(default)s)")
+    p.add_argument("--buffer", type=float, default=_DEFAULTS.buffer,
+                   help="solute to box edge, %g-%g A (default %%(default)s)" % BUFFER_RANGE)
+    p.add_argument("--no-neutralize", dest="neutralize", action="store_false",
+                   help="do not add Na+/Cl- counterions to the solvated system")
     a = ap.parse_args(argv)
 
-    s = Session(residue_library=_residue_library())
+    s = Session(residue_library=ResidueLibrary.load_default())
     if a.cmd == "models":
         info = s.models()
         for m in info["models"]:
@@ -46,10 +58,14 @@ def main(argv=None) -> int:
             print(f"{m['id']:>3}  (excluded) {'; '.join(m.get('issues') or [])[:90]}")
         return 0
 
-    names = dict(n.rsplit("=", 1) for n in a.name if "=" in n)
+    bad = [n for n in a.name if "=" not in n]
+    if bad:
+        ap.error(f"--name expects KEY=NAME, got {', '.join(bad)}")
+    names = dict(n.rsplit("=", 1) for n in a.name)
     req = {"top": a.top, "bottom": a.bottom, "model": a.model, "package": bool(a.amber),
            "names": names,
-           "amber": {"dna_ff": a.dna_ff, "water": a.water, "box": a.box, "buffer": a.buffer}}
+           "amber": {"dna_ff": a.dna_ff, "rna_ff": a.rna_ff, "water": a.water, "box": a.box,
+                     "buffer": a.buffer, "neutralize": a.neutralize}}
     out = s.build(req)
     if a.json:
         print(json.dumps(out["issues"], indent=1))
@@ -72,14 +88,6 @@ def main(argv=None) -> int:
           f"clashes {sm['clashes']} -> {a.out}"
           + (f" + {a.amber}" if a.amber else ""))
     return 0
-
-
-def _residue_library():
-    try:
-        from .reslib import ResidueLibrary
-    except ImportError:
-        return None
-    return ResidueLibrary.load_default()
 
 
 if __name__ == "__main__":
