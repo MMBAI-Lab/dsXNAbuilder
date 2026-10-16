@@ -4,6 +4,6 @@ either strand. Writes a self-describing PDB file and, optionally, an
 Amber/modXNA topology package. Pure Python + numpy, so the same package runs
 in CPython (CLI) and in the browser (Pyodide)."""
 
-__version__ = "0.2.0"
+__version__ = "0.3.0-dev"
 
 __all__ = ["__version__"]
