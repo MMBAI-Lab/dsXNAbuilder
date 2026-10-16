@@ -1,5 +1,7 @@
 # dsXNAbuilder
 
+[![tests](https://github.com/MMBAI-Lab/dsXNAbuilder/actions/workflows/test.yml/badge.svg)](https://github.com/MMBAI-Lab/dsXNAbuilder/actions/workflows/test.yml)
+
 **Double-stranded DNA, RNA and DNA:RNA builder with modXNA chemistry.**
 
 dsXNAbuilder builds duplexes in any of the regular helical forms of the
@@ -9,9 +11,9 @@ sugar, backbone and base modifications on either strand. The output is a PDB fil
 with any modeling or simulation program; Amber users can also get a topology package with
 the modXNA parameters.
 
-It is a static web app: Python runs in the browser through Pyodide, and nothing is sent to
-a server. It will be served from the Dans Lab site (<https://danslab.xyz/apps/dsxnabuilder/>).
-The same Python package also works from the command line.
+**Web server: <https://danslab.xyz/dsxnabuilder/>** (no registration). It is a static web app:
+Python runs in the browser through Pyodide, and nothing is sent to a server. The same Python
+package works from the command line, for scripting and for batches of up to 500 duplexes.
 
 ## What it does
 
@@ -77,7 +79,11 @@ strand 2 (3'->5'):  +C*+T*+G*dA*dT*dC*dG*+A*+C*+T
 
 ## Command line
 
+Requirements: Python 3.10 or later and NumPy. AmberTools is needed only to run the optional
+topology package and the offline tools.
+
 ```bash
+git clone https://github.com/MMBAI-Lab/dsXNAbuilder && cd dsXNAbuilder
 python -m venv .venv && .venv/bin/pip install -e '.[dev]'
 .venv/bin/dsxnabuilder models
 .venv/bin/dsxnabuilder build --top "5'-CGCGAATTCGCG-3'" --bottom "3'-GCGCTTAAGCGC-5'" \
@@ -118,6 +124,17 @@ holds `pdb/<name>.pdb` (the same file a single build gives), `report.tsv`, `inpu
 from standard input. A mistake in the format stops the run. A duplex that cannot be built is
 reported in `report.tsv` while the others are still built, and the exit status is then 1.
 
+## Tests
+
+```bash
+.venv/bin/python -m pytest -q     # tests that need external/3dna (tools/fetch_3dna.py) are skipped without it
+```
+
+The suite covers the geometry (checked against CPPTRAJ `nastruct`), the fiber models, the
+sequence language, construction, the modXNA transplant, the hydrogens and the high-throughput
+format. `tools/smoke_tleap.py` runs every library residue through tleap and sander, and
+`scripts/e2e.py` drives the web app in headless Firefox.
+
 ## Repository
 
 | path | content |
@@ -129,7 +146,7 @@ reported in `report.tsv` while the others are still built, and the exit status i
 | `tests/` | pytest suite |
 | `scripts/` | web build, local server, end-to-end browser test, danslab deployment |
 | `legacy/` | the earlier server-based prototype (FiberXNA), kept for reference |
-| `docs/` | design notes and paper plan (Spanish) |
+| `docs/` | design notes (Spanish) and the material of the paper: figures, the inputs and analysis of the simulations of the use case (`docs/paper/`) |
 
 ### Offline tools
 
@@ -156,6 +173,11 @@ python -m pytest -q
 scripts/build_web.sh && python scripts/serve.py   # http://localhost:8766/
 python scripts/e2e.py                          # headless Firefox
 ```
+
+## Citation
+
+A paper describing dsXNAbuilder is in preparation. Until it is published, please cite this
+repository and the works below.
 
 ## Credits and licenses
 
