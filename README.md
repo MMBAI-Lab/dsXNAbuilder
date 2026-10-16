@@ -173,10 +173,19 @@ scripts/build_web.sh && python scripts/serve.py   # http://localhost:8766/
 python scripts/e2e.py                          # headless Firefox
 ```
 
+## Versions
+
+Releases are tagged `vX.Y.Z` and listed in [CHANGELOG.md](CHANGELOG.md) and on the
+[releases page](https://github.com/MMBAI-Lab/dsXNAbuilder/releases); between releases the
+version carries a `-dev` suffix. `dsxnabuilder --version` prints it, every PDB file records it in
+its header, and the web app shows it in its footer (with the commit when it is not a release).
+Maintainers release with `scripts/release.sh X.Y.Z` (checks, tests, version, changelog, tag) and
+then `scripts/release.sh X.Y.Z --publish` (push and GitHub release).
+
 ## Citation
 
 A paper describing dsXNAbuilder is in preparation. Until it is published, please cite this
-repository and the works below.
+repository ([CITATION.cff](CITATION.cff); GitHub's "Cite this repository") and the works below.
 
 ## Credits and licenses
 

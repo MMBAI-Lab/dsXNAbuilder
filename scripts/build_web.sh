@@ -20,13 +20,19 @@ with zipfile.ZipFile("web/dsxnabuilder.zip", "w", zipfile.ZIP_DEFLATED) as z:
     for name in DATA:
         z.write(pathlib.Path("data") / name)
 PY
-# VERSION names the build: package version + source commit (+ ".dirty<time>" for an
-# uncommitted tree), so that every deployment has a new version and browsers do not keep
-# serving cached assets under the old one. scripts/deploy_danslab.sh stamps it into the
-# deployed copy (asset ?v= and PAGE_VERSION); the sources keep "dev".
+# VERSION names the build: the release ("0.2.0") when built from its tag, otherwise package
+# version + source commit (+ ".dirty<time>" for an uncommitted tree), so that every deployment
+# has a new version and browsers do not keep serving cached assets under the old one.
+# scripts/deploy_danslab.sh stamps it into the deployed copy (asset ?v= and PAGE_VERSION); the
+# sources keep "dev".
 VER=$("$PY" -c "import dsxnabuilder; print(dsxnabuilder.__version__)")
-VER="$VER.g$(git rev-parse --short HEAD)"
-[ -z "$(git status --porcelain --untracked-files=no)" ] || VER="$VER.dirty$(date +%s)"
+CLEAN=$([ -z "$(git status --porcelain --untracked-files=no)" ] && echo yes || echo no)
+if [ "$CLEAN" = yes ] && [ "$(git describe --exact-match --tags HEAD 2>/dev/null)" = "v$VER" ]; then
+  :                                                   # a release, built from its tag
+else
+  VER="$VER.g$(git rev-parse --short HEAD)"
+  [ "$CLEAN" = yes ] || VER="$VER.dirty$(date +%s)"
+fi
 echo "$VER" > web/VERSION
 echo "version $VER"
 

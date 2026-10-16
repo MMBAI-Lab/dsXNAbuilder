@@ -1,0 +1,18 @@
+cff-version: 1.2.0
+message: "If you use dsXNAbuilder, please cite it as below, together with the 3DNA fiber models and, when modified nucleotides are used, modXNA (see the README)."
+title: "dsXNAbuilder"
+abstract: "Builds DNA, RNA and DNA:RNA duplexes in 40 helical forms from the 3DNA fiber models, with modXNA sugar, backbone and base modifications on either strand. Static web app (Python in the browser via Pyodide) and command-line tool; PDB output and an optional Amber/modXNA topology package."
+type: software
+authors:
+  - family-names: "Dans"
+    given-names: "Pablo D."
+    affiliation: "Department of Biological Sciences, CENUR Litoral Norte, Universidad de la República, Salto, Uruguay"
+license: GPL-3.0-or-later
+repository-code: "https://github.com/MMBAI-Lab/dsXNAbuilder"
+url: "https://danslab.xyz/dsxnabuilder/"
+keywords:
+  - nucleic acids
+  - modified nucleotides
+  - fiber models
+  - molecular modeling
+version: "0.2.0-dev"

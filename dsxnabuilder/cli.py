@@ -12,6 +12,7 @@ import argparse
 import json
 import sys
 
+from . import __version__
 from .amberio import BOXES, BUFFER_RANGE, DNA_FF, RNA_FF, WATER, AmberOptions
 from .batch import (CLI_LIMIT, DEFAULT_MODEL, Record, batch_files, build_records,
                     parse_batch, write_directory, zip_bytes)
@@ -55,6 +56,7 @@ def _check_build_args(ap: argparse.ArgumentParser, a: argparse.Namespace) -> Non
 
 def _parser() -> argparse.ArgumentParser:
     ap = argparse.ArgumentParser(prog="dsxnabuilder", description=__doc__.split("\n\n")[0])
+    ap.add_argument("--version", action="version", version=f"dsxnabuilder {__version__}")
     sub = ap.add_subparsers(dest="cmd", required=True)
     sub.add_parser("models", help="list the buildable fiber models")
     b = sub.add_parser("build", help="build a duplex and write its PDB")

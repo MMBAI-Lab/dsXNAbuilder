@@ -277,3 +277,11 @@ def test_cli_rejects_unknown_options(tmp_path, capsys):
     assert cli.main(base + ["--amber", str(tmp_path / "p.zip"), "--buffer", "50"]) == 1
     assert "AMBER_OPTIONS" in capsys.readouterr().err
     assert not (tmp_path / "x.pdb").exists()
+
+
+def test_cli_version(capsys):
+    from dsxnabuilder import __version__, cli
+    with pytest.raises(SystemExit) as exc:
+        cli.main(["--version"])
+    assert exc.value.code == 0
+    assert capsys.readouterr().out.strip() == f"dsxnabuilder {__version__}"
