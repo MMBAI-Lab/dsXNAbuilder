@@ -6,6 +6,8 @@ that built it, and the web app shows it in its footer.
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-16
+
 First public version.
 
 ### Builder
@@ -37,3 +39,5 @@ First public version.
 ### Validation
 - pytest suite, including base-pair and step parameters checked against CPPTRAJ `nastruct`;
   every library residue built with AmberTools (tleap, sander); end-to-end test of the web app.
+
+[0.2.0]: https://github.com/MMBAI-Lab/dsXNAbuilder/releases/tag/v0.2.0
