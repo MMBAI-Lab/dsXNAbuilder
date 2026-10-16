@@ -81,7 +81,8 @@ text = re.sub(r"^date-released: .*\n", "", open("CITATION.cff", encoding="utf-8"
 open("CITATION.cff", "w", encoding="utf-8").write(text.rstrip("\n") + f'\ndate-released: "{date}"\n')
 PY
 git commit -q -am "Release $VER"
-{ echo "dsXNAbuilder $VER"; echo; section "$VER"; } | git tag -a "$TAG" -F -
+# verbatim: the CHANGELOG headings start with "#", which git would strip as comments
+{ echo "dsXNAbuilder $VER"; echo; section "$VER"; } | git tag -a --cleanup=verbatim "$TAG" -F -
 
 "$PY" - "$NEXT" <<'PY'
 import re, sys
