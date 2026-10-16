@@ -10,6 +10,7 @@ authors:
 license: GPL-3.0-or-later
 repository-code: "https://github.com/MMBAI-Lab/dsXNAbuilder"
 url: "https://danslab.xyz/dsxnabuilder/"
+doi: "10.5281/zenodo.23408501"
 keywords:
   - nucleic acids
   - modified nucleotides

@@ -1,6 +1,7 @@
 # dsXNAbuilder
 
 [![tests](https://github.com/MMBAI-Lab/dsXNAbuilder/actions/workflows/test.yml/badge.svg)](https://github.com/MMBAI-Lab/dsXNAbuilder/actions/workflows/test.yml)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.23408501.svg)](https://doi.org/10.5281/zenodo.23408501)
 
 **Double-stranded DNA, RNA and DNA:RNA builder with modXNA chemistry.**
 
@@ -184,8 +185,10 @@ then `scripts/release.sh X.Y.Z --publish` (push and GitHub release).
 
 ## Citation
 
-A paper describing dsXNAbuilder is in preparation. Until it is published, please cite this
-repository ([CITATION.cff](CITATION.cff); GitHub's "Cite this repository") and the works below.
+A paper describing dsXNAbuilder is in preparation. Until it is published, please cite the
+software, archived at Zenodo: doi:[10.5281/zenodo.23408501](https://doi.org/10.5281/zenodo.23408501)
+(all versions; each release also has its own DOI). See [CITATION.cff](CITATION.cff) or GitHub's
+"Cite this repository", and cite the works below.
 
 ## Credits and licenses
 
