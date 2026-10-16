@@ -1,4 +1,4 @@
-"""Figures 1-3 and the graphical abstract of the dsXNAbuilder paper.
+"""Figures 1-3 of the dsXNAbuilder paper.
 
 Run from the repository root after gallery_build.py, render.py (PyMOL),
 screenshot.py and scripts/bench_browser.py:
@@ -389,37 +389,6 @@ def figure3():
     plt.close(fig)
 
 
-# --------------------------------------------------------------------------- graphical abstract
-def graphical_abstract():
-    """NAR: 5:2 landscape, at least 127 x 50 mm, sans-serif text of 12-16 pt, an
-    image not used in the figures (render_ga.py), TIF/EPS/PDF named graphical_abstract."""
-    from PIL import Image
-    img = mpimg.imread(f"{D}/render_ga.png")[..., :3]
-    ink = np.where(img.min(axis=2) < 0.97)                # crop the white margin
-    img = img[ink[0].min():ink[0].max() + 1, ink[1].min():ink[1].max() + 1]
-    fig = plt.figure(figsize=(10.0, 4.0), facecolor="white")
-    ax0 = fig.add_axes([0.02, 0.05, 0.33, 0.9]); ax0.axis("off")
-    ax0.text(0.0, 0.97, "dsXNAbuilder", fontsize=16, fontweight="bold", va="top")
-    ax0.text(0.0, 0.80, "Type both strands", fontsize=12, va="top")
-    ax0.text(0.0, 0.66, "5′-r(GCAAUGUACUGAAUGCAUGC)-3′\n3′-eC*eG*eT*eT*eA*dC…eC*eG-5′",
-             family="DejaVu Sans Mono", fontsize=12, va="top", linespacing=1.4,
-             bbox=dict(boxstyle="round,pad=0.45", fc="#f4f6f9", ec="#aab4c3", lw=0.8))
-    ax0.text(0.0, 0.30, "2′-OMe · 2′-F · MOE · LNA\nphosphorothioates · 5mC\nabasic sites · mismatches",
-             fontsize=12, color=C_MOD, va="top", linespacing=1.35)
-    axm = fig.add_axes([0.355, 0.08, 0.42, 0.84]); axm.imshow(img); axm.axis("off")
-    axm.text(0.5, 1.0, "MOE gapmer : RNA on a DNA:RNA hybrid fiber model", fontsize=12,
-             ha="center", va="bottom", transform=axm.transAxes)
-    axr = fig.add_axes([0.80, 0.05, 0.19, 0.9]); axr.axis("off")
-    axr.text(0.0, 0.88, "40 fiber models\nfrom 3DNA\n\nmodXNA chemistry\non either strand\n\n"
-             "PDB for any program\n\nruns in the browser", fontsize=12, va="top", linespacing=1.3)
-    for ext in ("png", "pdf", "svg"):
-        fig.savefig(f"{D}/graphical_abstract.{ext}", dpi=300, facecolor="white",
-                    **({"metadata": {"Date": None}} if ext == "svg" else {}))
-    plt.close(fig)
-    im = Image.open(f"{D}/graphical_abstract.png").convert("RGB")      # no alpha channel
-    im.save(f"{D}/graphical_abstract.png", dpi=(300, 300))
-    im.save(f"{D}/graphical_abstract.tif", dpi=(300, 300), compression="tiff_lzw")
-
-figure1(); figure2(); figure3(); graphical_abstract()
+figure1(); figure2(); figure3()
 print(json.dumps(json.load(open(f"{B}/validation_summary.json"))["cpptraj_max_abs"]),
       json.load(open(f"{B}/validation_summary.json"))["o3p"])
