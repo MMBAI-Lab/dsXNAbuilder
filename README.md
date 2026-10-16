@@ -145,8 +145,7 @@ format. `tools/smoke_tleap.py` runs every library residue through tleap and sand
 | `tools/` | offline tools (see below) |
 | `tests/` | pytest suite |
 | `scripts/` | web build, local server, end-to-end browser test, danslab deployment |
-| `legacy/` | the earlier server-based prototype (FiberXNA), kept for reference |
-| `docs/` | design notes (Spanish) and the material of the paper: figures, the inputs and analysis of the simulations of the use case (`docs/paper/`) |
+| `docs/paper/` | material of the paper: the figures and their scripts, the inputs, scripts and analysis of the use-case simulations, the browser benchmark and the built and simulated structures |
 
 ### Offline tools
 
