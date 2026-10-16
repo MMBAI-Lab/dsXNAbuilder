@@ -43,6 +43,10 @@ if [ "$MODE" = "--publish" ]; then
   gh release create "$TAG" --title "dsXNAbuilder $VER" --notes-file "$NOTES"
   rm -f "$NOTES"
   echo "published $TAG"
+  # Zenodo often answers the release webhook after GitHub's 10 s timeout and then never
+  # archives it: check, and if the record is missing, redeliver the release/published event.
+  echo "Check that Zenodo archived it: https://zenodo.org/search?q=dsXNAbuilder"
+  echo "If not: Settings > Webhooks > zenodo.org > Recent deliveries > release/published > Redeliver"
   exit 0
 fi
 [ -z "$MODE" ] || { echo "unknown option: $MODE" >&2; exit 1; }
