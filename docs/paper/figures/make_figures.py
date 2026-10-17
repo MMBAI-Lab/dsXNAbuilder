@@ -1,3 +1,6 @@
+# Copyright (C) 2026 Pablo D. Dans
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 """Figures 1-3 of the dsXNAbuilder paper.
 
 Run from the repository root after gallery_build.py, render.py (PyMOL),

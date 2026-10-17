@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+# Copyright (C) 2026 Pablo D. Dans
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 """Extract the canonical Amber nucleic-acid units (names, charges, geometry).
 
     python tools/amber_residue_names.py [--amberhome /opt/amber26]

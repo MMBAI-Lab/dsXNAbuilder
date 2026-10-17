@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+# Copyright (C) 2026 Pablo D. Dans
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 """End-to-end check of the static web app in headless Firefox.
 
     scripts/build_web.sh && .venv/bin/python scripts/e2e.py [--shots DIR]

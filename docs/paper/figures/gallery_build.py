@@ -1,3 +1,6 @@
+# Copyright (C) 2026 Pablo D. Dans
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 """Build the duplexes rendered in the figures (run from the repository root)."""
 import json, os, sys
 sys.path.insert(0, ".")

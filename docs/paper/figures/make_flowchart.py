@@ -1,3 +1,6 @@
+# Copyright (C) 2026 Pablo D. Dans
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 """Supplementary Figure S1: flow of the dsXNAbuilder code.
 
     .venv/bin/python docs/paper/figures/make_flowchart.py

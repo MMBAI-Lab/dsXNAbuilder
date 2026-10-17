@@ -1,3 +1,6 @@
+# Copyright (C) 2026 Pablo D. Dans
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 """The runtime JSON tables are in sync with their YAML sources."""
 
 import json

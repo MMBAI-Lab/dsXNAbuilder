@@ -1,3 +1,6 @@
+# Copyright (C) 2026 Pablo D. Dans
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 """geometry.py reproduces 3DNA base-pair and step parameters.
 
 Reference values come from cpptraj ``nastruct`` (3DNA conventions) on

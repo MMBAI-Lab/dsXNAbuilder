@@ -1,4 +1,6 @@
 #!/bin/bash
+# Copyright (C) 2026 Pablo D. Dans
+# SPDX-License-Identifier: GPL-3.0-or-later
 # Clone or update cpptraj (github.com/Amber-MD/cpptraj, master) in
 # external/cpptraj and build it against the AmberTools libraries.
 #

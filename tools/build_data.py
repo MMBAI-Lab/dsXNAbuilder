@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+# Copyright (C) 2026 Pablo D. Dans
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 """Convert the human-edited YAML tables in data/ to the JSON read at runtime.
 
 The browser runtime (Pyodide) ships without PyYAML, so the package reads only

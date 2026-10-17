@@ -1,3 +1,5 @@
+// Copyright (C) 2026 Pablo D. Dans
+// SPDX-License-Identifier: GPL-3.0-or-later
 // dsXNAbuilder compute worker: self-hosted Pyodide + numpy + the dsxnabuilder package.
 // Messages in:  {id, name, payload}  name in models | pieces | validate | complement | build
 // Messages out: {id, ok, result | error}  and  {status: "..."} while loading.

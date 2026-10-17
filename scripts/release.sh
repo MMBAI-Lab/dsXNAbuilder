@@ -1,4 +1,6 @@
 #!/bin/bash
+# Copyright (C) 2026 Pablo D. Dans
+# SPDX-License-Identifier: GPL-3.0-or-later
 # Release dsXNAbuilder in two steps.
 #
 #   scripts/release.sh 0.2.0             # local only: checks, version, CHANGELOG, commit, tag,

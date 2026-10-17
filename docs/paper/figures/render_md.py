@@ -1,3 +1,6 @@
+# Copyright (C) 2026 Pablo D. Dans
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 """Figure 4c renders: final MD frame over the model built by dsXNAbuilder.
 
     pymol -cq docs/paper/figures/render_md.py -- build/md

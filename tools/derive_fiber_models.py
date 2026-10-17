@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+# Copyright (C) 2026 Pablo D. Dans
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 """
 Derive ``data/fiber_models.json`` from the 3DNA fiber repeating units.
 

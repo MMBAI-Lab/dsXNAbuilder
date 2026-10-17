@@ -1,4 +1,6 @@
 #!/bin/bash
+# Copyright (C) 2026 Pablo D. Dans
+# SPDX-License-Identifier: GPL-3.0-or-later
 # MD use case of the dsXNAbuilder paper. This is what a user does with the
 # structures dsXNAbuilder builds; none of it is part of the tool.
 #

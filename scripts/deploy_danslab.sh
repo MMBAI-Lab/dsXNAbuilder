@@ -1,4 +1,6 @@
 #!/bin/bash
+# Copyright (C) 2026 Pablo D. Dans
+# SPDX-License-Identifier: GPL-3.0-or-later
 # Copy the built web app into a local checkout of MMBAI-Lab/web-danslab and
 # point the dsxnabuilder card at it. Does NOT commit or push: a push to main
 # of web-danslab republishes the whole lab site, so review and push by hand.

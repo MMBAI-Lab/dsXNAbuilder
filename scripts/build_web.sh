@@ -1,4 +1,6 @@
 #!/bin/bash
+# Copyright (C) 2026 Pablo D. Dans
+# SPDX-License-Identifier: GPL-3.0-or-later
 # Build the static web app in web/: self-hosted Pyodide + numpy + NGL, and the
 # dsxnabuilder package with its data zipped for the worker.
 # Usage: scripts/build_web.sh        (then: python3 scripts/serve.py)

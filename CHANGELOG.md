@@ -6,6 +6,10 @@ that built it, and the web app shows it in its footer.
 
 ## [Unreleased]
 
+### Changed
+- Every source file carries a copyright notice and an SPDX license identifier
+  (GPL-3.0-or-later).
+
 ## [0.2.0] - 2026-10-16
 
 First public version.

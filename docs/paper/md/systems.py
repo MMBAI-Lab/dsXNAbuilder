@@ -1,3 +1,6 @@
+# Copyright (C) 2026 Pablo D. Dans
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 """Use-case systems of the paper, written as a dsXNAbuilder user would type them.
 
 Run from the repository root:  python docs/paper/md/systems.py <outdir>

@@ -1,3 +1,6 @@
+# Copyright (C) 2026 Pablo D. Dans
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 """Geometric formalism.
 
 The decisive test is not the round trip (any self-consistent forward/inverse

@@ -1,3 +1,6 @@
+# Copyright (C) 2026 Pablo D. Dans
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 """Base swapping in the standard frame keeps a chemically sane glycosidic bond.
 
 In the generic models 3DNA provides every letter on the same backbone, so a

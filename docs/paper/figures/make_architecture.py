@@ -1,3 +1,6 @@
+# Copyright (C) 2026 Pablo D. Dans
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 """Supplementary Figure S2: architecture of dsXNAbuilder.
 
     .venv/bin/python docs/paper/figures/make_architecture.py

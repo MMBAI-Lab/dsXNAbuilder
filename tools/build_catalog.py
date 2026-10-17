@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+# Copyright (C) 2026 Pablo D. Dans
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 """Regenerate ``data/modxna_catalog.json`` from a modXNA checkout.
 
     python tools/build_catalog.py --modxna external/modxna [-o data/modxna_catalog.json]

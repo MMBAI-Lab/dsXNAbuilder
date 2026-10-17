@@ -1,3 +1,6 @@
+# Copyright (C) 2026 Pablo D. Dans
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 """The pieces of the modXNA library tab: only what is prebuilt, in the short notation."""
 
 import itertools

@@ -1,3 +1,6 @@
+# Copyright (C) 2026 Pablo D. Dans
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 """Command line: the same build as the web app, for scripting and reproduction.
 
     dsxnabuilder models

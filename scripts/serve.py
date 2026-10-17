@@ -1,3 +1,6 @@
+# Copyright (C) 2026 Pablo D. Dans
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 """Local static server for web/ with the MIME types Pyodide needs (.mjs, .wasm).
 Usage: python3 scripts/serve.py [port]"""
 import functools, http.server, mimetypes, os, sys

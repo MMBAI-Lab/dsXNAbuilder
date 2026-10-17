@@ -1,3 +1,6 @@
+# Copyright (C) 2026 Pablo D. Dans
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 """The derived fiber models reproduce the 3DNA repeats and are physically sane."""
 
 import os

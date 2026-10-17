@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+# Copyright (C) 2026 Pablo D. Dans
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 """Download the self-hosted runtime of the web app into web/ (no CDN at run time).
 
 * Pyodide core (GitHub release pyodide-core-<v>.tar.bz2)

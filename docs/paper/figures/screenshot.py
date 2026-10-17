@@ -1,3 +1,6 @@
+# Copyright (C) 2026 Pablo D. Dans
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 """Screenshot of the base-pair grid and warnings for the LNA gapmer example (light theme)."""
 import os, subprocess, sys, time
 from selenium import webdriver

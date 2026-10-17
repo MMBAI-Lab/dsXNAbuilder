@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+# Copyright (C) 2026 Pablo D. Dans
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 """Wall time of a build in the browser (headless Firefox), click to result.
 
     scripts/build_web.sh && .venv/bin/python scripts/bench_browser.py [--out timings.json]

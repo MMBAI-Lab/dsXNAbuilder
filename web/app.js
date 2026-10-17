@@ -1,3 +1,5 @@
+// Copyright (C) 2026 Pablo D. Dans
+// SPDX-License-Identifier: GPL-3.0-or-later
 // dsXNAbuilder front end. All computation runs in worker.js (Pyodide); this file is UI only.
 // Issue messages come in English from the Python package, each with a stable code.
 

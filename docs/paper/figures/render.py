@@ -1,3 +1,6 @@
+# Copyright (C) 2026 Pablo D. Dans
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 """PyMOL renders for the figures:  pymol -cq docs/paper/figures/render.py"""
 import os
 from pymol import cmd

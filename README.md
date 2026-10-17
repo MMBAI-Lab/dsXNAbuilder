@@ -192,7 +192,8 @@ software, archived at Zenodo: doi:[10.5281/zenodo.23408501](https://doi.org/10.5
 
 ## Credits and licenses
 
-- Code: GPL-3.0-or-later (`LICENSE`).
+- Code: GPL-3.0-or-later (`LICENSE`), copyright (C) 2026 Pablo D. Dans; every source file carries
+  an SPDX license identifier.
 - Fiber model data derive from 3DNA (CC BY-NC 4.0); modXNA residues and `frcmod.modxna` are
   GPL-3.0. Details are in `LICENSES/README.md`.
 - Please cite:

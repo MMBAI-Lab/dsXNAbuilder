@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+# Copyright (C) 2026 Pablo D. Dans
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 """Offline smoke test of every library residue with real AmberTools.
 
     python tools/smoke_tleap.py [--amberhome /opt/amber26] [--jobs 8] [--random 12]

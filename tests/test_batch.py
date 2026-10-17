@@ -1,3 +1,6 @@
+# Copyright (C) 2026 Pablo D. Dans
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 """Many duplexes at once: the FASTA-like format, the zip and the command line."""
 
 import base64

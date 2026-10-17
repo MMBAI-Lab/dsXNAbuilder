@@ -1,3 +1,6 @@
+# Copyright (C) 2026 Pablo D. Dans
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 """Analysis of the use-case MD runs (run from the repository root).
 
     .venv/bin/python docs/paper/md/analyze_md.py build/md [--out docs/paper/md/results]

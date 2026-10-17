@@ -1,3 +1,6 @@
+# Copyright (C) 2026 Pablo D. Dans
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 """Duplex construction, packaging and Amber preflight (no AmberTools needed)."""
 
 import io

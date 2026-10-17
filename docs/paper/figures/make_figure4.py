@@ -1,3 +1,6 @@
+# Copyright (C) 2026 Pablo D. Dans
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 """Figure 4: the MD use case (run after docs/paper/md/analyze_md.py)."""
 import json, os, subprocess
 import matplotlib
